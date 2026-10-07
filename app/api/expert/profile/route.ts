@@ -1,0 +1,6 @@
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { getCurrentUser } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+const schema=z.object({headline:z.string().trim().min(5).max(150),bio:z.string().trim().min(20).max(3000),domains:z.array(z.string().trim().min(2).max(100)).min(1).max(20),tags:z.array(z.string().trim().min(1).max(40)).max(12),yearsExperience:z.number().int().min(0).max(60),capacityWeek:z.number().int().min(1).max(30),capacityMonth:z.number().int().min(1).max(100)});
+export async function POST(req:Request){const user=await getCurrentUser();if(!user)return NextResponse.json({error:'Unauthorized'},{status:401});const parsed=schema.safeParse(await req.json());if(!parsed.success)return NextResponse.json({error:'اطلاعات پروفایل معتبر نیست.'},{status:400});const existing=await prisma.expertProfile.findUnique({where:{userId:user.id}});const profile=await prisma.expertProfile.upsert({where:{userId:user.id},update:parsed.data,create:{userId:user.id,...parsed.data,isVerified:false}});if(!user.roles.includes('EXPERT'))await prisma.user.update({where:{id:user.id},data:{roles:{push:'EXPERT'}}});return NextResponse.json({ok:true,profile,isNew:!existing});}

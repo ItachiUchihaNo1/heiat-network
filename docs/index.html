@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>شبکه تجربه هیأت | اتصال هوشمند</title>
+<style>
+:root{--primary:#0b4f59;--primary2:#0f8a80;--accent:#23b49b;--soft:#e6f6f3;--text:#163239;--muted:#6d8186;--card:#ffffff;--gold:#b58f40}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:#dde5e8;font-family:Tahoma,"Vazirmatn","Segoe UI",sans-serif;color:var(--text);font-size:14px}
+button,input,select,textarea{font:inherit}button{cursor:pointer}.app{max-width:480px;margin:0 auto;min-height:100vh;position:relative;box-shadow:0 0 45px rgba(5,24,35,.12)}
+.shell{min-height:100vh;padding-bottom:86px}.topbar{position:sticky;top:0;z-index:25;padding:14px 16px 10px;background:rgba(250,252,253,.94);backdrop-filter:blur(12px);border-bottom:1px solid rgba(31,70,85,.07)}
+.top-row{display:flex;align-items:center;justify-content:space-between;gap:10px}.brand{display:flex;align-items:center;gap:10px}.logo{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(145deg,var(--primary),var(--primary2));color:white;font-weight:900;font-size:20px;box-shadow:0 8px 18px rgba(8,81,94,.18)}
+.brand h1{font-size:15px;margin:0 0 3px}.brand small{color:var(--muted);font-size:10px}.icon-btn{width:40px;height:40px;border:0;border-radius:13px;background:var(--card);color:var(--text);box-shadow:0 3px 12px rgba(12,45,60,.06);font-size:19px}
+.search{margin-top:11px;display:flex;align-items:center;gap:8px;background:#eef3f6;border:1px solid rgba(31,70,85,.06);border-radius:16px;padding:0 12px;height:48px}.search input{border:0;outline:0;background:transparent;flex:1;color:var(--text);min-width:0}.search .kbd{font-size:10px;color:#7a8b92;background:white;padding:4px 6px;border-radius:8px}
+.view{display:none;padding:0 14px 22px}.view.active{display:block}.home-pad{padding-top:14px}
+.quick-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 13px}.quick-card{border:1px solid rgba(25,67,82,.08);border-radius:16px;padding:11px 5px;min-height:92px;text-align:center;box-shadow:0 4px 14px rgba(19,51,62,.05);display:flex;flex-direction:column;justify-content:center;align-items:center;gap:5px}.quick-card .qicon{width:35px;height:35px;border-radius:12px;display:grid;place-items:center;background:var(--soft);color:var(--primary);font-size:18px;font-weight:900}.quick-card b{font-size:11px;line-height:1.6}.quick-card small{font-size:9px;color:var(--muted)}
+.hero{position:relative;border-radius:22px;padding:22px 20px;margin-bottom:20px;box-shadow:0 10px 24px rgba(0,64,84,.13)}.hero .eyebrow{font-size:11px;opacity:.86;margin-bottom:8px}.hero h2{font-size:24px;line-height:1.55;margin:0 0 7px;max-width:90%}.hero p{font-size:12px;line-height:1.9;margin:0 0 15px;opacity:.93;max-width:90%}.hero-actions{display:flex;gap:8px;flex-wrap:wrap}.btn{border:0;border-radius:13px;padding:10px 14px;font-weight:800}.btn-primary{background:#fff;color:var(--primary)}.btn-ghost{background:rgba(255,255,255,.12);color:#fff;border:1px solid rgba(255,255,255,.32)}.btn-solid{background:var(--primary);color:white}.btn-outline{background:transparent;color:var(--primary);border:1px solid color-mix(in srgb,var(--primary),white 55%)}
+.section{margin:22px 0}.section-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:11px}.section-title{font-size:16px;font-weight:900;display:flex;align-items:center}.section-head a{color:var(--primary2);font-size:11px;text-decoration:none}
+.cat-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}.cat{background:#fff;border:1px solid rgba(25,67,82,.07);border-radius:15px;padding:10px 4px;text-align:center;min-height:82px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px}.cat .ci{width:33px;height:33px;border-radius:12px;display:grid;place-items:center;background:var(--soft);color:var(--primary);font-size:17px}.cat span{font-size:9.4px;line-height:1.45;font-weight:700}
+.h-scroll{display:flex;gap:10px;overflow:auto;padding:2px 1px 8px;scrollbar-width:none}.h-scroll::-webkit-scrollbar{display:none}.advisor-card{min-width:285px;background:var(--card);border:1px solid rgba(25,67,82,.08);border-radius:18px;padding:14px;box-shadow:0 6px 18px rgba(13,49,62,.06)}.advisor-head{display:flex;gap:10px;align-items:center}.avatar{width:58px;height:58px;border-radius:17px;display:grid;place-items:center;background:linear-gradient(145deg,var(--soft),#fff);font-size:27px;border:1px solid rgba(25,67,82,.08)}.advisor-head h3{font-size:13px;margin:0 0 4px}.verified{font-size:9px;color:#17734d;background:#e7f8ef;padding:3px 7px;border-radius:20px;display:inline-block}.advisor-sub{font-size:10px;color:var(--muted);line-height:1.6}.tags{display:flex;gap:5px;flex-wrap:wrap;margin:10px 0}.tag{font-size:9px;padding:5px 8px;border-radius:20px;background:var(--soft);color:var(--primary)}.advisor-meta{display:flex;justify-content:space-between;color:var(--muted);font-size:9.5px;margin:8px 0 12px}.advisor-card .btn{width:100%;font-size:11px}
+.answer-box{background:linear-gradient(135deg,var(--soft),#fff);border:1px solid rgba(25,67,82,.08);border-radius:19px;padding:14px}.answer-tabs{display:flex;gap:6px;margin-bottom:10px}.pill{border:1px solid rgba(25,67,82,.1);background:#fff;border-radius:20px;padding:6px 9px;font-size:10px}.pill.active{background:var(--primary);color:white;border-color:var(--primary)}.knowledge-item{display:flex;gap:10px;padding:10px 0;border-top:1px dashed rgba(25,67,82,.12)}.knowledge-item:first-of-type{border-top:0}.k-icon{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:#fff;color:var(--primary);flex:none}.knowledge-item b{font-size:11px;display:block;margin-bottom:4px}.knowledge-item small{font-size:9.5px;color:var(--muted)}
+.problem-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.problem-card{background:var(--card);border:1px solid rgba(25,67,82,.08);border-radius:15px;padding:12px;min-height:108px;display:flex;flex-direction:column;justify-content:space-between;box-shadow:0 4px 12px rgba(12,45,60,.04)}.problem-card .picon{width:30px;height:30px;border-radius:10px;background:var(--soft);display:grid;place-items:center;color:var(--primary)}.problem-card b{font-size:11px;line-height:1.7}.problem-card small{font-size:9px;color:var(--muted)}
+.article-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}.article{background:white;border:1px solid rgba(25,67,82,.08);border-radius:17px;overflow:hidden;box-shadow:0 4px 12px rgba(12,45,60,.04)}.article-img{height:95px;background:linear-gradient(135deg,var(--primary),var(--primary2));position:relative}.article-img:before{content:"";position:absolute;inset:0;background-image:linear-gradient(45deg,transparent 40%,rgba(255,255,255,.09) 40%,rgba(255,255,255,.09) 60%,transparent 60%);background-size:22px 22px}.article-body{padding:10px}.article-body b{font-size:10.5px;line-height:1.7;display:block;min-height:36px}.article-body small{font-size:9px;color:var(--muted)}
+.cta-banner{border-radius:20px;padding:17px 16px;background:linear-gradient(135deg,var(--primary),var(--primary2));color:#fff;position:relative;overflow:hidden}.cta-banner:after{content:"";position:absolute;left:-24px;bottom:-42px;width:130px;height:130px;border-radius:50%;border:24px solid rgba(255,255,255,.08)}.cta-banner h3{font-size:16px;margin:0 0 5px}.cta-banner p{font-size:10.5px;line-height:1.8;margin:0 0 12px;max-width:78%}
+.status-strip{display:flex;gap:8px;overflow:auto;scrollbar-width:none}.status-card{min-width:160px;border-radius:15px;background:#fff;border:1px solid rgba(25,67,82,.08);padding:11px}.status-card small{color:var(--muted);font-size:9px}.status-card b{font-size:11px;display:block;margin:5px 0}.status{font-size:9px;padding:4px 7px;border-radius:20px;background:#fff4d9;color:#8c6816}.status.done{background:#e6f8ef;color:#1b704e}.status.booked{background:#e9f2ff;color:#235eaa}
+.bottom{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:min(480px,100%);height:72px;background:rgba(255,255,255,.96);backdrop-filter:blur(12px);border-top:1px solid rgba(25,67,82,.1);z-index:30;padding-bottom:max(7px,env(safe-area-inset-bottom));display:flex;align-items:center;justify-content:space-around}.nav-btn{border:0;background:transparent;color:#7a898f;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9px;min-width:52px}.nav-btn .ni{font-size:19px}.nav-btn.active{color:var(--primary);font-weight:800}.nav-plus{margin-top:-27px;width:54px;height:54px;border-radius:18px;background:linear-gradient(145deg,var(--primary),var(--primary2));color:#fff;box-shadow:0 10px 20px rgba(12,92,104,.28);display:grid;place-items:center;font-size:27px;border:4px solid white}.nav-plus-label{margin-top:-1px;color:var(--primary);font-weight:800}
+.page-head{padding:18px 2px 12px}.page-head h2{font-size:21px;margin:0 0 6px}.page-head p{font-size:11px;line-height:1.8;color:var(--muted);margin:0}.panel{background:#fff;border:1px solid rgba(25,67,82,.08);border-radius:18px;padding:14px;margin:10px 0;box-shadow:0 5px 16px rgba(12,45,60,.05)}.field{margin:11px 0}.field label{display:block;font-size:10px;font-weight:800;margin-bottom:6px;color:#42585f}.field input,.field select,.field textarea{width:100%;border:1px solid #dfe8eb;background:#fbfcfd;border-radius:13px;padding:11px;outline:0;color:var(--text)}.field textarea{min-height:92px;resize:vertical;line-height:1.8}.form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.steps{display:flex;gap:4px;margin:6px 0 16px}.step{height:5px;border-radius:8px;background:#dce6e9;flex:1}.step.on{background:var(--primary)}.ai-box{border:1px solid color-mix(in srgb,var(--accent),white 65%);background:color-mix(in srgb,var(--accent),white 92%);border-radius:15px;padding:12px;line-height:1.8;font-size:10.5px}.check{display:flex;gap:8px;align-items:flex-start;font-size:10px;line-height:1.7;color:#566b72}.check input{margin-top:3px}
+.filters{display:flex;gap:6px;overflow:auto;padding-bottom:6px;scrollbar-width:none}.filter{border:1px solid #dce7ea;background:white;border-radius:20px;padding:7px 10px;font-size:9.5px;white-space:nowrap}.filter.active{background:var(--primary);color:white;border-color:var(--primary)}.expert-list{display:grid;gap:10px}.expert-row{background:#fff;border:1px solid rgba(25,67,82,.08);border-radius:17px;padding:13px;display:grid;grid-template-columns:auto 1fr;gap:11px}.expert-row .avatar{width:62px;height:62px}.expert-row h3{font-size:12px;margin:0 0 3px}.expert-row p{font-size:9.5px;line-height:1.7;color:var(--muted);margin:6px 0}.expert-actions{display:flex;gap:6px;grid-column:1/-1}.expert-actions .btn{flex:1;font-size:10px;padding:9px}
+.list-item{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #edf2f3}.list-item:last-child{border-bottom:0}.list-icon{width:40px;height:40px;border-radius:13px;background:var(--soft);display:grid;place-items:center;color:var(--primary);flex:none}.list-item b{font-size:11px;display:block;margin-bottom:4px}.list-item small{font-size:9px;color:var(--muted)}.chev{margin-right:auto;color:#9aacb2}
+.session-card{background:#fff;border:1px solid rgba(25,67,82,.08);border-radius:17px;padding:13px;margin:10px 0}.session-top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}.session-card h3{font-size:12px;margin:0 0 4px}.session-card p{font-size:9.5px;color:var(--muted);line-height:1.7}.time-chip{white-space:nowrap;background:var(--soft);color:var(--primary);font-size:9px;border-radius:20px;padding:5px 7px}
+.profile-hero{background:linear-gradient(135deg,var(--primary),var(--primary2));border-radius:20px;padding:18px;color:white;display:flex;gap:12px;align-items:center}.profile-hero .avatar{background:white}.profile-hero h3{margin:0 0 4px;font-size:14px}.profile-hero small{opacity:.8;font-size:10px}.role-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}.role-chip{font-size:8.5px;border-radius:20px;padding:4px 7px;background:rgba(255,255,255,.12)}
+.drawer-backdrop{position:fixed;inset:0;background:rgba(2,22,29,.34);z-index:50;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .25s ease,visibility .25s ease}.drawer{position:fixed;z-index:60;top:0;right:-100%;transform:none;width:min(365px,88vw);height:100dvh;background:white;padding:18px;box-shadow:-14px 0 35px rgba(2,22,29,.18);transition:right .28s ease,opacity .2s ease,visibility .28s ease;overflow-y:auto;overscroll-behavior:contain;opacity:0;visibility:hidden;pointer-events:none}.drawer.open{right:0;opacity:1;visibility:visible;pointer-events:auto}.drawer-backdrop.open{opacity:1;visibility:visible;pointer-events:auto}.drawer-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}.drawer .menu-item{display:flex;gap:10px;align-items:center;padding:13px 8px;border-bottom:1px solid #edf2f3;font-size:11px}@media (min-width:481px){.drawer{right:calc(50% - 605px)}.drawer.open{right:calc(50% - 240px)}}
+.modal-backdrop{position:fixed;inset:0;background:rgba(2,22,29,.42);z-index:70;display:none;align-items:flex-end;justify-content:center}.modal-backdrop.open{display:flex}.modal{width:min(480px,100%);background:#fff;border-radius:24px 24px 0 0;padding:18px 18px 28px;box-shadow:0 -16px 35px rgba(2,22,29,.18);max-height:78vh;overflow:auto}.modal-handle{width:42px;height:4px;border-radius:5px;background:#dbe5e8;margin:0 auto 14px}.modal h3{font-size:16px;margin:0 0 6px}.modal p{font-size:10px;line-height:1.8;color:var(--muted)}.slot-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:12px 0}.slot{border:1px solid #dce7ea;background:white;border-radius:12px;padding:9px 5px;font-size:9.5px}.slot.selected{background:var(--primary);color:white;border-color:var(--primary)}.modal .btn-solid{width:100%;margin-top:10px}
+.toast{position:fixed;bottom:88px;left:50%;transform:translate(-50%,30px);background:#17343c;color:white;border-radius:12px;padding:10px 14px;font-size:10.5px;z-index:90;opacity:0;pointer-events:none;transition:.25s;box-shadow:0 8px 20px rgba(0,0,0,.18)}.toast.show{opacity:1;transform:translate(-50%,0)}
+.search-results{position:absolute;top:116px;right:16px;left:16px;background:white;border-radius:16px;border:1px solid #dfe8eb;box-shadow:0 12px 28px rgba(0,35,48,.12);z-index:44;display:none;overflow:hidden}.search-results.open{display:block}.search-res{padding:11px 12px;border-bottom:1px solid #eef2f3;display:flex;gap:9px;align-items:center}.search-res:last-child{border-bottom:0}.search-res b{font-size:10.5px}.search-res small{display:block;color:var(--muted);font-size:8.5px;margin-top:3px}
+
+.shell{background:linear-gradient(180deg,#f4f8f8 0%,#eef4f4 100%)}
+.topbar{background:rgba(248,252,252,.93)!important}
+.hero{background:linear-gradient(135deg,#071f29,var(--primary) 60%,var(--primary2));color:#fff;min-height:188px;overflow:hidden}
+.hero:after{content:"";position:absolute;inset:0;background-image:radial-gradient(circle,rgba(255,255,255,.17) 1.5px,transparent 1.5px);background-size:28px 28px;mask-image:linear-gradient(90deg,transparent,#000)}
+.hero .hero-content{position:relative;z-index:2}
+.quick-card{background:linear-gradient(180deg,#ffffff,#f2f8f7)}
+.section-title:before{content:"↗";font-weight:900;color:var(--accent);margin-left:7px}
+.advisor-card{border-top:3px solid var(--accent)}
+
+@media (max-width:390px){.cat-grid{grid-template-columns:repeat(4,1fr)}.quick-card small{display:none}.hero h2{font-size:21px}}
+@media (min-width:481px){.app{border-left:1px solid #cdd8dc;border-right:1px solid #cdd8dc}}
+</style>
+</head>
+<body>
+<div class="app">
+ <div class="shell">
+  <header class="topbar">
+   <div class="top-row">
+    <button class="icon-btn" id="menuBtn" aria-label="منو">☰</button>
+    <div class="brand"><div class="logo">هـ</div><div><h1>شبکه تجربه هیأت</h1><small>صاحب مسئله را به صاحب تجربه وصل می‌کنیم.</small></div></div>
+    <button class="icon-btn" onclick="toast('اعلان جدیدی ندارید')" aria-label="اعلان">◌</button>
+   </div>
+   <div class="search"><span>⌕</span><input id="globalSearch" placeholder="مسئله، تجربه یا صاحب تجربه را جست‌وجو کن..."/><span class="kbd">جست‌وجو</span></div>
+   <div class="search-results" id="searchResults">
+    <div class="search-res" onclick="go('knowledge')"><span>📘</span><div><b>چطور هیأت نوجوان را از صفر راه انداختیم؟</b><small>تجربه ثبت‌شده · کودک و نوجوان</small></div></div>
+    <div class="search-res" onclick="go('experts')"><span>👤</span><div><b>صاحبان تجربه در جذب نوجوان</b><small>۴ نفر با ظرفیت فعال</small></div></div>
+    <div class="search-res" onclick="go('issue')"><span>✚</span><div><b>مسئله‌ات دقیقاً همین است؟</b><small>ثبت مسئله و دریافت پیشنهاد هوشمند</small></div></div>
+   </div>
+  </header>
+
+  <main>
+   <section class="view active home-pad" id="view-home">
+    <div class="quick-grid">
+      <button class="quick-card" onclick="go('issue')"><span class="qicon">＋</span><b>ثبت مسئله</b><small>مسئله‌ای داری؟</small></button>
+      <button class="quick-card" onclick="go('experts')"><span class="qicon">◎</span><b>صاحبان تجربه</b><small>فرد مناسب را پیدا کن</small></button>
+      <button class="quick-card" onclick="go('knowledge')"><span class="qicon">▤</span><b>تجربه‌ها</b><small>بانک دانش شبکه</small></button>
+      <button class="quick-card" onclick="toast('فرم عضویت شبکه همراهان باز شد')"><span class="qicon">⌘</span><b>شبکه همراهان</b><small>به شبکه بپیوند</small></button>
+    </div>
+
+    <div class="hero">
+      <div class="hero-content">
+      <div class="eyebrow">صاحب مسئله ← صاحب تجربه</div>
+      <h2>از مسئله تا تجربه، بدون اتلاف وقت.</h2>
+      <p>ابتدا تجربه‌های موجود را ببین؛ اگر کافی نبود، شبکه مناسب‌ترین صاحب تجربه را برای تو پیدا می‌کند.</p>
+      <div class="hero-actions"><button class="btn btn-primary" onclick="go('issue')">ثبت مسئله</button><button class="btn btn-ghost" onclick="go('experts')">پیدا کردن صاحب تجربه</button></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><div class="section-title">در چه زمینه‌ای کمک می‌خواهی؟</div><a href="#" onclick="toast('همه ۱۴ دسته نمایش داده شد');return false">مشاهده همه</a></div>
+      <div class="cat-grid">
+       <button class="cat" onclick="filterExpert('مدیریت هیأت')"><span class="ci">♙</span><span>مدیریت هیأت</span></button>
+       <button class="cat" onclick="filterExpert('کودک و نوجوان')"><span class="ci">♟</span><span>کودک و نوجوان</span></button>
+       <button class="cat" onclick="filterExpert('رسانه')"><span class="ci">◫</span><span>رسانه و فضای مجازی</span></button>
+       <button class="cat" onclick="filterExpert('مالی')"><span class="ci">◉</span><span>مالی و اقتصادی</span></button>
+       <button class="cat" onclick="filterExpert('ساختمان')"><span class="ci">⌂</span><span>ساختمان و فضا</span></button>
+       <button class="cat" onclick="filterExpert('محتوا')"><span class="ci">▤</span><span>برنامه‌ریزی و محتوا</span></button>
+       <button class="cat" onclick="filterExpert('شبکه')"><span class="ci">⌘</span><span>تشکل و شبکه‌سازی</span></button>
+       <button class="cat" onclick="filterExpert('تربیت')"><span class="ci">♧</span><span>آموزش و تربیت</span></button>
+       <button class="cat" onclick="filterExpert('خدمت')"><span class="ci">♡</span><span>جهاد و خدمت</span></button>
+       <button class="cat" onclick="filterExpert('سایر')"><span class="ci">•••</span><span>سایر موضوعات</span></button>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><div class="section-title">صاحبان تجربه پیشنهادی</div><a href="#" onclick="go('experts');return false">مشاهده همه</a></div>
+      <div class="h-scroll">
+       <article class="advisor-card"><div class="advisor-head"><div class="avatar">👤</div><div><h3>حجت‌الاسلام علی حسینی</h3><span class="verified">تأیید شبکه</span><div class="advisor-sub">۱۲ سال تجربه راه‌اندازی و جذب نوجوان</div></div></div><div class="tags"><span class="tag">جذب نیرو</span><span class="tag">تشکل</span><span class="tag">هیأت نوجوان</span></div><div class="advisor-meta"><span>۳۸ تجربه ثبت‌شده</span><span>۲ زمان آزاد این هفته</span></div><button class="btn btn-outline" onclick="openBooking('حجت‌الاسلام علی حسینی')">مشاوره با این فرد</button></article>
+       <article class="advisor-card"><div class="advisor-head"><div class="avatar">👤</div><div><h3>مهدی رضایی</h3><span class="verified">تأیید شبکه</span><div class="advisor-sub">تجربه ساخت حسینیه و تأمین مالی مردمی</div></div></div><div class="tags"><span class="tag">ساختمان</span><span class="tag">تأمین مالی</span><span class="tag">مدیریت پروژه</span></div><div class="advisor-meta"><span>۲۱ تجربه ثبت‌شده</span><span>۴ زمان آزاد</span></div><button class="btn btn-outline" onclick="openBooking('مهدی رضایی')">مشاوره با این فرد</button></article>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><div class="section-title">شاید پاسخ مسئله‌ات اینجا باشد</div><a href="#" onclick="go('knowledge');return false">بانک تجربه</a></div>
+      <div class="answer-box"><div class="answer-tabs"><button class="pill active">تجربه‌ها</button><button class="pill">پرسش مشابه</button><button class="pill">درس‌آموخته‌ها</button></div>
+       <div class="knowledge-item"><div class="k-icon">◫</div><div><b>چطور هیأت نوجوان را از صفر راه انداختیم؟</b><small>مسئله، مسیر اجرا، ۶ خطا و پیش‌نیازهای شروع</small></div></div>
+       <div class="knowledge-item"><div class="k-icon">!</div><div><b>۵ اشتباه ما در جذب نوجوان و راه اصلاحشان</b><small>درس‌آموخته · ۶ دقیقه مطالعه</small></div></div>
+       <div class="knowledge-item"><div class="k-icon">?</div><div><b>برای رسانه هیأت چه نیرویی لازم داریم؟</b><small>۱۲ پاسخ و ۳ تجربه مرتبط</small></div></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><div class="section-title">مسئله‌های پرتکرار هیأت‌ها</div><a href="#" onclick="go('knowledge');return false">همه پرسش‌ها</a></div>
+      <div class="problem-grid">
+       <div class="problem-card"><span class="picon">♟</span><b>چطور اعضای هیأت را پای کار نگه داریم؟</b><small>۳۴ پاسخ</small></div>
+       <div class="problem-card"><span class="picon">⌂</span><b>برای ساخت مکان هیأت از کجا شروع کنیم؟</b><small>۱۸ تجربه</small></div>
+       <div class="problem-card"><span class="picon">◉</span><b>صندوق قرض‌الحسنه هیأت را چطور راه بیندازیم؟</b><small>۹ راهکار</small></div>
+       <div class="problem-card"><span class="picon">◫</span><b>برای رسانه هیأت چه نیرویی لازم است؟</b><small>۲۱ پاسخ</small></div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-head"><div class="section-title">تازه‌ترین تجربه‌ها</div><a href="#" onclick="go('knowledge');return false">مشاهده همه</a></div>
+      <div class="article-grid">
+       <article class="article"><div class="article-img"></div><div class="article-body"><b>از ۲۰ نوجوان تا یک هیأت نوجوان فعال</b><small>کودک و نوجوان · ۸ دقیقه</small></div></article>
+       <article class="article"><div class="article-img"></div><div class="article-body"><b>تجربه ساخت حسینیه با مشارکت مردم</b><small>ساختمان و فضا · ۱۲ دقیقه</small></div></article>
+      </div>
+    </div>
+
+    <div class="section"><div class="cta-banner"><h3>راهی را رفته‌ای؟</h3><p>تجربه تو می‌تواند راه دیگری را کوتاه‌تر کند. به جمع صاحبان تجربه بپیوند.</p><button class="btn btn-primary" onclick="toast('درخواست عضویت صاحب تجربه ثبت شد')">پیوستن به شبکه تجربه</button></div></div>
+
+    <div class="section">
+      <div class="section-head"><div class="section-title">وضعیت درخواست‌های من</div><a href="#" onclick="go('sessions');return false">همه مشاوره‌ها</a></div>
+      <div class="status-strip"><div class="status-card"><span class="status booked">رزرو شده</span><b>جذب نوجوان</b><small>امروز · ۱۹:۳۰ با علی حسینی</small></div><div class="status-card"><span class="status">در حال بررسی</span><b>تأمین مالی حسینیه</b><small>ارسال شده ۲ ساعت پیش</small></div><div class="status-card"><span class="status done">انجام شده</span><b>ساختار تیم رسانه</b><small>خلاصه تجربه آماده است</small></div></div>
+    </div>
+   </section>
+
+   <section class="view" id="view-issue">
+    <div class="page-head"><h2>ثبت مسئله جدید</h2><p>صورت مسئله را دقیق کن تا شبکه بتواند تجربه مناسب را سریع‌تر پیدا کند.</p></div>
+    <div class="steps"><i class="step on"></i><i class="step on"></i><i class="step"></i><i class="step"></i></div>
+    <div class="panel">
+      <div class="form-row"><div class="field"><label>نام هیأت</label><input placeholder="مثلاً هیأت محبان..."/></div><div class="field"><label>شهر</label><input placeholder="شهر"/></div></div>
+      <div class="form-row"><div class="field"><label>نقش شما در هیأت</label><select><option>مدیر هیأت</option><option>مسئول نوجوان</option><option>مسئول رسانه</option><option>خادم</option></select></div><div class="field"><label>حوزه مسئله</label><select><option>کودک و نوجوان</option><option>مدیریت هیأت</option><option>رسانه</option><option>مالی و اقتصادی</option></select></div></div>
+      <div class="field"><label>عنوان کوتاه مسئله</label><input placeholder="مثلاً جذب نوجوان‌های محله"/></div>
+      <div class="field"><label>شرح مسئله و وضعیت فعلی</label><textarea placeholder="الان کجای کار هستید، چه کارهایی کرده‌اید و دقیقاً در چه بخش گیر کرده‌اید؟"></textarea></div>
+      <div class="ai-box"><b>پیشنهاد برای دقیق‌تر شدن مسئله:</b><br/>سن نوجوان‌ها، تعداد فعلی اعضا، محله فعالیت و تجربه‌های قبلی جذب را هم اضافه کن تا تطبیق دقیق‌تر شود.</div>
+      <div class="field"><label>نوع تجربه موردنیاز</label><select><option>کسی که این مسیر را از صفر اجرا کرده</option><option>کسی که مشکل مشابه را حل کرده</option><option>تجربه تأمین مالی</option><option>تجربه مدیریت تیم</option></select></div>
+      <div class="field"><label>پیوست اختیاری</label><input type="file"/></div>
+      <label class="check"><input type="checkbox" checked/> اطلاعات شخصی حساس نمایش داده نمی‌شود و ارتباط با صاحب تجربه فقط داخل سامانه انجام می‌شود.</label>
+      <button class="btn btn-solid" style="width:100%;margin-top:13px" onclick="submitIssue()">پیش‌نمایش و ارسال برای بررسی</button>
+    </div>
+   </section>
+
+   <section class="view" id="view-experts">
+    <div class="page-head"><h2>صاحبان تجربه</h2><p>به‌جای «متخصص»، کسی را پیدا کن که واقعاً راه مشابه را رفته باشد.</p></div>
+    <div class="filters"><button class="filter active">پیشنهادی</button><button class="filter">حوزه</button><button class="filter">شهر</button><button class="filter">زمان آزاد</button><button class="filter">تعداد تجربه</button></div>
+    <div class="panel" style="display:flex;align-items:center;gap:10px"><div class="list-icon">⚡</div><div style="flex:1"><b style="font-size:11px">انتخاب خودکار</b><div style="font-size:9px;color:var(--muted);margin-top:4px">سیستم با توجه به مسئله و ظرفیت، ۳ نفر مناسب را پیشنهاد می‌دهد.</div></div><button class="btn btn-solid" style="font-size:9px" onclick="toast('۳ صاحب تجربه مناسب پیدا شدند')">شروع</button></div>
+    <div class="expert-list" id="expertList">
+     <article class="expert-row"><div class="avatar">👤</div><div><h3>حجت‌الاسلام علی حسینی</h3><span class="verified">تأیید شبکه</span><p><b>راه رفته:</b> راه‌اندازی و مدیریت هیأت نوجوان، سازماندهی تیم خادمین و جذب پایدار.</p><div class="tags"><span class="tag">۱۲ سال تجربه</span><span class="tag">۳۸ تجربه ثبت‌شده</span></div></div><div class="expert-actions"><button class="btn btn-outline" onclick="toast('صفحه تجربه‌های این فرد باز شد')">دیدن تجربه‌ها</button><button class="btn btn-solid" onclick="openBooking('حجت‌الاسلام علی حسینی')">رزرو مشاوره</button></div></article>
+     <article class="expert-row"><div class="avatar">👤</div><div><h3>مهدی رضایی</h3><span class="verified">تأیید شبکه</span><p><b>راه رفته:</b> ساخت و تجهیز حسینیه، جذب مشارکت مردمی و مدیریت پروژه ساختمانی.</p><div class="tags"><span class="tag">۹ سال تجربه</span><span class="tag">۲۱ تجربه ثبت‌شده</span></div></div><div class="expert-actions"><button class="btn btn-outline">دیدن تجربه‌ها</button><button class="btn btn-solid" onclick="openBooking('مهدی رضایی')">رزرو مشاوره</button></div></article>
+     <article class="expert-row"><div class="avatar">👤</div><div><h3>زهرا موسوی</h3><span class="verified">تأیید شبکه</span><p><b>راه رفته:</b> طراحی رسانه هیأت، ساخت تیم تولید محتوا و پوشش مناسبتی.</p><div class="tags"><span class="tag">۷ سال تجربه</span><span class="tag">۱۸ تجربه ثبت‌شده</span></div></div><div class="expert-actions"><button class="btn btn-outline">دیدن تجربه‌ها</button><button class="btn btn-solid" onclick="openBooking('زهرا موسوی')">رزرو مشاوره</button></div></article>
+    </div>
+   </section>
+
+   <section class="view" id="view-knowledge">
+    <div class="page-head"><h2>بانک تجربه هیأت</h2><p>تجربه‌های واقعی، پرسش‌های مشابه و درس‌آموخته‌های استخراج‌شده از جلسات.</p></div>
+    <div class="filters"><button class="filter active">همه</button><button class="filter">تجربه</button><button class="filter">پرسش</button><button class="filter">درس‌آموخته</button><button class="filter">شهر</button><button class="filter">نوع هیأت</button></div>
+    <div class="panel"><div class="list-item"><div class="list-icon">▤</div><div><b>از ۲۰ نوجوان تا یک هیأت نوجوان فعال</b><small>مسئله · راه‌حل‌ها · خطاها · پیش‌نیازها · ۸ دقیقه</small></div><span class="chev">‹</span></div><div class="list-item"><div class="list-icon">⌂</div><div><b>ساخت حسینیه با مشارکت مردم؛ از زمین تا بهره‌برداری</b><small>ساختمان و فضا · مشهد · تجربه کامل</small></div><span class="chev">‹</span></div><div class="list-item"><div class="list-icon">◉</div><div><b>صندوق قرض‌الحسنه هیأت؛ مدل ساده برای شروع</b><small>مالی و اقتصادی · ۵ هشدار حقوقی/اجرایی</small></div><span class="chev">‹</span></div><div class="list-item"><div class="list-icon">◫</div><div><b>تیم رسانه ۵ نفره؛ نقش‌ها و فرآیند هفتگی</b><small>رسانه · چک‌لیست اجرایی</small></div><span class="chev">‹</span></div></div>
+    <div class="cta-banner"><h3>پاسخ کافی نبود؟</h3><p>مسئله را ثبت کن تا تجربه‌های مرتبط و صاحبان تجربه مناسب به تو پیشنهاد شوند.</p><button class="btn btn-primary" onclick="go('issue')">ثبت مسئله</button></div>
+   </section>
+
+   <section class="view" id="view-sessions">
+    <div class="page-head"><h2>مشاوره‌های من</h2><p>درخواست‌ها، رزروها و خلاصه جلسات قبلی را یکجا ببین.</p></div>
+    <article class="session-card"><div class="session-top"><div><h3>جذب نوجوان برای محله</h3><p>با حجت‌الاسلام علی حسینی · تماس تصویری درون‌برنامه‌ای</p></div><span class="time-chip">امروز ۱۹:۳۰</span></div><div class="expert-actions"><button class="btn btn-outline" onclick="toast('خلاصه مسئله برای مشاور نمایش داده شد')">خلاصه مسئله</button><button class="btn btn-solid" onclick="toast('اتاق جلسه ۵ دقیقه قبل از زمان فعال می‌شود')">ورود به اتاق</button></div></article>
+    <article class="session-card"><div class="session-top"><div><h3>تأمین مالی ساخت حسینیه</h3><p>در صف اعتبارسنجی ناظر شبکه</p></div><span class="time-chip">در حال بررسی</span></div><p>اگر شرح مسئله نیاز به تکمیل داشته باشد، ناظر از همین‌جا سؤال تکمیلی می‌فرستد.</p></article>
+    <article class="session-card"><div class="session-top"><div><h3>ساختار تیم رسانه</h3><p>جلسه انجام شده · رضایت ۵ از ۵</p></div><span class="time-chip">۲ روز پیش</span></div><div class="expert-actions"><button class="btn btn-outline" onclick="toast('خلاصه تجربه باز شد')">خلاصه تجربه</button><button class="btn btn-solid" onclick="toast('پیگیری در چارچوب ظرفیت مشاور ثبت شد')">درخواست پیگیری</button></div></article>
+    <div class="panel"><b style="font-size:11px">بعد از جلسه چه می‌شود؟</b><p style="font-size:9.5px;line-height:1.8;color:var(--muted)">رضایت‌سنجی کوتاه → در صورت رضایت دوطرفه ضبط/متن → خلاصه هوشمند → ویرایش مدیر دانش → انتشار با سطح دسترسی مناسب.</p></div>
+   </section>
+
+   <section class="view" id="view-profile">
+    <div class="page-head"><h2>پروفایل</h2><p>نقش‌ها، حریم خصوصی، اعلان‌ها و تاریخچه فعالیت شبکه.</p></div>
+    <div class="profile-hero"><div class="avatar">👤</div><div><h3>کاربر شبکه هیأت</h3><small>تهران · مدیر هیأت</small><div class="role-chips"><span class="role-chip">هیأت‌جو</span><span class="role-chip">صاحب تجربه</span></div></div></div>
+    <div class="panel"><div class="list-item"><div class="list-icon">◌</div><div><b>اعلان‌ها و پیام‌ها</b><small>یادآوری جلسه، پاسخ ناظر و وضعیت درخواست</small></div><span class="chev">‹</span></div><div class="list-item"><div class="list-icon">◍</div><div><b>تنظیمات حریم خصوصی</b><small>نمایش اطلاعات، رضایت ضبط و سطح دسترسی تجربه‌ها</small></div><span class="chev">‹</span></div><div class="list-item"><div class="list-icon">▤</div><div><b>تجربه‌های ثبت‌شده من</b><small>۴ تجربه منتشرشده · ۱ مورد در حال ویرایش</small></div><span class="chev">‹</span></div><div class="list-item"><div class="list-icon">⚙</div><div><b>ظرفیت مشاوره</b><small>۲ جلسه در هفته · مدت ۳۰ یا ۴۵ دقیقه</small></div><span class="chev">‹</span></div></div>
+    <div class="panel"><b style="font-size:11px">ابزار نقش‌های مدیریتی</b><div class="list-item"><div class="list-icon">✓</div><div><b>صف اعتبارسنجی ناظر</b><small>۸ مسئله جدید برای بررسی</small></div><span class="chev">‹</span></div><div class="list-item"><div class="list-icon">✎</div><div><b>ویرایشگر مدیر دانش</b><small>۳ خلاصه جلسه برای غنی‌سازی و انتشار</small></div><span class="chev">‹</span></div></div>
+   </section>
+  </main>
+ </div>
+
+ <nav class="bottom">
+   <button class="nav-btn active" data-view="home" onclick="go('home',this)"><span class="ni">⌂</span><span>خانه</span></button>
+   <button class="nav-btn" data-view="knowledge" onclick="go('knowledge',this)"><span class="ni">▤</span><span>تجربه‌ها</span></button>
+   <button class="nav-btn" data-view="issue" onclick="go('issue',this)"><span class="nav-plus">＋</span><span class="nav-plus-label">ثبت مسئله</span></button>
+   <button class="nav-btn" data-view="sessions" onclick="go('sessions',this)"><span class="ni">◫</span><span>مشاوره‌ها</span></button>
+   <button class="nav-btn" data-view="profile" onclick="go('profile',this)"><span class="ni">○</span><span>پروفایل</span></button>
+ </nav>
+</div>
+
+<div class="drawer-backdrop" id="drawerBackdrop" onclick="closeDrawer()"></div>
+<aside class="drawer" id="drawer" aria-hidden="true"><div class="drawer-head"><b>شبکه تجربه هیأت</b><button class="icon-btn" onclick="closeDrawer()">×</button></div><div class="menu-item" onclick="go('issue');closeDrawer()">＋ <span>ثبت مسئله جدید</span></div><div class="menu-item" onclick="go('experts');closeDrawer()">◎ <span>صاحبان تجربه</span></div><div class="menu-item" onclick="go('knowledge');closeDrawer()">▤ <span>بانک تجربه</span></div><div class="menu-item" onclick="toast('صفحه شبکه همراهان باز شد');closeDrawer()">⌘ <span>شبکه همراهان</span></div><div class="menu-item" onclick="toast('دوره‌ها و کارگاه‌های کاربردی');closeDrawer()">▶ <span>آموزش‌ها و کارگاه‌ها</span></div><div class="menu-item" onclick="go('profile');closeDrawer()">⚙ <span>پنل ناظر و مدیر دانش</span></div></aside>
+
+<div class="modal-backdrop" id="bookingModal" onclick="if(event.target===this)closeBooking()"><div class="modal"><div class="modal-handle"></div><h3 id="bookingTitle">رزرو مشاوره</h3><p>یکی از زمان‌های آزاد را انتخاب کن. شماره شخصی طرفین نمایش داده نمی‌شود و ارتباط داخل سامانه است.</p><div class="field"><label>مدت جلسه</label><div class="filters"><button class="filter active">۳۰ دقیقه</button><button class="filter">۴۵ دقیقه</button></div></div><div class="slot-grid"><button class="slot selected">امروز ۱۹:۳۰</button><button class="slot">فردا ۱۷:۰۰</button><button class="slot">فردا ۲۰:۳۰</button><button class="slot">شنبه ۱۸:۰۰</button><button class="slot">یکشنبه ۱۹:۰۰</button><button class="slot">دوشنبه ۱۶:۳۰</button></div><div class="ai-box">خلاصه مسئله ثبت‌شده قبل از جلسه برای صاحب تجربه ارسال می‌شود تا زمان جلسه صرف توضیحات تکراری نشود.</div><button class="btn btn-solid" onclick="confirmBooking()">تأیید و رزرو</button></div></div>
+<div class="toast" id="toast"></div>
+<script>
+const views=['home','issue','experts','knowledge','sessions','profile'];
+function go(name,el){views.forEach(v=>document.getElementById('view-'+v)?.classList.remove('active'));document.getElementById('view-'+name)?.classList.add('active');document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active',b.dataset.view===name));window.scrollTo({top:0,behavior:'smooth'});document.getElementById('searchResults').classList.remove('open')}
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(window.__tt);window.__tt=setTimeout(()=>t.classList.remove('show'),2400)}
+function openBooking(name){document.getElementById('bookingTitle').textContent='رزرو مشاوره با '+name;document.getElementById('bookingModal').classList.add('open')}function closeBooking(){document.getElementById('bookingModal').classList.remove('open')}function confirmBooking(){closeBooking();toast('رزرو با موفقیت ثبت شد و برای مشاور اعلان ارسال شد');go('sessions')}
+function submitIssue(){toast('مسئله برای بررسی ناظر شبکه ارسال شد');setTimeout(()=>go('experts'),1000)}
+function filterExpert(x){go('experts');toast('فیلتر «'+x+'» اعمال شد')}
+const menuBtn=document.getElementById('menuBtn'), drawer=document.getElementById('drawer'), db=document.getElementById('drawerBackdrop');function openDrawer(){drawer.classList.add('open');db.classList.add('open');drawer.setAttribute('aria-hidden','false');document.body.style.overflow='hidden'}function closeDrawer(){drawer.classList.remove('open');db.classList.remove('open');drawer.setAttribute('aria-hidden','true');document.body.style.overflow=''}menuBtn.onclick=openDrawer;document.addEventListener('keydown',e=>{if(e.key==='Escape'&&drawer.classList.contains('open'))closeDrawer()})
+const gs=document.getElementById('globalSearch'),sr=document.getElementById('searchResults');gs.addEventListener('input',()=>sr.classList.toggle('open',gs.value.trim().length>1));document.addEventListener('click',e=>{if(!e.target.closest('.search')&&!e.target.closest('.search-results'))sr.classList.remove('open')});
+document.querySelectorAll('.filters .filter').forEach(b=>b.addEventListener('click',function(){this.parentElement.querySelectorAll('.filter').forEach(x=>x.classList.remove('active'));this.classList.add('active')}));document.querySelectorAll('.slot').forEach(b=>b.addEventListener('click',function(){document.querySelectorAll('.slot').forEach(x=>x.classList.remove('selected'));this.classList.add('selected')}));
+</script>
+</body></html>

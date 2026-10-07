@@ -1,0 +1,3 @@
+'use client';
+import { useState } from 'react';
+export default function ExpertApproval({expertProfileId}:{expertProfileId:string}){const [msg,setMsg]=useState('');async function act(approved:boolean){const r=await fetch('/api/admin/expert',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({expertProfileId,approved})});const d=await r.json();setMsg(r.ok?'انجام شد.':d.error||'خطا');if(r.ok)setTimeout(()=>location.reload(),400)}return <div className="expert-actions"><button className="btn btn-solid" onClick={()=>act(true)}>تأیید صاحب تجربه</button><button className="btn btn-danger" onClick={()=>act(false)}>رد درخواست</button>{msg&&<small>{msg}</small>}</div>}

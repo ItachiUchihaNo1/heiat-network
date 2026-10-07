@@ -1,0 +1,43 @@
+name: Fullstack CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: heiat_ci
+          POSTGRES_USER: heiat
+          POSTGRES_PASSWORD: ci-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U heiat -d heiat_ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      DATABASE_URL: postgresql://heiat:ci-password@localhost:5432/heiat_ci?schema=public
+      AUTH_SECRET: ci-auth-secret-ci-auth-secret-ci-auth-secret-123
+      OTP_PEPPER: ci-otp-pepper-ci-otp-pepper-ci-otp-pepper-123
+      ADMIN_PHONE: '09120000000'
+      SMS_PROVIDER: development
+      JITSI_BASE_URL: https://meet.jit.si
+      SEED_DEMO_DATA: 'true'
+      UPLOAD_DIR: /tmp/heiat-uploads
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npx prisma generate
+      - run: npx prisma db push
+      - run: npm run db:seed
+      - run: npm run build

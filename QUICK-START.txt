@@ -1,0 +1,17 @@
+شبکه تجربه هیأت — Quick Start
+
+1) cp .env.example .env
+2) مقادیر AUTH_SECRET / OTP_PEPPER / POSTGRES_PASSWORD / ADMIN_PHONE را تنظیم کنید.
+3) docker compose up -d db
+4) docker compose build app
+5) docker compose run --rm app npx prisma db push
+6) docker compose run --rm app npm run db:seed
+7) docker compose -f docker-compose.dev.yml --env-file .env up -d
+8) http://localhost:3000
+9) ورود ادمین: همان ADMIN_PHONE؛ در development کد OTP تستی نمایش داده می‌شود.
+10) پنل مدیریت: http://localhost:3000/admin
+
+GitHub UI Preview:
+- docs/index.html
+- Settings > Pages > Source = GitHub Actions
+- Workflow: Deploy UI Preview

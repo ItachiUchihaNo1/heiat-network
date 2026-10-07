@@ -1,0 +1,6 @@
+import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { getCurrentUser, hasAnyRole } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+const schema=z.object({expertProfileId:z.string().min(1),approved:z.boolean()});
+export async function POST(req:Request){const user=await getCurrentUser();if(!user||!hasAnyRole(user.roles,['MODERATOR','ADMIN']))return NextResponse.json({error:'دسترسی ندارید.'},{status:403});const parsed=schema.safeParse(await req.json());if(!parsed.success)return NextResponse.json({error:'درخواست نامعتبر است.'},{status:400});const p=await prisma.expertProfile.findUnique({where:{id:parsed.data.expertProfileId}});if(!p)return NextResponse.json({error:'پروفایل پیدا نشد.'},{status:404});if(parsed.data.approved){await prisma.expertProfile.update({where:{id:p.id},data:{isVerified:true}})}else{await prisma.expertProfile.delete({where:{id:p.id}});const u=await prisma.user.findUnique({where:{id:p.userId}});if(u)await prisma.user.update({where:{id:u.id},data:{roles:u.roles.filter(r=>r!=='EXPERT')}})}await prisma.auditLog.create({data:{actorId:user.id,action:parsed.data.approved?'VERIFY_EXPERT':'REJECT_EXPERT',entityType:'ExpertProfile',entityId:p.id}});return NextResponse.json({ok:true});}

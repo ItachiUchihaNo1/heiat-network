@@ -1,0 +1,6 @@
+import Link from 'next/link';
+import { AppChrome } from '@/components/AppChrome';
+import { requireUser } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+
+export default async function BookingsPage(){const user=await requireUser();const items=await prisma.consultationSession.findMany({where:{OR:[{userId:user.id},{expertId:user.id}]},include:{ticket:true,user:true,expert:true,review:true},orderBy:{startTime:'desc'}});return <AppChrome active="sessions"><div className="page-head"><h2>مشاوره‌های من</h2><p>جلسات آینده، انجام‌شده و وضعیت هر مشورت.</p></div>{items.length?items.map(s=>{const other=s.userId===user.id?s.expert:s.user;return <Link key={s.id} href={'/sessions/'+s.id} className="panel" style={{display:'block'}}><div style={{display:'flex',justifyContent:'space-between',gap:8}}><div><h3>{s.ticket.title}</h3><div className="small muted">با {other.name||'کاربر شبکه'}</div></div><span className="status blue">{s.status==='SCHEDULED'?'رزرو شده':s.status==='COMPLETED'?'انجام شده':s.status}</span></div><div className="divider"/><div className="small">{new Intl.DateTimeFormat('fa-IR',{dateStyle:'full',timeStyle:'short'}).format(s.startTime)} · {s.duration} دقیقه</div></Link>}):<div className="empty"><div className="big">◫</div>هنوز جلسه‌ای رزرو نشده است.</div>}</AppChrome>}

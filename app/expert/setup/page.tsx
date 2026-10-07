@@ -1,0 +1,6 @@
+import { AppChrome } from '@/components/AppChrome';
+import { requireUser } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
+import ExpertSetupForm from './ExpertSetupForm';
+import { DOMAINS } from '@/lib/constants';
+export default async function ExpertSetupPage(){const user=await requireUser();const [profile,cats]=await Promise.all([prisma.expertProfile.findUnique({where:{userId:user.id},include:{slots:{where:{startsAt:{gt:new Date()}},orderBy:{startsAt:'asc'}}}}),prisma.issueCategory.findMany({where:{enabled:true},orderBy:{sortOrder:'asc'}}).catch(()=>[])]);const categories=cats.length?cats.map(c=>c.name):[...DOMAINS];return <AppChrome active="profile"><div className="page-head"><h2>صاحب تجربه</h2><p>اعتبار این نقش از تجربه عملی می‌آید. پروفایل تازه تا تأیید ناظر عمومی نمی‌شود.</p></div><ExpertSetupForm profile={profile?JSON.parse(JSON.stringify(profile)):null} categories={categories}/>{profile&&<div className="panel"><h3>زمان‌های آینده</h3>{profile.slots.length?profile.slots.map(s=><div className="list-item" key={s.id}><div className="list-icon">◷</div><div><b>{new Intl.DateTimeFormat('fa-IR',{dateStyle:'medium',timeStyle:'short'}).format(s.startsAt)}</b><small>{s.duration} دقیقه · {s.isBooked?'رزرو شده':'آزاد'}</small></div></div>):<div className="empty">زمان آزادی ثبت نشده.</div>}</div>}</AppChrome>}

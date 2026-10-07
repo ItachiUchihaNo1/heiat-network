@@ -1,0 +1,375 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String               @id @default(cuid())
+  phone           String               @unique
+  name            String?
+  city            String?
+  roleInOrg       String?
+  avatarUrl       String?
+  roles           String[]             @default(["HAYAT_JOO"])
+  isActive        Boolean              @default(true)
+  verifiedAt      DateTime?
+  lastLoginAt     DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  organizations   OrganizationMember[]
+  tickets         Ticket[]
+  expertProfile   ExpertProfile?
+  consultationsAsUser   ConsultationSession[] @relation("ConsultationUser")
+  consultationsAsExpert ConsultationSession[] @relation("ConsultationExpert")
+  reviews         Review[]
+  notifications   Notification[]
+  auditLogs       AuditLog[]           @relation("AuditActor")
+  experiencesCreated Experience[]      @relation("ExperienceCreatedBy")
+  experiencesEdited  Experience[]      @relation("ExperienceEditedBy")
+  mediaCreated    MediaAsset[]          @relation("MediaCreatedBy")
+}
+
+model Organization {
+  id          String               @id @default(cuid())
+  name        String
+  type        String?
+  city        String?
+  description String?
+  createdAt   DateTime             @default(now())
+  members     OrganizationMember[]
+  tickets     Ticket[]
+}
+
+model OrganizationMember {
+  id             String       @id @default(cuid())
+  userId         String
+  organizationId String
+  title          String?
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+}
+
+model OtpCode {
+  id          String   @id @default(cuid())
+  phone       String
+  codeHash    String
+  expiresAt   DateTime
+  attempts    Int      @default(0)
+  consumedAt  DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([phone, createdAt])
+}
+
+model ExpertProfile {
+  id               String             @id @default(cuid())
+  userId           String             @unique
+  bio              String
+  headline         String
+  domains          String[]
+  tags             String[]
+  yearsExperience  Int                @default(0)
+  capacityWeek     Int                @default(2)
+  capacityMonth    Int                @default(8)
+  sessionDurations Int[]              @default([30, 45])
+  experienceCount  Int                @default(0)
+  isVerified       Boolean            @default(false)
+  publicLinks      Json?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  user             User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  slots            AvailabilitySlot[]
+  consultations    ConsultationSession[]
+}
+
+model AvailabilitySlot {
+  id              String        @id @default(cuid())
+  expertProfileId String
+  startsAt        DateTime
+  duration        Int
+  isBooked        Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  expertProfile   ExpertProfile @relation(fields: [expertProfileId], references: [id], onDelete: Cascade)
+  consultation    ConsultationSession?
+
+  @@index([expertProfileId, startsAt])
+}
+
+model Ticket {
+  id                String            @id @default(cuid())
+  userId            String
+  organizationId    String?
+  domain            String
+  title             String
+  description       String
+  currentStatusText String?
+  experienceNeeded  String?
+  city              String?
+  status            String            @default("SUBMITTED")
+  moderatorNote     String?
+  attachments       Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization      Organization?     @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  matchingRequest   MatchingRequest?
+  consultations     ConsultationSession[]
+
+  @@index([status, createdAt])
+  @@index([domain, city])
+}
+
+model MatchingRequest {
+  id               String   @id @default(cuid())
+  ticketId         String   @unique
+  suggestedExperts Json
+  autoMatchFlag    Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  ticket           Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+}
+
+model ConsultationSession {
+  id               String            @id @default(cuid())
+  ticketId         String
+  userId           String
+  expertId         String
+  expertProfileId  String
+  availableSlotId  String?           @unique
+  startTime        DateTime
+  duration         Int
+  channel          String            @default("video")
+  status           String            @default("SCHEDULED")
+  meetingRoom      String            @unique
+  recordingConsent String            @default("NONE")
+  userNote         String?
+  expertNote       String?
+  completedAt      DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  ticket           Ticket            @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  user             User              @relation("ConsultationUser", fields: [userId], references: [id], onDelete: Cascade)
+  expert           User              @relation("ConsultationExpert", fields: [expertId], references: [id], onDelete: Cascade)
+  expertProfile    ExpertProfile     @relation(fields: [expertProfileId], references: [id], onDelete: Cascade)
+  availableSlot    AvailabilitySlot? @relation(fields: [availableSlotId], references: [id], onDelete: SetNull)
+  review           Review?
+  experience       Experience?
+
+  @@index([userId, startTime])
+  @@index([expertId, startTime])
+}
+
+model Experience {
+  id              String               @id @default(cuid())
+  title           String
+  domain          String
+  subdomain       String?
+  city            String?
+  orgType         String?
+  coverImageUrl   String?
+  problem         String
+  solutions       String[]
+  keyPoints       String[]
+  pitfalls        String[]
+  warnings        String[]
+  prerequisites   String[]
+  tags            String[]
+  accessLevel     String               @default("PUBLIC")
+  status          String               @default("PUBLISHED")
+  sourceSessionId String?              @unique
+  createdById     String
+  editedById      String?
+  publishedAt     DateTime?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  sourceSession   ConsultationSession? @relation(fields: [sourceSessionId], references: [id], onDelete: SetNull)
+  createdBy       User                 @relation("ExperienceCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  editedBy        User?                @relation("ExperienceEditedBy", fields: [editedById], references: [id], onDelete: SetNull)
+
+  @@index([domain, publishedAt])
+}
+
+model Review {
+  id        String              @id @default(cuid())
+  sessionId String              @unique
+  userId    String
+  rating    Int
+  comment   String?
+  flags     String[]
+  createdAt DateTime            @default(now())
+  session   ConsultationSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  payload   Json
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String
+  metadata   Json?
+  timestamp  DateTime @default(now())
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, timestamp])
+}
+
+// ---------------- CMS / ADMIN ----------------
+
+model SiteConfig {
+  id               String   @id @default(cuid())
+  singletonKey     String   @unique @default("default")
+  siteName         String   @default("شبکه تجربه هیأت")
+  siteSubtitle     String   @default("صاحب مسئله ← صاحب تجربه")
+  searchPlaceholder String   @default("مسئله‌ات را جست‌وجو کن...")
+  logoUrl          String?
+  faviconUrl       String?
+  logoText         String   @default("هـ")
+  menuIcon         String   @default("☰")
+  profileIcon      String   @default("○")
+  searchIcon       String   @default("⌕")
+  primaryColor     String   @default("#0b4f59")
+  primary2Color    String   @default("#0f8a80")
+  accentColor      String   @default("#23b49b")
+  backgroundColor  String   @default("#f5f8f9")
+  cardColor        String   @default("#ffffff")
+  textColor        String   @default("#163239")
+  mutedColor       String   @default("#6d8186")
+  borderRadius     Int      @default(18)
+  maxContentWidth  Int      @default(520)
+  fontFamily       String   @default("Tahoma, Segoe UI, sans-serif")
+  customCss        String?  @db.Text
+  footerText       String?
+  supportPhone     String?
+  supportEmail     String?
+  extra            Json?
+  updatedAt        DateTime @updatedAt
+  createdAt        DateTime @default(now())
+}
+
+model CmsPage {
+  id              String       @id @default(cuid())
+  slug            String       @unique
+  title           String
+  seoTitle        String?
+  seoDescription  String?
+  isPublished     Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  sections        CmsSection[]
+}
+
+model CmsSection {
+  id              String      @id @default(cuid())
+  pageId          String
+  key             String
+  type            String
+  title           String?
+  subtitle        String?
+  eyebrow         String?
+  body            String?     @db.Text
+  imageUrl        String?
+  backgroundUrl   String?
+  primaryLabel    String?
+  primaryUrl      String?
+  secondaryLabel  String?
+  secondaryUrl    String?
+  columnsDesktop  Int         @default(2)
+  columnsMobile   Int         @default(1)
+  sortOrder       Int         @default(0)
+  enabled         Boolean     @default(true)
+  settings        Json?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  page            CmsPage     @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  items           CmsItem[]
+
+  @@unique([pageId, key])
+  @@index([pageId, sortOrder])
+}
+
+model CmsItem {
+  id          String     @id @default(cuid())
+  sectionId   String
+  title       String
+  subtitle    String?
+  body        String?    @db.Text
+  icon        String?
+  imageUrl    String?
+  badge       String?
+  linkLabel   String?
+  linkUrl     String?
+  sortOrder   Int        @default(0)
+  enabled     Boolean    @default(true)
+  meta        Json?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  section     CmsSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId, sortOrder])
+}
+
+model MenuItem {
+  id          String     @id @default(cuid())
+  location    String
+  label       String
+  href        String
+  icon        String?
+  imageUrl    String?
+  target      String     @default("_self")
+  sortOrder   Int        @default(0)
+  enabled     Boolean    @default(true)
+  parentId    String?
+  parent      MenuItem?  @relation("MenuChildren", fields: [parentId], references: [id], onDelete: SetNull)
+  children    MenuItem[] @relation("MenuChildren")
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([location, sortOrder])
+}
+
+model IssueCategory {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  icon        String?
+  imageUrl    String?
+  sortOrder   Int      @default(0)
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model MediaAsset {
+  id          String   @id @default(cuid())
+  fileName    String
+  storageName String   @unique
+  url         String   @unique
+  mimeType    String
+  size        Int
+  title       String?
+  alt         String?
+  createdById String?
+  createdAt   DateTime @default(now())
+  createdBy   User?    @relation("MediaCreatedBy", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+}
