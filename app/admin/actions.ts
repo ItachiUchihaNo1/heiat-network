@@ -11,7 +11,20 @@ import crypto from 'crypto';
 async function admin(){ return requireRole('ADMIN'); }
 function checked(fd:FormData,key:string){return fd.get(key)==='on'||fd.get(key)==='true'||fd.get(key)==='1'}
 function csv(v:FormDataEntryValue|null){return text(v).split(/[,،\n]/).map(x=>x.trim()).filter(Boolean)}
-function paths(){['/','/admin','/admin/cms/appearance','/admin/cms/home','/admin/cms/menus','/admin/cms/categories','/admin/cms/media','/admin/cms/pages','/admin/users','/admin/operations'].forEach(revalidatePath)}
+function paths(){
+  [
+    '/',
+    '/admin',
+    '/admin/cms/appearance',
+    '/admin/cms/home',
+    '/admin/cms/menus',
+    '/admin/cms/categories',
+    '/admin/cms/media',
+    '/admin/cms/pages',
+    '/admin/users',
+    '/admin/operations',
+  ].forEach((path) => revalidatePath(path))
+}
 
 export async function saveSiteConfig(fd:FormData){
   const user=await admin();
