@@ -26,6 +26,7 @@ try {
     file_put_contents($testRoot.'/polyglot.jpg',file_get_contents($file).'<?php echo 1;');rejects(fn()=>Upload::validate($testRoot.'/polyglot.jpg'),422,'image with PHP payload rejected');
     rejects(fn()=>Upload::absolute('../outside.jpg'),404,'storage traversal rejected');
     check($a->images(['province'=>'تهران','orientation'=>'portrait'])['count']===1,'combined image filters');check($a->images(['province'=>'اصفهان'])['count']===0,'province filter excludes other records');
+    check($a->images(['q'=>'محمد رضایی'])['count']===1,'full name search across first and last name');
     $book=$testRoot.'/import.xlsx';Xlsx::write(['شهدا'=>[['code'=>'000042','first_name'=>'علی','last_name'=>'احمدی'],['code'=>'001254','first_name'=>'موجود','last_name'=>'موجود']]],$book);
     $rows=Xlsx::read($book);check($rows[0]['code']==='000042','XLSX roundtrip preserves code text');
     $r=Importer::commit($db,$rows);$r2=Importer::commit($db,$rows);check($r['inserted']===1&&$r2['inserted']===0,'repeated XLSX import creates no duplicates');
@@ -51,4 +52,5 @@ try {
     putenv('APP_ENV=production');rejects(fn()=>new TestGateway(),503,'test gateway disabled in production');
     echo "\n$tests checks passed on ".$db->getAttribute(PDO::ATTR_DRIVER_NAME).". Test storage: $testRoot\n";
 } catch(Throwable $e){fwrite(STDERR,$e->getMessage()."\n".$e->getTraceAsString()."\n");exit(1);}
+
 

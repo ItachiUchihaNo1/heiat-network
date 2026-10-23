@@ -23,7 +23,7 @@ final class Archive {
     public function conditions(array $f): array {
         $where=['m.published=1']; $args=[];
         $q=Security::normalize(Security::text($f,'q',150,false));
-        if($q!==''){ $where[]='(m.first_name LIKE ? OR m.last_name LIKE ? OR m.code LIKE ? OR m.summary LIKE ?)'; $args=[...$args,...array_fill(0,4,'%'.$q.'%')]; }
+        if($q!=='') foreach(preg_split('/\s+/u',$q,-1,PREG_SPLIT_NO_EMPTY) as $term){ $where[]='(m.first_name LIKE ? OR m.last_name LIKE ? OR m.code LIKE ? OR m.summary LIKE ?)'; $args=[...$args,...array_fill(0,4,'%'.$term.'%')]; }
         foreach(['province','city','job','organization'] as $key){ $v=Security::text($f,$key,150,false); if($v!==''){ $where[]='m.'.$key.'=?'; $args[]=$v; } }
         if(!empty($f['category'])){ $where[]='EXISTS(SELECT 1 FROM martyr_categories mc WHERE mc.martyr_id=m.id AND mc.category_id=?)'; $args[]=(int)$f['category']; }
         return [implode(' AND ',$where),$args];
@@ -47,4 +47,5 @@ final class Archive {
         return ['شهدا'=>$martyrs,'تصاویر'=>$images];
     }
 }
+
 
