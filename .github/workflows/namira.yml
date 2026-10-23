@@ -1,0 +1,56 @@
+name: Namira PHP - Test and deploy FTPS
+on:
+  push:
+    branches: [main]
+    paths: ['namira/**', '.github/workflows/namira.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: namira-test-shahidpics
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: namira_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -ptest-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=15
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP extensions
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-mysql php-sqlite3 php-gd php-xml php-mbstring php-zip
+      - name: PHP syntax
+        run: find namira -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: SQLite behavior tests
+        run: php namira/tests/run.php
+      - name: MySQL behavior tests
+        env:
+          TEST_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test;charset=utf8mb4'
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: test-only-password
+        run: php namira/tests/run.php
+      - name: Validate deployment script
+        run: python3 -m py_compile namira/deploy/ftps.py
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy to Public_html/new using verified FTPS
+        env:
+          DEPLOY_FTPS_HOST: ${{ secrets.DEPLOY_FTPS_HOST }}
+          DEPLOY_FTPS_USERNAME: ${{ secrets.DEPLOY_FTPS_USERNAME }}
+          DEPLOY_FTPS_PASSWORD: ${{ secrets.DEPLOY_FTPS_PASSWORD }}
+          DEPLOY_FTPS_DIR: ${{ vars.DEPLOY_FTPS_DIR || 'Public_html/new' }}
+          DEPLOY_FTPS_PORT: ${{ vars.DEPLOY_FTPS_PORT || '21' }}
+          DEPLOY_SITE_URL: https://test.shahidpics.com
+        run: python3 namira/deploy/ftps.py
