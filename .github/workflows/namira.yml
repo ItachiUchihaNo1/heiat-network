@@ -47,11 +47,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Deploy to Public_html/new using verified FTPS
         env:
-          DEPLOY_FTPS_HOST: ${{ secrets.DEPLOY_FTPS_HOST }}
+          DEPLOY_FTPS_HOST: cp173.mihanvps.com
           DEPLOY_FTPS_USERNAME: ${{ secrets.DEPLOY_FTPS_USER }}
           DEPLOY_FTPS_PASSWORD: ${{ secrets.DEPLOY_FTPS_PASSWORD }}
           DEPLOY_FTPS_DIR: ${{ vars.DEPLOY_FTPS_DIR || 'Public_html/new' }}
           DEPLOY_FTPS_PORT: ${{ vars.DEPLOY_FTPS_PORT || '21' }}
           DEPLOY_SITE_URL: https://test.shahidpics.com
         run: python3 namira/deploy/ftps.py
+
 

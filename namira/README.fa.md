@@ -7,7 +7,7 @@
 Document Root اعلام‌شده شما **`Public_html/new`** است. بزرگی P حفظ شده است. این مسیر را به public_html تغییر ندهید.
 
 1. در GitHub → مخزن `ItachiUchihaNo1/heiat-network` → Settings → Secrets and variables → Actions، این سه **Repository Secret** را ثبت کنید:
-   - `DEPLOY_FTPS_HOST`: نام دقیق FTP Server از cPanel → FTP Accounts → Configure FTP Client؛ بدون پروتکل، مسیر و پورت.
+   - `DEPLOY_FTPS_HOST`: مقدار تأییدشده cp173.mihanvps.com است؛ نام عمومی سرور در workflow نیز صریحاً تنظیم شده است تا گواهی TLS با مقصد تطبیق داشته باشد.
    - `DEPLOY_FTPS_USER`: نام کامل حساب FTP، معمولاً همراه دامنه.
    - `DEPLOY_FTPS_PASSWORD`: رمز همان حساب FTP.
 2. workflow `.github/workflows/namira.yml` ابتدا تست PHP را اجرا می‌کند و سپس با FTPS صریح روی پورت ۲۱ منتقل می‌کند. اعتبار گواهی TLS بررسی می‌شود. SFTP پروتکل دیگری است و با این workflow کار نمی‌کند.
@@ -110,4 +110,5 @@ TEST_DB_DSN='mysql:host=127.0.0.1;dbname=namira_test;charset=utf8mb4' TEST_DB_US
 پیش از migration، از MySQL با ابزار Backup/cPanel یا mysqldump و از کل storage پشتیبان بگیرید. نسخه پشتیبان را خارج از Document Root و ترجیحاً خارج از سرور نگهداری کنید. برای بازیابی، ابتدا دیتابیس را روی دیتابیس مجزا restore کنید، فایل‌ها را در storage همان نسخه بازگردانید، DB_DSN را تغییر دهید و اصل و پیش‌نمایش چند تصویر را بررسی کنید. آزمون خودکار بازیابی و پشتیبان‌گیری زمان‌بندی‌شده خارج سرور هنوز تحویل نشده‌اند.
 
 برای خطاهای 503، cPanel → Metrics → Errors یا error_log هاست را بررسی کنید. هیچ stack trace و رمز در صفحه عمومی نمایش داده نمی‌شود. تنظیم‌نشدن دیتابیس به معنی اتصال آزمایشی پنهان نیست؛ سایت 503 می‌دهد.
+
 
