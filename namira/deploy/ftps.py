@@ -7,6 +7,7 @@ import io
 import os
 import posixpath
 import ssl
+import secrets
 import sys
 import uuid
 
@@ -94,12 +95,25 @@ def deploy():
             if local.is_file() and local.name != 'index.php':
                 upload(ftp, local.relative_to(ROOT / 'public').as_posix(), local.read_bytes())
                 count += 1
+        # Only a fresh, unconfigured Namira installation gets an unpredictable setup key.
+        def exists(remote):
+            ftp.voidcmd('TYPE I')
+            try:
+                return ftp.size(remote) is not None
+            except error_perm as error:
+                if str(error).startswith('550'):
+                    return False
+                raise
+        configured = any(exists('_namira/' + name) for name in ['.env', 'config.local.json', '.setup.lock'])
+        if not configured and not exists('_namira/.setup.key'):
+            ftp.storbinary('STOR _namira/.setup.key', io.BytesIO(secrets.token_hex(32).encode('ascii')))
+            ftp.sendcmd('SITE CHMOD 600 _namira/.setup.key')
         index = b"<?php\ndeclare(strict_types=1);\nrequire __DIR__.'/_namira/app/bootstrap.php';\nNamira\\Web::run();\n"
         upload(ftp, 'index.php', index)
         print(f'FTPS upload completed ({count + 1} application/public files). Existing .env and storage preserved.')
         status = http_status('/index.php?page=home')
         if status == 503:
-            print('FILES UPLOADED; SITE NOT READY: create _namira/.env, configure MySQL, then run migration and create the administrator in cPanel Terminal.')
+            print('FILES UPLOADED; SETUP REQUIRED: open https://test.shahidpics.com/index.php?page=setup and obtain the private installation key from Public_html/new/_namira/.setup.key using cPanel File Manager.')
             return 2
         if status != 200:
             raise RuntimeError(f'Files uploaded but homepage returned HTTP {status}; inspect cPanel error log')
@@ -120,3 +134,4 @@ if __name__ == '__main__':
     except Exception as error:
         print(f'Deployment stopped: {type(error).__name__}: {error}', file=sys.stderr)
         sys.exit(1)
+

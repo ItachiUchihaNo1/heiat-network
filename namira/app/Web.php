@@ -13,6 +13,7 @@ final class Web {
         Security::start(); $db=null; $page='home';
         try {
             $page=Security::text($_GET,'page',40,false)?:'home';
+            if($page==='setup'){ Installer::web(); return; }
             $db=Db::connect(); $archive=new Archive($db); $shop=new Shop($db);
             if($_SERVER['REQUEST_METHOD']==='POST'){ Security::verify($_POST); self::action($db,$archive,$shop); }
             if($page==='media'||$page==='download') { self::media($db,$archive,$page); return; }
@@ -125,4 +126,5 @@ final class Web {
         header('Content-Type: '.$mime); header('Content-Length: '.filesize($path)); header('Content-Disposition: '.$disposition.'; filename="'.$name.'"'); header('Cache-Control: private, no-store'); readfile($path);
     }
 }
+
 

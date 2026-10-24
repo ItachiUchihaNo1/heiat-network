@@ -2,3 +2,6 @@
 storage/*
 !storage/.gitkeep
 !storage/.htaccess
+config.local.json
+.setup*
+
