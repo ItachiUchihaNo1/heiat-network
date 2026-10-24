@@ -30,6 +30,8 @@ jobs:
           sudo apt-get install -y php-cli php-mysql php-sqlite3 php-gd php-xml php-mbstring php-zip
       - name: PHP syntax
         run: find namira -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Upload progress behavior checks
+        run: node namira/tests/upload-progress.cjs
       - name: SQLite behavior tests
         run: php namira/tests/run.php
       - name: Browser installer tests on SQLite

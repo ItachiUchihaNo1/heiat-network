@@ -15,7 +15,10 @@ final class Web {
             $page=Security::text($_GET,'page',40,false)?:'home';
             if($page==='setup'){ Installer::web(); return; }
             $db=Db::connect(); $archive=new Archive($db); $shop=new Shop($db);
-            if($_SERVER['REQUEST_METHOD']==='POST'){ Security::verify($_POST); self::action($db,$archive,$shop); }
+            if($_SERVER['REQUEST_METHOD']==='POST'){
+                if(empty($_POST)&&empty($_FILES)&&(int)($_SERVER['CONTENT_LENGTH']??0)>0&&str_starts_with($_SERVER['CONTENT_TYPE']??'','multipart/form-data'))throw new HttpError(413,'حجم کل ارسال از محدودیت هاست بیشتر است؛ فایل‌های کمتر یا کوچک‌تر انتخاب کنید.');
+                Security::verify($_POST); self::action($db,$archive,$shop);
+            }
             if($page==='media'||$page==='download') { self::media($db,$archive,$page); return; }
             if($page==='request-file') {
                 Security::requireRole($db,'content'); $f=Db::query($db,'SELECT * FROM request_files WHERE id=?',[(int)($_GET['id']??0)])->fetch();
@@ -67,8 +70,17 @@ final class Web {
             while(ob_get_level()) ob_end_clean(); $status=$ex instanceof HttpError?$ex->status:503; http_response_code($status);
             $message=$ex instanceof HttpError?$ex->getMessage():'سرویس موقتاً در دسترس نیست؛ تنظیم پایگاه داده یا گزارش خطا را بررسی کنید.';
             if(!$ex instanceof HttpError) error_log('Namira: '.$ex->getMessage());
+            if(self::jsonUpload()){ header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); echo json_encode(['ok'=>false,'message'=>$message],JSON_UNESCAPED_UNICODE); return; }
             $title='نامیرا | '.$status; $user=false; $content='<section class="request"><h1>'.e(fa($status)).'</h1><p role="alert">'.e($message).'</p><p><a class="outline" href="'.e(url('home')).'">صفحه اصلی</a></p></section>'; view('layout',compact('content','page','title','user'));
         }
+    }
+    private static function jsonUpload(): bool { return ($_SERVER['REQUEST_METHOD']??'')==='POST' && str_contains($_SERVER['HTTP_ACCEPT']??'','application/json'); }
+    private static function uploadResponse(string $page,array $params=[]): never {
+        if(self::jsonUpload()){
+            header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');
+            echo json_encode(['ok'=>true,'redirect'=>url($page,$params)],JSON_UNESCAPED_UNICODE);exit;
+        }
+        redirect($page,$params);
     }
     private static function action(PDO $db,Archive $archive,Shop $shop): never {
         $a=Security::text($_POST,'action',40);
@@ -85,11 +97,11 @@ final class Web {
             case 'images':
                 Security::requireRole($db,'content'); $files=self::files('images'); if(!$files||count($files)>10) throw new HttpError(422,'از ۱ تا ۱۰ فایل در هر نوبت انتخاب کنید.'); $messages=[];
                 foreach($files as $f){ try{ $id=Upload::image($db,Upload::receive($f),$f['name'],$_POST); $messages[]=$f['name'].' : ثبت/موجود '.$id; }catch(\Throwable $ex){ error_log('Upload: '.$ex->getMessage()); $messages[]=$f['name'].' : '.($ex instanceof HttpError?$ex->getMessage():'خطای پردازش؛ دوباره تلاش کنید'); } }
-                $_SESSION['flash']=implode("\n",$messages); redirect('admin',['tab'=>'images']);
+                $_SESSION['flash']=implode("\n",$messages); self::uploadResponse('admin',['tab'=>'images']);
             case 'image-publish': Security::requireRole($db,'content'); Db::query($db,'UPDATE images SET published=? WHERE id=?',[(int)!empty($_POST['published']),(int)$_POST['id']]); Db::audit($db,'image.publish',(string)(int)$_POST['id']); redirect('admin',['tab'=>'images']);
             case 'import-preview': Security::requireRole($db,'content'); $files=self::files('excel'); if(count($files)!==1) throw new HttpError(422,'یک فایل XLSX انتخاب کنید.'); $_SESSION['import_rows']=Xlsx::read(Upload::receive($files[0])); redirect('admin',['tab'=>'import']);
             case 'import-commit': Security::requireRole($db,'content'); $result=Importer::commit($db,$_SESSION['import_rows']??[]); unset($_SESSION['import_rows']); $_SESSION['import_result']=$result; $_SESSION['flash']='ورود انجام شد: '.$result['inserted'].' جدید، '.$result['skipped'].' بدون تغییر، '.count($result['errors']).' خطا.'; redirect('admin',['tab'=>'import']);
-            case 'request': Security::limit($db,'request',5,3600); $token=DesignRequests::create($db,$_POST,self::files('photos')); redirect('request-track',['token'=>$token]);
+            case 'request': Security::limit($db,'request',5,3600); $token=DesignRequests::create($db,$_POST,self::files('photos')); self::uploadResponse('request-track',['token'=>$token]);
             case 'request-status': Security::requireRole($db,'content'); $status=Security::text($_POST,'status',40); if(!in_array($status,['submitted','reviewing','accepted','completed','rejected'],true)) throw new HttpError(422,'وضعیت نامعتبر است.'); Db::query($db,'UPDATE design_requests SET status=? WHERE id=?',[$status,(int)$_POST['id']]); Db::audit($db,'request.status',(string)(int)$_POST['id']); redirect('admin',['tab'=>'requests']);
             case 'cart': $shop->setQuantity($shop->cartToken(),(int)($_POST['variant_id']??0),(int)($_POST['quantity']??1)); redirect('cart');
             case 'checkout': Security::limit($db,'checkout',20); $token=$shop->checkout($shop->cartToken(),$_POST); redirect('order',['token'=>$token]);
