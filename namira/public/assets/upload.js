@@ -74,7 +74,9 @@
       xhr.addEventListener('timeout', () => fail(pending));
       xhr.addEventListener('abort', () => fail('ارسال متوقف شد. پیش از تکرار، نتیجه ثبت را بررسی کنید.'));
       try {
-        xhr.open('POST', form.action || location.href);
+        const endpoint = new URL(form.getAttribute('action') || location.href, location.href);
+        if (endpoint.origin !== location.origin) throw new Error('Invalid upload endpoint');
+        xhr.open('POST', endpoint.href);
         xhr.setRequestHeader('Accept', 'application/json');
         xhr.timeout = 600000;
         xhr.send(data);
