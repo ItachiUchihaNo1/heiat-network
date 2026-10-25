@@ -11,7 +11,7 @@ final class AdminQueries {
         $where=['1=1'];$args=[];$q=Security::normalize(Security::text($f,'q',150,false));if($q!==''){$where[]='(m.code LIKE ? OR m.first_name LIKE ? OR m.last_name LIKE ? OR m.father_name LIKE ? OR p.search_text LIKE ?)';$args=[...$args,...array_fill(0,5,'%'.$q.'%')];}
         $status=Security::text($f,'status',30,false);if($status!==''){$where[]="COALESCE(p.status,CASE WHEN m.published=1 THEN 'published' ELSE 'draft' END)=?";$args[]=$status;}
         if(($f['completion']??'')==='incomplete')$where[]="(m.summary='' OR NOT EXISTS(SELECT 1 FROM martyr_sections s WHERE s.martyr_id=m.id AND s.step=2))";
-        if(($f['completion']??'')==='no-images')$where[]='NOT EXISTS(SELECT 1 FROM images i WHERE i.martyr_id=m.id)';
+        if(($f['completion']??'')==='no-images')$where[]='NOT EXISTS(SELECT 1 FROM media_martyrs mm WHERE mm.martyr_id=m.id)';
         $from='FROM martyrs m LEFT JOIN martyr_protocols p ON p.martyr_id=m.id';$sql=implode(' AND ',$where);
         $select="SELECT m.*,COALESCE(p.display_name,'') AS display_name,COALESCE(p.status,CASE WHEN m.published=1 THEN 'published' ELSE 'draft' END) AS status,p.updated_at,p.revision,(SELECT COUNT(*) FROM media_martyrs mm WHERE mm.martyr_id=m.id) AS image_count,(SELECT COUNT(*) FROM media_martyrs mm JOIN images i ON i.id=mm.image_id WHERE mm.martyr_id=m.id AND i.kind='design') AS artwork_count,(SELECT i.id FROM images i JOIN media_martyrs mm ON mm.image_id=i.id WHERE mm.martyr_id=m.id ORDER BY mm.is_featured DESC,i.sequence_no LIMIT 1) AS feature_id";
         return self::paginate($db,$select,$from,$sql,$args,['new'=>'m.id DESC','name'=>'m.last_name,m.first_name,m.id','updated'=>'p.updated_at DESC,m.id DESC','code'=>'m.code,m.id'],$f);

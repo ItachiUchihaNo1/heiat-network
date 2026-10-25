@@ -63,7 +63,7 @@ reject(fn()=>Namira\Accounts::save($db,$actor,['id'=>$adminId,'email'=>'admin@ex
 Namira\Accounts::save($db,$actor,['id'=>$id,'email'=>'reviewer@example.test','roles'=>['member'],'active'=>'1']);$reduced=Db::query($db,'SELECT * FROM users WHERE id=?',[$id])->fetch();ok(!Permissions::allows($db,$reduced,'media.publish'),'role removal revokes previous role grants');
 $db->exec('UPDATE martyrs SET published=0 WHERE id='.$person);
 ok((new Archive($db))->image($image)!==false,'secondary published martyr keeps shared artwork available when primary is hidden');
-$publicCounts=array_column((new Artists($db,[]))->listing([],true)['items'],'work_count','id');ok((int)($publicCounts[$artist]??0)===1,'public artist work count includes shared media with hidden primary martyr');
+$publicCounts=array_column((new Artists($db,[]))->listing([],true)['items'],'work_count','id');ok((int)($publicCounts[$artist]??0)===1&&Namira\AdminQueries::martyrs($db,['completion'=>'no-images'])['count']===0,'shared media counts and no-image filters use all martyr relationships');
 $db->exec('UPDATE martyrs SET published=1 WHERE id='.$person);
 $photo=$root.'/photo.png';$g=imagecreatetruecolor(25,25);imagepng($g,$photo);unset($g);$newImage=Upload::image($db,$photo,'000101-2.png',['kind'=>'photo','license_text'=>'مجاز']);
 ok((new Archive($db))->image($newImage)===false&&Db::query($db,'SELECT status FROM media_details WHERE image_id=?',[$newImage])->fetchColumn()==='draft','new uploaded media remains private until reviewed');
