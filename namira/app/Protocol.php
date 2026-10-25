@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace Namira;
 use PDO;
 final class Protocol {
-    public function __construct(private PDO $db,private array $actor){if(!in_array($actor['role']??'', ['content','superadmin'],true))throw new HttpError(403,'دسترسی به پرونده مجاز نیست.');}
+    public function __construct(private PDO $db,private array $actor){if(!in_array($actor['role']??'', ['content','superadmin'],true)&&!Permissions::allows($db,$actor,'martyrs.edit'))throw new HttpError(403,'دسترسی به پرونده مجاز نیست.');}
     public static function decode(string $json):array{return json_decode($json,true,128,JSON_THROW_ON_ERROR);}
     public static function encode(mixed $value):string{return json_encode($value,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_THROW_ON_ERROR);}
     public function get(int $id):array {
@@ -139,4 +139,3 @@ final class Protocol {
         $name=Security::normalize($bundle['profile']['display_name']);return array_values(array_filter(Db::query($this->db,'SELECT martyr_id,display_name,search_text FROM martyr_protocols WHERE martyr_id<>? LIMIT 500',[$bundle['core']['id']])->fetchAll(),fn($p)=>str_contains($p['search_text'],$name)||Security::normalize($p['display_name'])===$name));
     }
 }
-

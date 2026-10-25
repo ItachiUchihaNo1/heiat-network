@@ -34,7 +34,7 @@ final class Upload {
         if(!$m) throw new HttpError(422,'کد شهید در بانک اطلاعاتی وجود ندارد.');
         $meta=self::validate($source);
         $same=Db::query($db,'SELECT id FROM images WHERE sha256=?',[$meta['sha256']])->fetchColumn();
-        if($same) return (int)$same;
+        if($same){if(PlatformSchema::ready($db)&&!Db::query($db,'SELECT image_id FROM media_martyrs WHERE image_id=? AND martyr_id=?',[$same,$m])->fetchColumn())throw new HttpError(409,'این فایل قبلاً برای پرونده دیگری ثبت شده است؛ از مدیریت رسانه، ارتباط شهید را با بررسی اضافه کنید.');return (int)$same;}
         if(Db::query($db,'SELECT id FROM images WHERE martyr_id=? AND sequence_no=?',[$m,(int)$match[2]])->fetch()) throw new HttpError(409,'این شماره تصویر قبلاً ثبت شده است.');
         $decodeSource=$source;$decodeMeta=$meta;
         if($clientPreview!==null){
@@ -62,7 +62,7 @@ final class Upload {
             return Db::transaction($db,function()use($db,$m,$match,$meta,$saved,$paths,$in){
                 $kind=Security::text($in,'kind',20,false)?:'design'; if(!in_array($kind,['design','photo','document'],true)) throw new HttpError(422,'نوع تصویر نامعتبر است.');
                 $id=Db::insert($db,'images',['martyr_id'=>(int)$m,'sequence_no'=>(int)$match[2],'title'=>Security::text($in,'title',255,false)?:basename($match[0]),'designer'=>Security::text($in,'designer',150,false),'license_text'=>Security::text($in,'license_text',2000,false),'kind'=>$kind,'original_path'=>$saved['path'],'preview_path'=>$paths['preview'],'thumb_path'=>$paths['thumb'],'sha256'=>$meta['sha256'],'mime'=>$meta['mime'],'width'=>$meta['width'],'height'=>$meta['height'],'bytes'=>$meta['bytes'],'created_at'=>date('Y-m-d H:i:s')]);
-                Db::audit($db,'image.upload',(string)$id); return $id;
+                Media::initialize($db,$id,(int)$m,$kind,(int)($in['media_type_id']??0));Db::audit($db,'image.upload',(string)$id); return $id;
             });
         } catch(\Throwable $e){ foreach($files as $f) if(is_file(Env::storage().'/'.$f)) unlink(Env::storage().'/'.$f); throw $e; }
     }
@@ -77,4 +77,3 @@ final class Upload {
         if(!$file||!str_starts_with($file,$base.DIRECTORY_SEPARATOR)||!is_file($file)) throw new HttpError(404,'فایل پیدا نشد.'); return $file;
     }
 }
-

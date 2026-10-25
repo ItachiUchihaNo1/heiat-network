@@ -35,4 +35,3 @@ try{
     ini_set('memory_limit',(string)$savedLimit);
     echo "\n$checks large-image checks passed.\n";
 }catch(Throwable $e){fwrite(STDERR,$e->getMessage()."\n".$e->getTraceAsString()."\n");exit(1);}
-

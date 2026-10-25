@@ -21,4 +21,3 @@ for(const ext of ['jpeg','jpg','png','webp','JPEG']){const f=uploadFixture('1254
  const missing=uploadFixture('large.jpg',{preview:true});missing.submit();checkUpload(missing.count===0&&!missing.controls[0].disabled&&missing.message.textContent.includes('Ctrl+F5'),'missing helper gives a recoverable message');
  console.log(uploadChecks.length+' upload progress checks passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});
-

@@ -10,4 +10,3 @@
 <?php elseif($tab==='returns'): ?><section class="panel tablewrap"><h2>درخواست مرجوعی</h2><table><tr><th>سفارش</th><th>دلیل</th><th>وضعیت</th></tr><?php foreach(Db::query($db,'SELECT * FROM return_requests ORDER BY id DESC LIMIT 100')->fetchAll() as $r): ?><tr><td><?= fa($r['order_id']) ?></td><td><?= e($r['reason']) ?></td><td><?= e($r['status']) ?></td></tr><?php endforeach ?></table></section>
 <?php elseif($tab==='users'): ?><section class="panel"><h2>کاربران مدیریت</h2><p>ساخت، تغییر نقش و غیرفعال‌کردن حساب از CLI هاست انجام می‌شود؛ دستورها در README هستند.</p><div class="tablewrap"><table><tr><th>ایمیل</th><th>نقش</th><th>فعال</th></tr><?php foreach(Db::query($db,'SELECT email,role,active FROM users')->fetchAll() as $u): ?><tr><td><?= e($u['email']) ?></td><td><?= e($u['role']) ?></td><td><?= $u['active']?'بله':'خیر' ?></td></tr><?php endforeach ?></table></div></section>
 <?php else: ?><p class="empty">بخش پیدا نشد.</p><?php endif ?>
-

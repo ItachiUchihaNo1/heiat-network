@@ -19,13 +19,27 @@ final class Web {
                 if(empty($_POST)&&empty($_FILES)&&(int)($_SERVER['CONTENT_LENGTH']??0)>0&&str_starts_with($_SERVER['CONTENT_TYPE']??'','multipart/form-data'))throw new HttpError(413,'حجم کل ارسال از محدودیت هاست بیشتر است؛ فایل‌های کمتر یا کوچک‌تر انتخاب کنید.');
                 Security::verify($_POST); self::action($db,$archive,$shop);
             }
+
+            if($page==='admin-lookup'){
+                $actor=Permissions::require($db,'media.edit');$kind=Security::text($_GET,'kind',20);$q=Security::normalize(Security::text($_GET,'q',100,false));$items=[];
+                if(mb_strlen($q)>=2){$rows=$kind==='artists'?Db::query($db,'SELECT id,display_name AS label FROM artists WHERE archived=0 AND display_name LIKE ? ORDER BY display_name LIMIT 20',['%'.$q.'%'])->fetchAll():Db::query($db,"SELECT m.id,m.code,m.first_name,m.last_name FROM martyrs m WHERE m.code LIKE ? OR m.first_name LIKE ? OR m.last_name LIKE ? ORDER BY m.id DESC LIMIT 20",array_fill(0,3,'%'.$q.'%'))->fetchAll();foreach($rows as $row)$items[]=['id'=>(int)$row['id'],'label'=>$row['label']??($row['code'].' · '.$row['first_name'].' '.$row['last_name'])];}
+                header('Content-Type: application/json; charset=utf-8');header('Cache-Control: private, no-store');echo json_encode($items,JSON_UNESCAPED_UNICODE);return;
+            }
+            if($page==='asset'){
+                if(!PlatformSchema::ready($db))throw new HttpError(404,'تصویر پیدا نشد.');$id=(int)($_GET['id']??0);$asset=Db::query($db,'SELECT * FROM file_assets WHERE id=?',[$id])->fetch();if(!$asset)throw new HttpError(404,'تصویر پیدا نشد.');
+                $public=Db::query($db,"SELECT id FROM artists WHERE public_avatar_asset_id=? AND public_visible=1 AND archived=0",[$id])->fetchColumn();$actor=Security::user($db);
+                if(!$public&&!Permissions::allows($db,$actor?:[],'artists.view'))throw new HttpError(404,'تصویر پیدا نشد.');self::sendFile(Upload::absolute($asset['path']),$asset['mime'],'inline','profile.webp');return;
+            }
+
+            if($page==='admin-media'){Permissions::require($db,'media.view');$image=Db::query($db,'SELECT * FROM images WHERE id=?',[(int)($_GET['id']??0)])->fetch();if(!$image)throw new HttpError(404,'تصویر پیدا نشد.');$original=($_GET['size']??'')==='original';self::sendFile(Upload::absolute($image[$original?'original_path':'thumb_path']),$original?$image['mime']:'image/webp',$original?'attachment':'inline','media-'.(int)$image['id']);return;}
+            if($page==='backup-download'){Permissions::require($db,'settings.manage');$name=Security::text($_GET,'name',80);if(!preg_match('/^db-[0-9]{8}-[0-9]{6}-[a-f0-9]{16}$/D',$name))throw new HttpError(404,'پشتیبان پیدا نشد.');self::sendFile(Upload::absolute('backups/'.$name.'.sql'),'application/sql','attachment',$name.'.sql');return;}
             if($page==='media'||$page==='download') { self::media($db,$archive,$page); return; }
             if($page==='request-file') {
-                Security::requireRole($db,'content'); $f=Db::query($db,'SELECT * FROM request_files WHERE id=?',[(int)($_GET['id']??0)])->fetch();
+                if(PlatformSchema::ready($db))Permissions::require($db,'requests.view');else Security::requireRole($db,'content'); $f=Db::query($db,'SELECT * FROM request_files WHERE id=?',[(int)($_GET['id']??0)])->fetch();
                 if(!$f) throw new HttpError(404,'فایل پیدا نشد.'); self::sendFile(Upload::absolute($f['path']),$f['mime'],'attachment','request-image'); return;
             }
             if($page==='export') {
-                Security::requireRole($db,'content'); $tmp=tempnam(Env::storage(),'export-');
+                if(PlatformSchema::ready($db))Permissions::require($db,'reports.archive');else Security::requireRole($db,'content'); $tmp=tempnam(Env::storage(),'export-');
                 try { Xlsx::write($archive->export($_GET),$tmp); self::sendFile($tmp,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','attachment','namira-archive.xlsx'); } finally { unlink($tmp); } return;
             }
             $user=Security::user($db); $title='نامیرا | سامانه جامع تصاویر شهدا';
@@ -39,10 +53,16 @@ final class Web {
                 case 'profile':
                     $m=$archive->find((int)($_GET['id']??0)); if(!$m)throw new HttpError(404,'پروفایل پیدا نشد.');
                     $title='شهید '.(($m['display_name']??'')?:trim($m['first_name'].' '.$m['last_name'])).' | نامیرا';
-                    $images=Db::query($db,'SELECT i.*,m.first_name,m.last_name,m.code,m.province,m.city FROM images i JOIN martyrs m ON m.id=i.martyr_id WHERE i.martyr_id=? AND i.published=1 ORDER BY i.sequence_no',[$m['id']])->fetchAll();
-                    view('profile',compact('m','images')); break;
-                case 'image': $im=$archive->image((int)($_GET['id']??0)); if(!$im)throw new HttpError(404,'تصویر پیدا نشد.'); $title=$im['title'].' | نامیرا'; view('image',compact('im')); break;
+                    $profileResult=$archive->forPerson((int)$m['id'],max(1,(int)($_GET['p']??1)));$images=$profileResult['items'];
+                    view('profile',compact('m','images','profileResult')); break;
+                case 'image': $im=$archive->image((int)($_GET['id']??0)); if(!$im)throw new HttpError(404,'تصویر پیدا نشد.'); $title=$im['title'].' | نامیرا'; $creators=$archive->creators((int)$im['id']);view('image',compact('im','creators')); break;
+
+                case 'artists':
+                    $title='هنرمندان و پدیدآورندگان | نامیرا';$result=PlatformSchema::ready($db)?(new Artists($db,[]))->listing($_GET,true):['items'=>[],'count'=>0,'page'=>1,'per'=>24];$specialties=PlatformSchema::ready($db)?Db::query($db,"SELECT id,title FROM protocol_terms WHERE taxonomy='art_specialty' AND active=1 ORDER BY title")->fetchAll():[];view('artists',compact('result','specialties'));break;
+                case 'artist':
+                    if(!PlatformSchema::ready($db))throw new HttpError(404,'پروفایل پیدا نشد.');$artist=(new Artists($db,[]))->get((int)($_GET['id']??0),true);if(!$artist)throw new HttpError(404,'پروفایل هنرمند پیدا نشد.');$title=$artist['display_name'].' | هنرمندان نامیرا';$result=$archive->images(['artist_id'=>$artist['id']],max(1,(int)($_GET['p']??1)));$specialties=Db::query($db,"SELECT id,title FROM protocol_terms WHERE taxonomy='art_specialty'")->fetchAll();view('artist',compact('artist','result','specialties'));break;
                 case 'request': view('request'); break;
+
                 case 'request-track':
                     $token=Security::text($_GET,'token',64,false); $request=$token?Db::query($db,'SELECT tracking,status,created_at FROM design_requests WHERE tracking=?',[$token])->fetch():false;
                     view('request-track',compact('request')); break;
@@ -60,6 +80,7 @@ final class Web {
                 case 'order':
                     $token=Security::text($_GET,'token',64); $order=Db::query($db,'SELECT * FROM orders WHERE token=?',[$token])->fetch(); if(!$order)throw new HttpError(404,'سفارش پیدا نشد.');
                     $items=Db::query($db,'SELECT * FROM order_items WHERE order_id=?',[$order['id']])->fetchAll(); $payment=Db::query($db,'SELECT * FROM payments WHERE order_id=?',[$order['id']])->fetch(); view('order',compact('order','items','payment')); break;
+                case 'account':if(!$user)redirect('login');view('account',compact('user'));break;
                 case 'login': view('login'); break;
                 case 'admin': self::admin($db,$user); break;
                 case 'about': view('about'); break;
@@ -83,7 +104,7 @@ final class Web {
         redirect($page,$params);
     }
     private static function action(PDO $db,Archive $archive,Shop $shop): never {
-        $a=Security::text($_POST,'action',40);
+        $a=Security::text($_POST,'action',40);if(AdminPanel::handles($a))AdminPanel::action($db,$a);
         switch($a){
             case 'login':
                 Security::limit($db,'login',8); $email=Security::text($_POST,'email',190); $password=Security::text($_POST,'password',1024);
@@ -91,20 +112,21 @@ final class Web {
                 $dummy='$2y$10$wHVV71XhPT3QCKoRV4pxXej0zu1ZokgOphJ9BSkS0HAsRkUPdMQpK';
                 if(!password_verify($password,$u['password_hash']??$dummy)||!$u) throw new HttpError(422,'ایمیل یا رمز معتبر نیست.');
                 session_regenerate_id(true); $_SESSION['user_id']=$u['id']; $_SESSION['csrf']=bin2hex(random_bytes(32)); redirect('admin');
+            case 'account-password':$actor=Security::user($db);if(!$actor)throw new HttpError(403,'ورود لازم است.');Accounts::password($db,$actor,$_POST);$_SESSION['flash']='رمز ورود تغییر کرد.';redirect('account');
             case 'logout': $_SESSION=[]; session_regenerate_id(true); redirect('home');
             case 'protocol-save': case 'protocol-transition': case 'protocol-shared': case 'protocol-term': ProtocolController::action($db,$a);
             case 'martyr-save': throw new HttpError(410,'از فرم هشت‌مرحله‌ای ثبت شهید استفاده کنید.'); Security::requireRole($db,'content'); $id=$archive->save($_POST,!empty($_POST['id'])?(int)$_POST['id']:null); $_SESSION['flash']='اطلاعات ذخیره شد.'; redirect('admin',['tab'=>'martyrs','edit'=>$id]);
             case 'category': Security::requireRole($db,'content'); Db::insert($db,'categories',['name'=>Security::text($_POST,'name',150)]); Db::audit($db,'category.create',''); redirect('admin',['tab'=>'categories']);
             case 'images':
-                Security::requireRole($db,'content'); $files=self::files('images'); if(!$files||count($files)>10) throw new HttpError(422,'از ۱ تا ۱۰ فایل در هر نوبت انتخاب کنید.'); $messages=[]; $failedUploads=0;
+                if(PlatformSchema::ready($db))Permissions::require($db,'media.create');else Security::requireRole($db,'content'); $files=self::files('images'); if(!$files||count($files)>10) throw new HttpError(422,'از ۱ تا ۱۰ فایل در هر نوبت انتخاب کنید.'); $messages=[]; $failedUploads=0;
                  $previews=self::files('previews');if($previews&&count($previews)!==count($files))throw new HttpError(422,'تعداد پیش‌نمایش‌های همراه با فایل‌های اصلی یکسان نیست.');
                 foreach($files as $index=>$f){ try{ $id=Upload::image($db,Upload::receive($f),$f['name'],$_POST,isset($previews[$index])?Upload::receive($previews[$index]):null); $messages[]=$f['name'].' : ثبت/موجود '.$id; }catch(\Throwable $ex){ $failedUploads++; error_log('Upload: '.$ex->getMessage()); $messages[]=$f['name'].' : '.($ex instanceof HttpError?$ex->getMessage():'خطای پردازش؛ دوباره تلاش کنید'); } }
                 $_SESSION['flash_type']=$failedUploads?'error':'success'; $_SESSION['flash']=implode("\n",$messages); self::uploadResponse('admin',['tab'=>'images']);
-            case 'image-publish': Security::requireRole($db,'content'); Db::query($db,'UPDATE images SET published=? WHERE id=?',[(int)!empty($_POST['published']),(int)$_POST['id']]); Db::audit($db,'image.publish',(string)(int)$_POST['id']); redirect('admin',['tab'=>'images']);
+            case 'image-publish': if(PlatformSchema::ready($db))throw new HttpError(410,'از گردش بازبینی رسانه استفاده کنید.'); Security::requireRole($db,'content'); Db::query($db,'UPDATE images SET published=? WHERE id=?',[(int)!empty($_POST['published']),(int)$_POST['id']]); Db::audit($db,'image.publish',(string)(int)$_POST['id']); redirect('admin',['tab'=>'images']);
             case 'import-preview': Security::requireRole($db,'content'); $files=self::files('excel'); if(count($files)!==1) throw new HttpError(422,'یک فایل XLSX انتخاب کنید.'); $_SESSION['import_rows']=Xlsx::read(Upload::receive($files[0])); redirect('admin',['tab'=>'import']);
             case 'import-commit': Security::requireRole($db,'content'); $result=Importer::commit($db,$_SESSION['import_rows']??[]); unset($_SESSION['import_rows']); $_SESSION['import_result']=$result; $_SESSION['flash']='ورود انجام شد: '.$result['inserted'].' جدید، '.$result['skipped'].' بدون تغییر، '.count($result['errors']).' خطا.'; redirect('admin',['tab'=>'import']);
             case 'request': Security::limit($db,'request',5,3600); $token=DesignRequests::create($db,$_POST,self::files('photos')); self::uploadResponse('request-track',['token'=>$token]);
-            case 'request-status': Security::requireRole($db,'content'); $status=Security::text($_POST,'status',40); if(!in_array($status,['submitted','reviewing','accepted','completed','rejected'],true)) throw new HttpError(422,'وضعیت نامعتبر است.'); Db::query($db,'UPDATE design_requests SET status=? WHERE id=?',[$status,(int)$_POST['id']]); Db::audit($db,'request.status',(string)(int)$_POST['id']); redirect('admin',['tab'=>'requests']);
+            case 'request-status': if(PlatformSchema::ready($db))Permissions::require($db,'requests.edit');else Security::requireRole($db,'content'); $status=Security::text($_POST,'status',40); if(!in_array($status,['submitted','reviewing','accepted','completed','rejected'],true)) throw new HttpError(422,'وضعیت نامعتبر است.'); Db::query($db,'UPDATE design_requests SET status=? WHERE id=?',[$status,(int)$_POST['id']]); Db::audit($db,'request.status',(string)(int)$_POST['id']); redirect('admin',['tab'=>'requests']);
             case 'cart': $shop->setQuantity($shop->cartToken(),(int)($_POST['variant_id']??0),(int)($_POST['quantity']??1)); redirect('cart');
             case 'checkout': Security::limit($db,'checkout',20); $token=$shop->checkout($shop->cartToken(),$_POST); redirect('order',['token'=>$token]);
             case 'test-pay': $token=Security::text($_POST,'token',64); $shop->pay($token,$_POST); redirect('order',['token'=>$token]);
@@ -123,16 +145,10 @@ final class Web {
             default: throw new HttpError(404,'عملیات پیدا نشد.');
         }
     }
-    private static function admin(PDO $db,array|false $user): void {
-        if(!$user) redirect('login'); $tab=Security::text($_GET,'tab',30,false)?:($user['role']==='shop'?'orders':'martyrs');
-        $area=in_array($tab,['products','orders','returns'],true)?'shop':($tab==='users'?'users':'content'); Security::requireRole($db,$area);
-        $data=['db'=>$db,'tab'=>$tab,'user'=>$user];
-        if($tab==='martyrs'){ ProtocolController::ensure($db,$user); $data['martyrs']=Db::query($db,'SELECT * FROM martyrs ORDER BY id DESC LIMIT 100')->fetchAll(); $data['editing']=!empty($_GET['edit'])?(new Archive($db))->find((int)$_GET['edit'],false):false; $data['categories']=Db::query($db,'SELECT * FROM categories')->fetchAll(); $data['selected']=$data['editing']?Db::query($db,'SELECT category_id FROM martyr_categories WHERE martyr_id=?',[$data['editing']['id']])->fetchAll(\PDO::FETCH_COLUMN):[]; }
-        view('admin',$data);
-    }
+    private static function admin(PDO $db,array|false $user):void { AdminPanel::show($db,$user); }
     private static function media(PDO $db,Archive $archive,string $page): void {
         $im=$archive->image((int)($_GET['id']??0)); if(!$im)throw new HttpError(404,'تصویر پیدا نشد.');
-        if($page==='download'){ Security::limit($db,'download',120,60); $path=$im['original_path']; $mime=$im['mime']; Db::query($db,'UPDATE images SET downloads=downloads+1 WHERE id=?',[$im['id']]); $ext=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'][$mime]; $name=$im['code'].'-'.$im['sequence_no'].'.'.$ext; }
+        if($page==='download'){ if(empty($im['download_allowed']))throw new HttpError(403,'دانلود اصل این رسانه با مجوز فعلی فعال نیست.'); Security::limit($db,'download',120,60); $path=$im['original_path']; $mime=$im['mime']; Db::query($db,'UPDATE images SET downloads=downloads+1 WHERE id=?',[$im['id']]); $ext=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'][$mime]; $name=$im['code'].'-'.$im['sequence_no'].'.'.$ext; }
         else { $path=($_GET['size']??'')==='large'?$im['preview_path']:$im['thumb_path'];$mime='image/webp';$name='preview.webp'; }
         self::sendFile(Upload::absolute($path),$mime,$page==='download'?'attachment':'inline',$name);
     }
@@ -140,6 +156,5 @@ final class Web {
         header('Content-Type: '.$mime); header('Content-Length: '.filesize($path)); header('Content-Disposition: '.$disposition.'; filename="'.$name.'"'); header('Cache-Control: private, no-store'); readfile($path);
     }
 }
-
 
 

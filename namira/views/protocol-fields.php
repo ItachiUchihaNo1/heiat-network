@@ -46,4 +46,3 @@ $v=$values[$key]??null;$n=$prefix.'['.$key.']';$fieldId='p_'.preg_replace('/[^a-
 <?php if(!in_array($type,['bool','enum'],true)): ?><label class="hint">وضعیت اطلاعات <select class="protocol-state" name="<?= e($prefix.'[states]['.$key.']') ?>"><?php foreach(['recorded'=>'مطابق مقدار ثبت‌شده','missing'=>'هنوز ثبت نشده','unknown'=>'نامشخص پس از بررسی','not_applicable'=>'کاربرد ندارد'] as $k=>$t): ?><option value="<?= $k ?>" <?= ($values['states'][$key]??'recorded')===$k?'selected':'' ?>><?= $t ?></option><?php endforeach ?></select></label><?php endif ?>
 </div>
 <?php endforeach ?>
-

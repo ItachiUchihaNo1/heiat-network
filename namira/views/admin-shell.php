@@ -1,0 +1,10 @@
+<?php use Namira\{Permissions,Security}; ?>
+<link rel="stylesheet" href="/assets/protocol.css?v=20261025-platform"><?php if($tab!=='martyrs'): ?><script defer src="/assets/protocol.js?v=20261025-platform"></script><?php endif ?><link rel="stylesheet" href="/assets/admin.css?v=20261025-platform"><script defer src="/assets/admin.js?v=20261025-platform"></script>
+<div class="admin-shell">
+<aside class="admin-sidebar" id="admin-sidebar"><button type="button" class="outline admin-menu-close" data-admin-close>بستن فهرست ×</button><a class="admin-brand" href="<?= e(url('admin')) ?>"><span class="logo">ن</span><span><b>نامیرا</b><small>میز مدیریت آرشیو</small></span></a>
+<nav aria-label="منوی مدیریت"><?php $group='';foreach($nav as $key=>$item):if(!Permissions::allows($db,$user,$item[2]))continue;if($group!==$item[1]):$group=$item[1]; ?><p class="admin-group"><?= e($group) ?></p><?php endif ?><a class="admin-link <?= $tab===$key?'is-active':'' ?>" href="<?= e(url('admin',['tab'=>$key])) ?>" <?= $tab===$key?'aria-current="page"':'' ?>><span class="admin-nav-dot" aria-hidden="true"></span><?= e($item[0]) ?></a><?php endforeach ?></nav>
+<div class="admin-sidebar-foot"><a href="<?= e(url('home')) ?>" target="_blank" rel="noopener">مشاهده سایت ↗</a><form method="post"><?= Security::field() ?><input type="hidden" name="action" value="logout"><button class="outline">خروج امن</button></form></div>
+</aside>
+<section class="admin-workspace"><div class="admin-topbar"><button class="outline admin-menu-toggle" type="button" aria-controls="admin-sidebar" aria-expanded="false">فهرست مدیریت</button><div><p class="admin-breadcrumb">مدیریت نامیرا / <?= e($label) ?></p><h1><?= e($label) ?></h1></div><span class="admin-user" dir="ltr"><?= e($user['email']??'') ?></span></div>
+<div class="admin-content"><?php if(!empty($errors)): ?><div class="notice notice-error" role="alert"><b>اطلاعات ذخیره نشد؛ ورودی‌ها حفظ شده‌اند.</b><ul><?php foreach($errors as $error): ?><li><?= e($error) ?></li><?php endforeach ?></ul></div><?php endif ?><?= $body ?></div>
+</section></div>

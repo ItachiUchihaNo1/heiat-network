@@ -7,7 +7,7 @@ final class Security {
         ini_set('session.use_strict_mode','1'); session_name('namira_session');
         session_set_cookie_params(['httponly'=>true,'secure'=>Env::get('APP_ENV','production')==='production','samesite'=>'Lax','path'=>'/']); session_start();
         header('X-Content-Type-Options: nosniff'); header('Referrer-Policy: same-origin'); header('X-Frame-Options: DENY');
-        header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; script-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'");
+        header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; script-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'");
         if(Env::get('APP_ENV')==='production') header('Strict-Transport-Security: max-age=31536000');
     }
     public static function csrf(): string { return $_SESSION['csrf']??=bin2hex(random_bytes(32)); }
@@ -15,7 +15,8 @@ final class Security {
     public static function verify(array $in): void { if(!is_string($in['csrf']??null)||!hash_equals(self::csrf(),$in['csrf'])) throw new HttpError(419,'نشست فرم منقضی شده؛ صفحه را دوباره باز کنید.'); }
     public static function user(PDO $db): array|false { return isset($_SESSION['user_id'])?Db::query($db,'SELECT id,email,role FROM users WHERE id=? AND active=1',[$_SESSION['user_id']])->fetch():false; }
     public static function requireRole(PDO $db,string $area): array {
-        $u=self::user($db); $roles=['content'=>['superadmin','content'],'shop'=>['superadmin','shop'],'users'=>['superadmin']];
+        $u=self::user($db);if(PlatformSchema::ready($db)&&isset(['content'=>'martyrs.edit','shop'=>'shop.manage','users'=>'users.manage'][$area])){if(!Permissions::allows($db,$u,['content'=>'martyrs.edit','shop'=>'shop.manage','users'=>'users.manage'][$area]))throw new HttpError(403,'اجازه دسترسی ندارید.');return $u;}
+        $roles=['content'=>['superadmin','content'],'shop'=>['superadmin','shop'],'users'=>['superadmin']];
         if(!$u||!in_array($u['role'],$roles[$area]??[],true)) throw new HttpError(403,'اجازه دسترسی ندارید.'); return $u;
     }
     public static function limit(PDO $db,string $name,int $max=10,int $seconds=900): void {

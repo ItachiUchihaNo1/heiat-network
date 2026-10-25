@@ -52,4 +52,3 @@ final class ProtocolValidator {
     }
     public function assert():void {if($this->errors)throw new ProtocolErrors($this->errors);}
 }
-

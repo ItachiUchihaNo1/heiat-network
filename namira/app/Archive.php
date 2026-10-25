@@ -35,18 +35,37 @@ final class Archive {
         if(!empty($f['category'])){ $where[]='EXISTS(SELECT 1 FROM martyr_categories mc WHERE mc.martyr_id=m.id AND mc.category_id=?)'; $args[]=(int)$f['category']; }
         return [implode(' AND ',$where),$args];
     }
+    private function mediaFrom():string {
+        if(!PlatformSchema::ready($this->db))return 'FROM images i JOIN martyrs m ON m.id=i.martyr_id';
+        return 'FROM images i JOIN media_publication mp ON mp.image_id=i.id JOIN martyrs m ON m.id=(SELECT MIN(mm.martyr_id) FROM media_public_martyrs mm JOIN martyrs pm ON pm.id=mm.martyr_id WHERE mm.image_id=i.id AND pm.published=1)';
+    }
+    public function forPerson(int $id,int $page=1):array {return $this->images(['martyr_id'=>$id,'kind'=>'all'],$page);}
+    public function creators(int $image):array {
+        if(!PlatformSchema::ready($this->db))return [];
+        return Db::query($this->db,'SELECT ma.artist_id,ma.creator_role,ma.credit_name,a.slug,a.status,a.archived,a.public_visible FROM media_public_artists ma JOIN artists a ON a.id=ma.artist_id WHERE ma.image_id=? ORDER BY ma.credit_order,ma.artist_id',[$image])->fetchAll();
+    }
     public function images(array $f=[],int $page=1,int $perPage=24): array {
         [$where,$args]=$this->conditions($f); $where.=' AND i.published=1';
-        foreach(['kind','mime'] as $key){ if(!empty($f[$key])){ $where.=' AND i.'.$key.'=?'; $args[]=Security::text($f,$key,50); } }
+        $kind=Security::text($f,'kind',30,false)?:'design';if($kind!=='all'){$where.=' AND i.kind=?';$args[]=$kind;}
+        if(PlatformSchema::ready($this->db)){
+            if(!empty($f['martyr_id'])){$where.=' AND EXISTS(SELECT 1 FROM media_public_martyrs mm WHERE mm.image_id=i.id AND mm.martyr_id=?)';$args[]=(int)$f['martyr_id'];}
+            if(!empty($f['artist_id'])){$where.=' AND EXISTS(SELECT 1 FROM media_public_artists ma WHERE ma.image_id=i.id AND ma.artist_id=?)';$args[]=(int)$f['artist_id'];}
+        }elseif(!empty($f['martyr_id'])){$where.=' AND i.martyr_id=?';$args[]=(int)$f['martyr_id'];}
+        foreach(['mime'] as $key){ if(!empty($f[$key])){ $where.=' AND i.'.$key.'=?'; $args[]=Security::text($f,$key,50); } }
         if(($f['orientation']??'')==='portrait') $where.=' AND i.height>i.width';
         if(($f['orientation']??'')==='landscape') $where.=' AND i.width>i.height';
         $sort=['new'=>'i.id DESC','name'=>'m.last_name,m.first_name,i.id','downloads'=>'i.downloads DESC,i.id DESC'][$f['sort']??'new']??'i.id DESC';
-        $count=(int)Db::query($this->db,'SELECT COUNT(*) FROM images i JOIN martyrs m ON m.id=i.martyr_id WHERE '.$where,$args)->fetchColumn();
+        if(!empty($f['martyr_id'])&&PlatformSchema::ready($this->db))$sort='(SELECT mm.is_featured FROM media_public_martyrs mm WHERE mm.image_id=i.id AND mm.martyr_id='.(int)$f['martyr_id'].') DESC,mp.sort_order,i.id DESC';
+        $count=(int)Db::query($this->db,'SELECT COUNT(*) '.$this->mediaFrom().' WHERE '.$where,$args)->fetchColumn();
         $offset=(max(1,$page)-1)*$perPage;
-        $items=Db::query($this->db,'SELECT i.*,m.first_name,m.last_name,m.code,m.province,m.city'.$this->nameSelect().' FROM images i JOIN martyrs m ON m.id=i.martyr_id WHERE '.$where.' ORDER BY '.$sort.' LIMIT '.(int)$perPage.' OFFSET '.$offset,$args)->fetchAll();
+        $items=Db::query($this->db,'SELECT i.*,m.id AS martyr_id,m.first_name,m.last_name,m.code,m.province,m.city'.(PlatformSchema::ready($this->db)?',mp.download_allowed':',1 AS download_allowed').$this->nameSelect().' '.$this->mediaFrom().' WHERE '.$where.' ORDER BY '.$sort.' LIMIT '.(int)$perPage.' OFFSET '.$offset,$args)->fetchAll();
         return compact('items','count');
     }
-    public function image(int $id): array|false { return Db::query($this->db,'SELECT i.*,m.first_name,m.last_name,m.code'.$this->nameSelect().' FROM images i JOIN martyrs m ON m.id=i.martyr_id WHERE i.id=? AND i.published=1 AND m.published=1',[$id])->fetch(); }
+    public function image(int $id):array|false {
+        $extra=PlatformSchema::ready($this->db)?',mp.download_allowed,mp.payload AS publication_payload':',1 AS download_allowed';
+        $image=Db::query($this->db,'SELECT i.*,m.id AS martyr_id,m.first_name,m.last_name,m.code'.$this->nameSelect().$extra.' '.$this->mediaFrom().' WHERE i.id=? AND i.published=1 AND m.published=1',[$id])->fetch();
+        if($image&&isset($image['publication_payload']))$image['publication']=Protocol::decode($image['publication_payload']);return $image;
+    }
     public function export(array $f): array {
         [$w,$args]=$this->conditions($f);
         $martyrs=Db::query($this->db,'SELECT m.* FROM martyrs m WHERE '.$w.' ORDER BY m.id',$args)->fetchAll();

@@ -19,4 +19,3 @@ const fs=require('node:fs'),vm=require('node:vm');const source=fs.readFileSync(_
  check(closed===4,'bitmap released on error');
  console.log(checks+' client-preview checks passed');
 })().catch(e=>{console.error(e);process.exitCode=1;});
-
