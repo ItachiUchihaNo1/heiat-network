@@ -39,7 +39,15 @@ final class Archive {
         if(!PlatformSchema::ready($this->db))return 'FROM images i JOIN martyrs m ON m.id=i.martyr_id';
         return 'FROM images i JOIN media_publication mp ON mp.image_id=i.id JOIN martyrs m ON m.id=(SELECT MIN(mm.martyr_id) FROM media_public_martyrs mm JOIN martyrs pm ON pm.id=mm.martyr_id WHERE mm.image_id=i.id AND pm.published=1)';
     }
-    public function forPerson(int $id,int $page=1):array {return $this->images(['martyr_id'=>$id,'kind'=>'all'],$page);}
+    public function forPerson(int $id,int $page=1,int $type=0):array {return $this->images(['martyr_id'=>$id,'kind'=>'all','media_type'=>$type],$page);}
+    public function relatedPeople(int $image):array{
+        if(!PlatformSchema::ready($this->db))return [];
+        return Db::query($this->db,"SELECT m.id,m.code,m.first_name,m.last_name".$this->nameSelect()." FROM media_public_martyrs mm JOIN martyrs m ON m.id=mm.martyr_id WHERE mm.image_id=? AND m.published=1 ORDER BY m.id",[$image])->fetchAll();
+    }
+    public function personTypes(int $person):array{
+        if(!PlatformSchema::ready($this->db))return [];
+        return Db::query($this->db,"SELECT t.id,t.title,COUNT(*) AS total FROM media_public_martyrs mm JOIN images i ON i.id=mm.image_id JOIN media_publication mp ON mp.image_id=i.id JOIN protocol_terms t ON t.id=mp.type_id WHERE mm.martyr_id=? AND i.published=1 GROUP BY t.id,t.title,t.sort_order ORDER BY t.sort_order,t.id",[$person])->fetchAll();
+    }
     public function creators(int $image):array {
         if(!PlatformSchema::ready($this->db))return [];
         return Db::query($this->db,'SELECT ma.artist_id,ma.creator_role,ma.credit_name,a.slug,a.status,a.archived,a.public_visible FROM media_public_artists ma JOIN artists a ON a.id=ma.artist_id WHERE ma.image_id=? ORDER BY ma.credit_order,ma.artist_id',[$image])->fetchAll();
@@ -51,6 +59,7 @@ final class Archive {
         $kind=Security::text($f,'kind',30,false)?:'design';if($kind!=='all'){$where.=' AND i.kind=?';$args[]=$kind;}
         if(PlatformSchema::ready($this->db)){
             if(!empty($f['martyr_id'])){$where.=' AND EXISTS(SELECT 1 FROM media_public_martyrs mm WHERE mm.image_id=i.id AND mm.martyr_id=?)';$args[]=(int)$f['martyr_id'];}
+            if(!empty($f['media_type'])){$where.=' AND mp.type_id=?';$args[]=(int)$f['media_type'];}
             if(!empty($f['artist_id'])){$where.=' AND EXISTS(SELECT 1 FROM media_public_artists ma WHERE ma.image_id=i.id AND ma.artist_id=?)';$args[]=(int)$f['artist_id'];}
         }elseif(!empty($f['martyr_id'])){$where.=' AND i.martyr_id=?';$args[]=(int)$f['martyr_id'];}
         foreach(['mime'] as $key){ if(!empty($f[$key])){ $where.=' AND i.'.$key.'=?'; $args[]=Security::text($f,$key,50); } }

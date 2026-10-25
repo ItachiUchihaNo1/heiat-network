@@ -53,9 +53,9 @@ final class Web {
                 case 'profile':
                     $m=$archive->find((int)($_GET['id']??0)); if(!$m)throw new HttpError(404,'پروفایل پیدا نشد.');
                     $title='شهید '.(($m['display_name']??'')?:trim($m['first_name'].' '.$m['last_name'])).' | نامیرا';
-                    $profileResult=$archive->forPerson((int)$m['id'],max(1,(int)($_GET['p']??1)));$images=$profileResult['items'];
-                    view('profile',compact('m','images','profileResult')); break;
-                case 'image': $im=$archive->image((int)($_GET['id']??0)); if(!$im)throw new HttpError(404,'تصویر پیدا نشد.'); $title=$im['title'].' | نامیرا'; $creators=$archive->creators((int)$im['id']);view('image',compact('im','creators')); break;
+                    $selectedType=max(0,(int)($_GET['media_type']??0));$personTypes=$archive->personTypes((int)$m['id']);$profileResult=$archive->forPerson((int)$m['id'],max(1,(int)($_GET['p']??1)),$selectedType);$images=$profileResult['items'];
+                    view('profile',compact('m','images','profileResult','personTypes','selectedType')); break;
+                case 'image': $im=$archive->image((int)($_GET['id']??0)); if(!$im)throw new HttpError(404,'تصویر پیدا نشد.'); $title=$im['title'].' | نامیرا'; $creators=$archive->creators((int)$im['id']);$people=$archive->relatedPeople((int)$im['id']);view('image',compact('im','creators','people')); break;
 
                 case 'artists':
                     $title='هنرمندان و پدیدآورندگان | نامیرا';$result=PlatformSchema::ready($db)?(new Artists($db,[]))->listing($_GET,true):['items'=>[],'count'=>0,'page'=>1,'per'=>24];$specialties=PlatformSchema::ready($db)?Db::query($db,"SELECT id,title FROM protocol_terms WHERE taxonomy='art_specialty' AND active=1 ORDER BY title")->fetchAll():[];view('artists',compact('result','specialties'));break;

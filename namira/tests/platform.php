@@ -74,6 +74,9 @@ $photoDetails=$media->get($newImage);$media->save($newImage,['revision'=>$photoD
 mediaTransition($media,$newImage,'pending');mediaTransition($media,$newImage,'approved');mediaTransition($media,$newImage,'published');
 ok((new Archive($db))->images()['count']===1,'public main archive excludes published documentary photos');
 ok((new Archive($db))->forPerson($person)['count']===2,'person profile retains published documentary media');
+ok(count((new Archive($db))->relatedPeople($image))===2,'public work exposes links to every published related martyr');
+ok((new Archive($db))->forPerson($person,1,PlatformSchema::termId($db,'media_type','photo'))['count']===1,'profile media type filter returns only the selected type');
+ok(count((new Archive($db))->personTypes($person))===2,'profile media tabs use actual published counts');
 ok((int)(new Archive($db))->image($newImage)['download_allowed']===0,'publication keeps original download disabled without permission');
 $originalDigest=hash_file('sha256',Upload::absolute($before['original_path']));
 set_error_handler(static function(int $severity,string $message,string $file,int $line):never{throw new ErrorException($message,0,$severity,$file,$line);});
