@@ -17,9 +17,10 @@ final class Importer {
         $result=['inserted'=>0,'skipped'=>0,'errors'=>[]];
         foreach(self::preview($db,$rows) as $r){
             if($r['status']!=='new'){ $result['skipped']++; if($r['status']==='invalid')$result['errors'][]=$r; continue; }
-            try { (new Archive($db))->save($r+['published'=>'1']); $result['inserted']++; }
+            try { unset($r['published']); (new Archive($db))->save($r); $result['inserted']++; }
             catch(\Throwable $e){ $result['errors'][]=['row'=>$r['row'],'code'=>$r['code'],'error'=>$e instanceof HttpError?$e->getMessage():'خطای پایگاه داده؛ ردیف وارد نشد']; }
         }
         Db::audit($db,'archive.import',json_encode(['inserted'=>$result['inserted'],'skipped'=>$result['skipped'],'errors'=>count($result['errors'])])); return $result;
     }
 }
+

@@ -98,5 +98,7 @@ check((int)Db::query($db,'SELECT COUNT(*) FROM protocol_changes WHERE martyr_id=
 transition($p,$id,'archived',['reason'=>'بایگانی آزمایشی']);check((new Archive($db))->find($id)===false&&$p->get($id)['profile']['status']==='archived','archive removes public visibility without deleting person');
 ob_start();Namira\ProtocolController::show($db,$actor);$html=ob_get_clean();check(str_contains($html,'name="form_complete"')&&!str_contains($html,'type="file"'),'rendered registration form is independent from file upload');
 foreach(range(1,8) as $stepNumber){$_GET=['edit'=>$id,'step'=>$stepNumber];ob_start();ProtocolController::show($db,$actor);$pageHtml=ob_get_clean();check(str_contains($pageHtml,ProtocolSpec::STEPS[$stepNumber]),'wizard step '.$stepNumber.' renders with persisted records');}
+Namira\Importer::commit($db,[['code'=>'003344','first_name'=>'ورودی','last_name'=>'اکسل','published'=>'1']]);$imported=Db::query($db,'SELECT id,published FROM martyrs WHERE code=?',['003344'])->fetch();check($imported['published']==0&&$p->get((int)$imported['id'])['profile']['status']==='draft','Excel imports cannot bypass review and publication');
 echo "\n$tests protocol checks passed on ".$db->getAttribute(PDO::ATTR_DRIVER_NAME).".\n";
 }catch(Throwable $e){if($e instanceof ProtocolErrors)fwrite(STDERR,json_encode($e->errors,JSON_UNESCAPED_UNICODE)."\n");fwrite(STDERR,$e->getMessage()."\n".$e->getTraceAsString()."\n");exit(1);}
+
