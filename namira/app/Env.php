@@ -18,8 +18,9 @@ final class Env {
         foreach($values as $key=>$value)if(is_string($key)&&preg_match('/^[A-Z_][A-Z0-9_]*$/D',$key)&&is_string($value)&&getenv($key)===false)putenv($key.'='.$value);
     }
     public static function get(string $key, string $default = ''): string { $v = getenv($key); return $v === false ? $default : $v; }
+    public static function privateRoot(): string { return defined('NAMIRA_SHARED_PATH') ? NAMIRA_SHARED_PATH : BASE_PATH; }
     public static function storage(): string {
-        $path = self::get('STORAGE_PATH') ?: BASE_PATH . '/storage';
+        $path = self::get('STORAGE_PATH') ?: self::privateRoot() . '/storage';
         if (!is_dir($path) && !mkdir($path, 0700, true) && !is_dir($path)) throw new \RuntimeException('Storage unavailable');
         return rtrim($path, '/\\');
     }

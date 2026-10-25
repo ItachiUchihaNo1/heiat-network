@@ -16,6 +16,11 @@ final class Db {
         return (int)$db->lastInsertId();
     }
     public static function transaction(PDO $db, callable $work): mixed {
+        if($db->inTransaction()){
+            $point='namira_'.bin2hex(random_bytes(8));$db->exec('SAVEPOINT '.$point);
+            try{$result=$work();$db->exec('RELEASE SAVEPOINT '.$point);return $result;}
+            catch(\Throwable $e){if($db->inTransaction())try{$db->exec('ROLLBACK TO SAVEPOINT '.$point);$db->exec('RELEASE SAVEPOINT '.$point);}catch(\Throwable){}throw $e;}
+        }
         $db->beginTransaction();
         try { $r=$work(); $db->commit(); return $r; } catch (\Throwable $e) { if($db->inTransaction()) $db->rollBack(); throw $e; }
     }

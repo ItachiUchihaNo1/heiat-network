@@ -31,6 +31,12 @@ final class AdminQueries {
         if(Permissions::allows($db,$user,'artists.view'))$add('artists','پرونده هنرمندان','SELECT COUNT(*) FROM artists WHERE archived=0','artists');
         if(Permissions::allows($db,$user,'requests.view'))$add('requests','درخواست طراحی در جریان',"SELECT COUNT(*) FROM design_requests WHERE status IN ('submitted','reviewing','accepted')",'requests');
         if(Permissions::allows($db,$user,'shop.manage')){$add('orders','سفارش نیازمند رسیدگی',"SELECT COUNT(*) FROM orders WHERE status IN ('paid','preparing')",'orders');$add('low_stock','تنوع کم‌موجودی','SELECT COUNT(*) FROM variants WHERE stock<=3','products');}
+        if(CommunitySchema::ready($db)){
+            if(Permissions::allows($db,$user,'calls.view'))$add('calls','فراخوان منتشرشده',"SELECT COUNT(*) FROM art_calls WHERE status='published'",'calls');
+            if(Permissions::allows($db,$user,'submissions.view'))$add('incoming_works','اثر در صف بررسی',"SELECT COUNT(*) FROM art_submissions WHERE status IN ('submitted','reviewing')",'submissions');
+            if(Permissions::allows($db,$user,'contributions.view'))$add('contributions','مشارکت در صف بررسی',"SELECT COUNT(*) FROM public_contributions WHERE status IN ('submitted','reviewing')",'contributions');
+            if(Permissions::allows($db,$user,'artists.claims.review'))$add('claims','اتصال هنرمند در صف',"SELECT COUNT(*) FROM artist_account_claims WHERE status='pending'",'claims');
+        }
         $activities=($user['role']==='superadmin')?Db::query($db,'SELECT a.*,u.email FROM audit_logs a LEFT JOIN users u ON u.id=a.user_id ORDER BY a.id DESC LIMIT 12')->fetchAll():Db::query($db,'SELECT a.*,u.email FROM audit_logs a LEFT JOIN users u ON u.id=a.user_id WHERE a.user_id=? ORDER BY a.id DESC LIMIT 12',[$user['id']])->fetchAll();
         return compact('stats','activities');
     }

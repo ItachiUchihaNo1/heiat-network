@@ -3,6 +3,25 @@ declare(strict_types=1);
 namespace Namira;
 use PDO;
 final class Accounts {
+    public static function register(PDO $db,array $in):int {
+        CommunitySchema::requireReady($db);Security::limit($db,'registration',5,3600);
+        $email=strtolower(Security::text($in,'email',190));if(!filter_var($email,FILTER_VALIDATE_EMAIL))throw new HttpError(422,'ایمیل ورود معتبر لازم است.');
+        $name=Security::normalize(Security::text($in,'display_name',255));$phone=Security::text($in,'phone',30,false);if($phone!=='')$phone=Security::phone($phone);
+        $password=$in['password']??null;$confirm=$in['password_confirm']??null;
+        if(!is_string($password)||!is_string($confirm)||str_contains($password,"\0")||mb_strlen($password)<12||strlen($password)>1024||!hash_equals($password,$confirm))throw new HttpError(422,'رمز حداقل ۱۲ نویسه و تکرار آن یکسان باشد.');
+        if(($in['consent']??'')!=='1')throw new HttpError(422,'پذیرش شرایط ثبت حساب لازم است.');
+        if(Db::query($db,'SELECT id FROM users WHERE email=?',[$email])->fetchColumn())throw new HttpError(409,'این ایمیل قبلاً ثبت شده است؛ از صفحه ورود استفاده کنید.');
+        try{return Db::transaction($db,function()use($db,$name,$email,$password,$phone){
+            $id=Db::insert($db,'users',['email'=>$email,'password_hash'=>password_hash($password,PASSWORD_DEFAULT),'role'=>'member','active'=>1]);
+            Db::insert($db,'user_roles',['user_id'=>$id,'role_key'=>'member']);$now=date('Y-m-d H:i:s');
+            Db::insert($db,'account_profiles',['user_id'=>$id,'display_name'=>$name,'phone'=>$phone,'created_at'=>$now,'updated_at'=>$now]);
+            Db::insert($db,'audit_logs',['user_id'=>$id,'action'=>'account.register','target'=>(string)$id,'created_at'=>$now]);return $id;
+        });}catch(\PDOException $e){if(in_array((int)($e->errorInfo[1]??0),[19,1062],true))throw new HttpError(409,'این ایمیل قبلاً ثبت شده است.');throw $e;}
+    }
+    public static function profile(PDO $db,array $actor,array $in):void {
+        CommunitySchema::requireReady($db);$actor=CommunityHistory::requireActor($db,$actor);$name=Security::normalize(Security::text($in,'display_name',255));$phone=Security::text($in,'phone',30,false);if($phone!=='')$phone=Security::phone($phone);$now=date('Y-m-d H:i:s');
+        if(Db::query($db,'SELECT user_id FROM account_profiles WHERE user_id=?',[$actor['id']])->fetchColumn())Db::query($db,'UPDATE account_profiles SET display_name=?,phone=?,updated_at=? WHERE user_id=?',[$name,$phone,$now,$actor['id']]);else Db::insert($db,'account_profiles',['user_id'=>$actor['id'],'display_name'=>$name,'phone'=>$phone,'created_at'=>$now,'updated_at'=>$now]);
+    }
     public static function save(PDO $db,array $actor,array $in):int {
         if(!Permissions::allows($db,$actor,'users.manage'))throw new HttpError(403,'مدیریت کاربران مجاز نیست.');
         $id=(int)($in['id']??0);$email=strtolower(Security::text($in,'email',190));if(!filter_var($email,FILTER_VALIDATE_EMAIL))throw new HttpError(422,'ایمیل معتبر لازم است.');

@@ -25,23 +25,26 @@ final class Upload {
         $meta=self::validate($source); $dir=Env::storage().'/'.$prefix;
         if(!is_dir($dir)) mkdir($dir,0700,true);
         $relative=$prefix.'/'.bin2hex(random_bytes(24)).'.'.$meta['extension'];
-        if(!copy($source,Env::storage().'/'.$relative)) throw new \RuntimeException('Cannot store upload');
+        if(!copy($source,Env::storage().'/'.$relative)){if(is_file(Env::storage().'/'.$relative))unlink(Env::storage().'/'.$relative);throw new \RuntimeException('Cannot store upload');}
         chmod(Env::storage().'/'.$relative,0600); return $meta+['path'=>$relative];
     }
-    public static function image(PDO $db,string $source,string $filename,array $in=[],?string $clientPreview=null): int {
-        if(!preg_match('/^([A-Za-z0-9_]+)-([1-9][0-9]{0,5})\.(jpg|jpeg|png|webp)$/iD',basename($filename),$match)) throw new HttpError(422,'نام فایل باید مانند 001254-1.jpg باشد.');
-        $m=Db::query($db,'SELECT id FROM martyrs WHERE code=?',[$match[1]])->fetchColumn();
-        if(!$m) throw new HttpError(422,'کد شهید در بانک اطلاعاتی وجود ندارد.');
+    public static function image(PDO $db,string $source,string $filename,array $in=[],?string $clientPreview=null,?int $personId=null,?int $sequence=null): int {
+        if($personId===null){
+            if(!preg_match('/^([A-Za-z0-9_]+)-([1-9][0-9]{0,5})\.(jpg|jpeg|png|webp)$/iD',basename($filename),$match))throw new HttpError(422,'نام فایل باید مانند 001254-1.jpg باشد.');
+            $m=Db::query($db,'SELECT id FROM martyrs WHERE code=?',[$match[1]])->fetchColumn();
+        }else{
+            $m=Db::query($db,'SELECT id FROM martyrs WHERE id=?',[$personId])->fetchColumn();
+            if(!$sequence||$sequence<1||$sequence>999999)throw new HttpError(422,'شماره رسانه معتبر نیست.');
+            $match=[0=>basename($filename),2=>$sequence];
+        }
+        if(!$m)throw new HttpError(422,'کد شهید در بانک اطلاعاتی وجود ندارد.');
         $meta=self::validate($source);
         $same=Db::query($db,'SELECT id FROM images WHERE sha256=?',[$meta['sha256']])->fetchColumn();
         if($same){if(PlatformSchema::ready($db)&&!Db::query($db,'SELECT image_id FROM media_martyrs WHERE image_id=? AND martyr_id=?',[$same,$m])->fetchColumn())throw new HttpError(409,'این فایل قبلاً برای پرونده دیگری ثبت شده است؛ از مدیریت رسانه، ارتباط شهید را با بررسی اضافه کنید.');return (int)$same;}
         if(Db::query($db,'SELECT id FROM images WHERE martyr_id=? AND sequence_no=?',[$m,(int)$match[2]])->fetch()) throw new HttpError(409,'این شماره تصویر قبلاً ثبت شده است.');
         $decodeSource=$source;$decodeMeta=$meta;
         if($clientPreview!==null){
-            $decodeMeta=self::validate($clientPreview);
-            if($decodeMeta['bytes']>8388608||max($decodeMeta['width'],$decodeMeta['height'])>1600)throw new HttpError(422,'پیش‌نمایش همراه باید حداکثر ۱۶۰۰ پیکسل و ۸ مگابایت باشد.');
-            $matches=function(int $width,int $height)use($decodeMeta):bool{$scale=min($decodeMeta['width']/$width,$decodeMeta['height']/$height);return abs($decodeMeta['width']-max(1,round($width*$scale)))<=2&&abs($decodeMeta['height']-max(1,round($height*$scale)))<=2;};
-            if(!$matches($meta['width'],$meta['height'])&& !($meta['mime']==='image/jpeg'&&$matches($meta['height'],$meta['width'])))throw new HttpError(422,'نسبت ابعاد پیش‌نمایش با فایل اصلی سازگار نیست؛ دوباره فایل را از فرم انتخاب کنید.');
+            $decodeMeta=self::companion($meta,$clientPreview);
             $decodeSource=$clientPreview;
         }
         self::assertDecodeMemory($decodeMeta);
@@ -55,8 +58,9 @@ final class Upload {
                 $canvas=imagecreatetruecolor($w,$h); imagealphablending($canvas,false); imagesavealpha($canvas,true);
                 imagecopyresampled($canvas,$img,0,0,0,0,$w,$h,$decodeMeta['width'],$decodeMeta['height']);
                 $relative='previews/'.bin2hex(random_bytes(24)).'.webp'; $dir=Env::storage().'/previews'; if(!is_dir($dir)) mkdir($dir,0700,true);
+                $files[]=$relative;
                 if(!imagewebp($canvas,Env::storage().'/'.$relative,80)) throw new \RuntimeException('Preview generation failed');
-                imagedestroy($canvas); $paths[$kind]=$relative; $files[]=$relative;
+                imagedestroy($canvas); $paths[$kind]=$relative;
             }
             imagedestroy($img);
             return Db::transaction($db,function()use($db,$m,$match,$meta,$saved,$paths,$in){
@@ -65,6 +69,21 @@ final class Upload {
                 Media::initialize($db,$id,(int)$m,$kind,(int)($in['media_type_id']??0));Db::audit($db,'image.upload',(string)$id); return $id;
             });
         } catch(\Throwable $e){ foreach($files as $f) if(is_file(Env::storage().'/'.$f)) unlink(Env::storage().'/'.$f); throw $e; }
+    }
+    public static function companion(array $meta,string $path):array {
+        $preview=self::validate($path);
+        if($preview['bytes']>8388608||max($preview['width'],$preview['height'])>1600)throw new HttpError(422,'پیش‌نمایش همراه باید حداکثر ۱۶۰۰ پیکسل و ۸ مگابایت باشد.');
+        $matches=function(int $width,int $height)use($preview):bool{$scale=min($preview['width']/$width,$preview['height']/$height);return abs($preview['width']-max(1,round($width*$scale)))<=2&&abs($preview['height']-max(1,round($height*$scale)))<=2;};
+        if(!$matches($meta['width'],$meta['height'])&&!($meta['mime']==='image/jpeg'&&$matches($meta['height'],$meta['width'])))throw new HttpError(422,'نسبت ابعاد پیش‌نمایش با فایل اصلی سازگار نیست؛ دوباره فایل را از فرم انتخاب کنید.');
+        return $preview;
+    }
+    public static function attach(PDO $db,int $person,string $source,string $filename,array $in=[],?string $companion=null):int {
+        return Db::transaction($db,function()use($db,$person,$source,$filename,$in,$companion){
+            $lock=$db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':'';
+            if(!Db::query($db,'SELECT id FROM martyrs WHERE id=?'.$lock,[$person])->fetchColumn())throw new HttpError(404,'پرونده شهید پیدا نشد.');
+            $next=(int)Db::query($db,'SELECT COALESCE(MAX(sequence_no),0)+1 FROM images WHERE martyr_id=?',[$person])->fetchColumn();
+            return self::image($db,$source,$filename,$in,$companion,$person,$next);
+        });
     }
     public static function assertDecodeMemory(array $meta):void {
         $raw=trim((string)ini_get('memory_limit'));$limit=-1;

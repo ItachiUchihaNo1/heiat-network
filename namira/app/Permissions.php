@@ -8,9 +8,9 @@ final class Permissions {
         'content'=>['dashboard.view','martyrs.view','martyrs.edit','media.view','media.create','media.edit','artists.view','artists.edit','taxonomy.view','reports.archive','requests.view','requests.edit'],
         'shop'=>['dashboard.view','shop.*','reports.shop'],
         'media_manager'=>['dashboard.view','media.*','artists.view','martyrs.view','taxonomy.view','reports.archive'],
-        'reviewer'=>['dashboard.view','media.view','media.review','media.publish','submissions.*','artists.view','artists.review','artists.publish'],
+        'reviewer'=>['dashboard.view','media.create','media.edit','martyrs.view','media.view','media.review','media.publish','submissions.*','artists.view','artists.review','artists.publish','artists.claims.review'],
         'call_manager'=>['dashboard.view','calls.*','submissions.*','artists.view','martyrs.view'],
-        'contribution_manager'=>['dashboard.view','contributions.*','martyrs.view'],
+        'contribution_manager'=>['dashboard.view','contributions.*','martyrs.view','martyrs.edit','media.view','media.create','media.edit'],
         'design_manager'=>['dashboard.view','requests.*','artists.view','martyrs.view','media.view'],
         'artist'=>['account.view','submissions.create','contributions.create','requests.create'],
         'member'=>['account.view','submissions.create','contributions.create','requests.create']

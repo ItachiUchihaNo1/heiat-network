@@ -10,3 +10,4 @@ a{color:inherit;text-decoration:none}.primary,.outline,.tab,.pill,.cart{display:
 @media(max-width:640px){.artist-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.artist-card{padding:16px 12px}.artist-card h2{font-size:15px}.artist-avatar{width:72px;height:72px}.artist-placeholder{line-height:72px}.image-detail h1{font-size:23px}.public-artist-search{display:grid;grid-template-columns:1fr}.public-artist-search label{min-width:0}}
 
 .public-artist-search input,.public-artist-search select{width:100%;border:1px solid #e0e8e2;border-radius:10px;padding:11px;margin-top:6px}
+@media(max-width:1100px){header{flex-wrap:wrap;gap:9px}header>nav{order:3;width:100%;overflow-x:auto;justify-content:flex-start;white-space:nowrap}header>nav>a{flex:none}}

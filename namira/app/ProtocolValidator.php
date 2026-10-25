@@ -5,6 +5,14 @@ use PDO;
 final class ProtocolValidator {
     public array $errors=[];
     public function __construct(private PDO $db,private array $actor,private ?int $personId=null){}
+    public static function formValues(array $definitions,array $saved):array {
+        foreach($definitions as $key=>$def){
+            if(!array_key_exists($key,$saved))continue;
+            if($def['type']==='lines'&&is_array($saved[$key]))$saved[$key]=implode("\n",$saved[$key]);
+            elseif(in_array($def['type'],['date','place'],true)&&is_array($saved[$key]))foreach($saved[$key] as &$part)if($part===null)$part='';
+        }
+        return $saved;
+    }
     public function fields(array $definitions,array $input,string $prefix='',array $old=[]):array {
         $out=[];
         foreach($definitions as $key=>$def){try{$out[$key]=$this->value($key,$def,$input[$key]??null,$old[$key]??null);if(in_array($def['type'],['terms','term'],true)){

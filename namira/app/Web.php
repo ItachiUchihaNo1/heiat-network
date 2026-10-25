@@ -20,15 +20,19 @@ final class Web {
                 Security::verify($_POST); self::action($db,$archive,$shop);
             }
 
+            if($page==='public-lookup')CommunityWeb::lookup($db);
+            if($page==='community-file')CommunityWeb::file($db);
             if($page==='admin-lookup'){
-                $actor=Permissions::require($db,'media.edit');$kind=Security::text($_GET,'kind',20);$q=Security::normalize(Security::text($_GET,'q',100,false));$items=[];
+                $actor=Security::user($db);if(!Permissions::allows($db,$actor,'media.edit')&&!Permissions::allows($db,$actor,'calls.edit')&&!Permissions::allows($db,$actor,'requests.edit')&&!Permissions::allows($db,$actor,'submissions.review')&&!Permissions::allows($db,$actor,'contributions.review'))throw new HttpError(403,'مجوز جست‌وجوی بانک مدیریت را ندارید.');$kind=Security::text($_GET,'kind',20);$q=Security::normalize(Security::text($_GET,'q',100,false));$items=[];
                 if(mb_strlen($q)>=2){$rows=$kind==='artists'?Db::query($db,'SELECT id,display_name AS label FROM artists WHERE archived=0 AND display_name LIKE ? ORDER BY display_name LIMIT 20',['%'.$q.'%'])->fetchAll():Db::query($db,"SELECT m.id,m.code,m.first_name,m.last_name FROM martyrs m WHERE m.code LIKE ? OR m.first_name LIKE ? OR m.last_name LIKE ? ORDER BY m.id DESC LIMIT 20",array_fill(0,3,'%'.$q.'%'))->fetchAll();foreach($rows as $row)$items[]=['id'=>(int)$row['id'],'label'=>$row['label']??($row['code'].' · '.$row['first_name'].' '.$row['last_name'])];}
                 header('Content-Type: application/json; charset=utf-8');header('Cache-Control: private, no-store');echo json_encode($items,JSON_UNESCAPED_UNICODE);return;
             }
             if($page==='asset'){
                 if(!PlatformSchema::ready($db))throw new HttpError(404,'تصویر پیدا نشد.');$id=(int)($_GET['id']??0);$asset=Db::query($db,'SELECT * FROM file_assets WHERE id=?',[$id])->fetch();if(!$asset)throw new HttpError(404,'تصویر پیدا نشد.');
                 $public=Db::query($db,"SELECT id FROM artists WHERE public_avatar_asset_id=? AND public_visible=1 AND archived=0",[$id])->fetchColumn();$actor=Security::user($db);
-                if(!$public&&!Permissions::allows($db,$actor?:[],'artists.view'))throw new HttpError(404,'تصویر پیدا نشد.');self::sendFile(Upload::absolute($asset['path']),$asset['mime'],'inline','profile.webp');return;
+                $public=$public||Db::query($db,"SELECT id FROM art_calls WHERE poster_asset_id=? AND status='published'",[$id])->fetchColumn();
+                $owned=false;if($actor&&CommunitySchema::ready($db)){$owned=Db::query($db,'SELECT a.id FROM artists a JOIN artist_accounts x ON x.artist_id=a.id LEFT JOIN artist_account_states s ON s.artist_id=x.artist_id AND s.user_id=x.user_id WHERE a.avatar_asset_id=? AND x.user_id=? AND COALESCE(s.active,1)=1',[$id,$actor['id']])->fetchColumn();}
+                if(!$public&&!$owned&&!Permissions::allows($db,$actor?:[],'artists.view'))throw new HttpError(404,'تصویر پیدا نشد.');self::sendFile(Upload::absolute($asset['path']),$asset['mime'],'inline','profile.webp');return;
             }
 
             if($page==='admin-media'){Permissions::require($db,'media.view');$image=Db::query($db,'SELECT * FROM images WHERE id=?',[(int)($_GET['id']??0)])->fetch();if(!$image)throw new HttpError(404,'تصویر پیدا نشد.');$original=($_GET['size']??'')==='original';self::sendFile(Upload::absolute($image[$original?'original_path':'thumb_path']),$original?$image['mime']:'image/webp',$original?'attachment':'inline','media-'.(int)$image['id']);return;}
@@ -80,23 +84,23 @@ final class Web {
                 case 'order':
                     $token=Security::text($_GET,'token',64); $order=Db::query($db,'SELECT * FROM orders WHERE token=?',[$token])->fetch(); if(!$order)throw new HttpError(404,'سفارش پیدا نشد.');
                     $items=Db::query($db,'SELECT * FROM order_items WHERE order_id=?',[$order['id']])->fetchAll(); $payment=Db::query($db,'SELECT * FROM payments WHERE order_id=?',[$order['id']])->fetch(); view('order',compact('order','items','payment')); break;
-                case 'account':if(!$user)redirect('login');view('account',compact('user'));break;
+                case 'register':case 'calls':case 'call':case 'submit-art':case 'contribute':case 'account':$title=CommunityWeb::show($db,$page,$user);break;
                 case 'login': view('login'); break;
                 case 'admin': self::admin($db,$user); break;
                 case 'about': view('about'); break;
                 default: throw new HttpError(404,'صفحه پیدا نشد.');
             }
-            $content=ob_get_clean(); view('layout',compact('content','page','title','user'));
+            $content=ob_get_clean(); view('layout',compact('content','page','title','user','db'));
         } catch(\Throwable $ex){
             while(ob_get_level()) ob_end_clean(); $status=$ex instanceof HttpError?$ex->status:503; http_response_code($status);
             $message=$ex instanceof HttpError?$ex->getMessage():'سرویس موقتاً در دسترس نیست؛ تنظیم پایگاه داده یا گزارش خطا را بررسی کنید.';
             if(!$ex instanceof HttpError) error_log('Namira: '.$ex->getMessage());
             if(self::jsonUpload()){ header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); echo json_encode(['ok'=>false,'message'=>$message],JSON_UNESCAPED_UNICODE); return; }
-            $title='نامیرا | '.$status; $user=false; $content='<section class="request"><h1>'.e(fa($status)).'</h1><p role="alert">'.e($message).'</p><p><a class="outline" href="'.e(url('home')).'">صفحه اصلی</a></p></section>'; view('layout',compact('content','page','title','user'));
+            $title='نامیرا | '.$status; $user=false; $content='<section class="request"><h1>'.e(fa($status)).'</h1><p role="alert">'.e($message).'</p><p><a class="outline" href="'.e(url('home')).'">صفحه اصلی</a></p></section>'; view('layout',compact('content','page','title','user','db'));
         }
     }
     private static function jsonUpload(): bool { return ($_SERVER['REQUEST_METHOD']??'')==='POST' && str_contains($_SERVER['HTTP_ACCEPT']??'','application/json'); }
-    private static function uploadResponse(string $page,array $params=[]): never {
+    public static function uploadResponse(string $page,array $params=[]): never {
         if(self::jsonUpload()){
             header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');
             echo json_encode(['ok'=>true,'redirect'=>url($page,$params)],JSON_UNESCAPED_UNICODE);exit;
@@ -104,14 +108,14 @@ final class Web {
         redirect($page,$params);
     }
     private static function action(PDO $db,Archive $archive,Shop $shop): never {
-        $a=Security::text($_POST,'action',40);if(AdminPanel::handles($a))AdminPanel::action($db,$a);
+        $a=Security::text($_POST,'action',40);if(CommunityWeb::handles($a))CommunityWeb::action($db,$a);if(AdminPanel::handles($a))AdminPanel::action($db,$a);
         switch($a){
             case 'login':
                 Security::limit($db,'login',8); $email=Security::text($_POST,'email',190); $password=$_POST['password']??'';if(!is_string($password)||strlen($password)>1024)throw new HttpError(422,'ایمیل یا رمز معتبر نیست.');
                 $u=Db::query($db,'SELECT * FROM users WHERE email=? AND active=1',[$email])->fetch();
                 $dummy='$2y$10$wHVV71XhPT3QCKoRV4pxXej0zu1ZokgOphJ9BSkS0HAsRkUPdMQpK';
                 if(!password_verify($password,$u['password_hash']??$dummy)||!$u) throw new HttpError(422,'ایمیل یا رمز معتبر نیست.');
-                session_regenerate_id(true); $_SESSION['user_id']=$u['id']; $_SESSION['csrf']=bin2hex(random_bytes(32)); redirect('admin');
+                session_regenerate_id(true); $_SESSION['user_id']=$u['id']; $_SESSION['csrf']=bin2hex(random_bytes(32));if(in_array($_POST['next_page']??'',['account','submit-art','contribute','call'],true))CommunityWeb::next($_POST);redirect('admin');
             case 'account-password':$actor=Security::user($db);if(!$actor)throw new HttpError(403,'ورود لازم است.');Accounts::password($db,$actor,$_POST);$_SESSION['flash']='رمز ورود تغییر کرد.';redirect('account');
             case 'logout': $_SESSION=[]; session_regenerate_id(true); redirect('home');
             case 'protocol-save': case 'protocol-transition': case 'protocol-shared': case 'protocol-term': ProtocolController::action($db,$a);
@@ -152,7 +156,7 @@ final class Web {
         else { $path=($_GET['size']??'')==='large'?$im['preview_path']:$im['thumb_path'];$mime='image/webp';$name='preview.webp'; }
         self::sendFile(Upload::absolute($path),$mime,$page==='download'?'attachment':'inline',$name);
     }
-    private static function sendFile(string $path,string $mime,string $disposition,string $name): void {
+    public static function sendFile(string $path,string $mime,string $disposition,string $name): void {
         header('Content-Type: '.$mime); header('Content-Length: '.filesize($path)); header('Content-Disposition: '.$disposition.'; filename="'.$name.'"'); header('Cache-Control: private, no-store'); readfile($path);
     }
 }
