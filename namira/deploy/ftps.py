@@ -83,7 +83,7 @@ def deploy():
             if not str(error).startswith('550'):
                 raise
         count = 0
-        for folder in ['app', 'views', 'database', 'bin', 'docs']:
+        for folder in ['app', 'views', 'database', 'bin', 'docs', 'licenses']:
             for local in sorted((ROOT / folder).rglob('*')):
                 if local.is_file():
                     upload(ftp, '_namira/' + local.relative_to(ROOT).as_posix(), local.read_bytes())

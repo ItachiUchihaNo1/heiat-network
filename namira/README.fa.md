@@ -117,3 +117,5 @@ TEST_DB_DSN='mysql:host=127.0.0.1;dbname=namira_test;charset=utf8mb4' TEST_DB_US
 
 
 
+
+راهنمای فرم هشت‌مرحله‌ای، ارتقای هاست بدون ترمینال و محدودیت‌های این مرحله: [docs/PROTOCOL-UPDATE.md](docs/PROTOCOL-UPDATE.md).

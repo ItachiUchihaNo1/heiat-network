@@ -45,7 +45,7 @@ final class Installer {
                 if(!$handle)throw new HttpError(503,'پوشه خصوصی نامیرا و storage باید برای PHP قابل نوشتن باشند.');
                 fclose($handle);unlink($probe);
             }
-            (require BASE_PATH.'/database/migrate.php')($db);
+            (require BASE_PATH.'/database/migrate.php')($db); \Namira\ProtocolSchema::migrate($db);
             Db::insert($db,'users',['email'=>$email,'password_hash'=>password_hash($password,PASSWORD_DEFAULT),'role'=>'superadmin']);
             $json=json_encode($config,JSON_THROW_ON_ERROR|JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT);
             $handle=fopen($this->root.'/config.local.json','x');if(!$handle)throw new HttpError(503,'ساخت تنظیمات خصوصی انجام نشد.');

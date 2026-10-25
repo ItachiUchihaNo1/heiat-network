@@ -1,0 +1,34 @@
+name: Deploy Namira using existing cPanel connection
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/deploy-namira.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: namira-test-shahidpics-existing-connection
+  cancel-in-progress: false
+jobs:
+  deploy-namira:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      DEPLOY_FTPS_HOST: ${{ secrets.DEPLOY_FTPS_HOST }}
+      DEPLOY_FTPS_USERNAME: ${{ secrets.DEPLOY_FTPS_USER }}
+      DEPLOY_FTPS_PASSWORD: ${{ secrets.DEPLOY_FTPS_PASSWORD }}
+      DEPLOY_FTPS_PORT: ${{ vars.DEPLOY_FTPS_PORT || '21' }}
+      DEPLOY_FTPS_DIR: ${{ vars.NAMIRA_FTPS_DIR || 'Public_html/new' }}
+      DEPLOY_SITE_URL: https://test.shahidpics.com
+    steps:
+      - name: Read validated Namira source from heiat-network
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          repository: ItachiUchihaNo1/heiat-network
+          ref: f84cdbfbfe4ba519109e6f4798f794795c83c2c4
+          path: namira-source
+          persist-credentials: false
+      - name: Validate deployment script
+        run: python3 -m py_compile namira-source/namira/deploy/ftps.py
+      - name: Deploy only Namira to its own document root
+        run: python3 namira-source/namira/deploy/ftps.py

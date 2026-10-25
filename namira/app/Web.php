@@ -38,7 +38,7 @@ final class Web {
                     view('gallery',compact('page','f','result','categories','options')); break;
                 case 'profile':
                     $m=$archive->find((int)($_GET['id']??0)); if(!$m)throw new HttpError(404,'پروفایل پیدا نشد.');
-                    $title='شهید '.$m['first_name'].' '.$m['last_name'].' | نامیرا';
+                    $title='شهید '.(($m['display_name']??'')?:trim($m['first_name'].' '.$m['last_name'])).' | نامیرا';
                     $images=Db::query($db,'SELECT i.*,m.first_name,m.last_name,m.code,m.province,m.city FROM images i JOIN martyrs m ON m.id=i.martyr_id WHERE i.martyr_id=? AND i.published=1 ORDER BY i.sequence_no',[$m['id']])->fetchAll();
                     view('profile',compact('m','images')); break;
                 case 'image': $im=$archive->image((int)($_GET['id']??0)); if(!$im)throw new HttpError(404,'تصویر پیدا نشد.'); $title=$im['title'].' | نامیرا'; view('image',compact('im')); break;
@@ -92,7 +92,8 @@ final class Web {
                 if(!password_verify($password,$u['password_hash']??$dummy)||!$u) throw new HttpError(422,'ایمیل یا رمز معتبر نیست.');
                 session_regenerate_id(true); $_SESSION['user_id']=$u['id']; $_SESSION['csrf']=bin2hex(random_bytes(32)); redirect('admin');
             case 'logout': $_SESSION=[]; session_regenerate_id(true); redirect('home');
-            case 'martyr-save': Security::requireRole($db,'content'); $id=$archive->save($_POST,!empty($_POST['id'])?(int)$_POST['id']:null); $_SESSION['flash']='اطلاعات ذخیره شد.'; redirect('admin',['tab'=>'martyrs','edit'=>$id]);
+            case 'protocol-save': case 'protocol-transition': case 'protocol-shared': case 'protocol-term': ProtocolController::action($db,$a);
+            case 'martyr-save': throw new HttpError(410,'از فرم هشت‌مرحله‌ای ثبت شهید استفاده کنید.'); Security::requireRole($db,'content'); $id=$archive->save($_POST,!empty($_POST['id'])?(int)$_POST['id']:null); $_SESSION['flash']='اطلاعات ذخیره شد.'; redirect('admin',['tab'=>'martyrs','edit'=>$id]);
             case 'category': Security::requireRole($db,'content'); Db::insert($db,'categories',['name'=>Security::text($_POST,'name',150)]); Db::audit($db,'category.create',''); redirect('admin',['tab'=>'categories']);
             case 'images':
                 Security::requireRole($db,'content'); $files=self::files('images'); if(!$files||count($files)>10) throw new HttpError(422,'از ۱ تا ۱۰ فایل در هر نوبت انتخاب کنید.'); $messages=[];
@@ -125,7 +126,7 @@ final class Web {
         if(!$user) redirect('login'); $tab=Security::text($_GET,'tab',30,false)?:($user['role']==='shop'?'orders':'martyrs');
         $area=in_array($tab,['products','orders','returns'],true)?'shop':($tab==='users'?'users':'content'); Security::requireRole($db,$area);
         $data=['db'=>$db,'tab'=>$tab,'user'=>$user];
-        if($tab==='martyrs'){ $data['martyrs']=Db::query($db,'SELECT * FROM martyrs ORDER BY id DESC LIMIT 100')->fetchAll(); $data['editing']=!empty($_GET['edit'])?(new Archive($db))->find((int)$_GET['edit'],false):false; $data['categories']=Db::query($db,'SELECT * FROM categories')->fetchAll(); $data['selected']=$data['editing']?Db::query($db,'SELECT category_id FROM martyr_categories WHERE martyr_id=?',[$data['editing']['id']])->fetchAll(\PDO::FETCH_COLUMN):[]; }
+        if($tab==='martyrs'){ ProtocolController::ensure($db,$user); $data['martyrs']=Db::query($db,'SELECT * FROM martyrs ORDER BY id DESC LIMIT 100')->fetchAll(); $data['editing']=!empty($_GET['edit'])?(new Archive($db))->find((int)$_GET['edit'],false):false; $data['categories']=Db::query($db,'SELECT * FROM categories')->fetchAll(); $data['selected']=$data['editing']?Db::query($db,'SELECT category_id FROM martyr_categories WHERE martyr_id=?',[$data['editing']['id']])->fetchAll(\PDO::FETCH_COLUMN):[]; }
         view('admin',$data);
     }
     private static function media(PDO $db,Archive $archive,string $page): void {

@@ -19,11 +19,18 @@ final class Archive {
             Db::audit($this->db,'martyr.save',(string)$id); return $id;
         });
     }
-    public function find(int $id,bool $public=true): array|false { return Db::query($this->db,'SELECT * FROM martyrs WHERE id=?'.($public?' AND published=1':''),[$id])->fetch(); }
+    public function find(int $id,bool $public=true): array|false {
+        $m=Db::query($this->db,'SELECT * FROM martyrs WHERE id=?'.($public?' AND published=1':''),[$id])->fetch();
+        if($m&&ProtocolSchema::ready($this->db)){$p=Db::query($this->db,'SELECT public_name,public_snapshot FROM martyr_protocols WHERE martyr_id=?',[$id])->fetch();if($p){$m['display_name']=$p['public_name']?:trim($m['first_name'].' '.$m['last_name']);$m['protocol']=Protocol::decode($p['public_snapshot']);}}
+        return $m;
+    }
+    private function publicNameSql():string {return ProtocolSchema::ready($this->db)?"COALESCE(NULLIF((SELECT public_name FROM martyr_protocols mp WHERE mp.martyr_id=m.id),''),TRIM(CONCAT(m.first_name,' ',m.last_name)))":"";}
+    private function nameSelect():string {if(!ProtocolSchema::ready($this->db))return '';return ",(SELECT public_name FROM martyr_protocols mp WHERE mp.martyr_id=m.id) AS display_name";}
+
     public function conditions(array $f): array {
         $where=['m.published=1']; $args=[];
         $q=Security::normalize(Security::text($f,'q',150,false));
-        if($q!=='') foreach(preg_split('/\s+/u',$q,-1,PREG_SPLIT_NO_EMPTY) as $term){ $where[]='(m.first_name LIKE ? OR m.last_name LIKE ? OR m.code LIKE ? OR m.summary LIKE ?)'; $args=[...$args,...array_fill(0,4,'%'.$term.'%')]; }
+        if($q!=='') foreach(preg_split('/\s+/u',$q,-1,PREG_SPLIT_NO_EMPTY) as $term){ $name=ProtocolSchema::ready($this->db)?' OR EXISTS(SELECT 1 FROM martyr_protocols mp WHERE mp.martyr_id=m.id AND mp.public_name LIKE ?)':'';$where[]='(m.first_name LIKE ? OR m.last_name LIKE ? OR m.code LIKE ? OR m.summary LIKE ?'.$name.')'; $args=[...$args,...array_fill(0,$name?5:4,'%'.$term.'%')]; }
         foreach(['province','city','job','organization'] as $key){ $v=Security::text($f,$key,150,false); if($v!==''){ $where[]='m.'.$key.'=?'; $args[]=$v; } }
         if(!empty($f['category'])){ $where[]='EXISTS(SELECT 1 FROM martyr_categories mc WHERE mc.martyr_id=m.id AND mc.category_id=?)'; $args[]=(int)$f['category']; }
         return [implode(' AND ',$where),$args];
@@ -36,10 +43,10 @@ final class Archive {
         $sort=['new'=>'i.id DESC','name'=>'m.last_name,m.first_name,i.id','downloads'=>'i.downloads DESC,i.id DESC'][$f['sort']??'new']??'i.id DESC';
         $count=(int)Db::query($this->db,'SELECT COUNT(*) FROM images i JOIN martyrs m ON m.id=i.martyr_id WHERE '.$where,$args)->fetchColumn();
         $offset=(max(1,$page)-1)*$perPage;
-        $items=Db::query($this->db,'SELECT i.*,m.first_name,m.last_name,m.code,m.province,m.city FROM images i JOIN martyrs m ON m.id=i.martyr_id WHERE '.$where.' ORDER BY '.$sort.' LIMIT '.(int)$perPage.' OFFSET '.$offset,$args)->fetchAll();
+        $items=Db::query($this->db,'SELECT i.*,m.first_name,m.last_name,m.code,m.province,m.city'.$this->nameSelect().' FROM images i JOIN martyrs m ON m.id=i.martyr_id WHERE '.$where.' ORDER BY '.$sort.' LIMIT '.(int)$perPage.' OFFSET '.$offset,$args)->fetchAll();
         return compact('items','count');
     }
-    public function image(int $id): array|false { return Db::query($this->db,'SELECT i.*,m.first_name,m.last_name,m.code FROM images i JOIN martyrs m ON m.id=i.martyr_id WHERE i.id=? AND i.published=1 AND m.published=1',[$id])->fetch(); }
+    public function image(int $id): array|false { return Db::query($this->db,'SELECT i.*,m.first_name,m.last_name,m.code'.$this->nameSelect().' FROM images i JOIN martyrs m ON m.id=i.martyr_id WHERE i.id=? AND i.published=1 AND m.published=1',[$id])->fetch(); }
     public function export(array $f): array {
         [$w,$args]=$this->conditions($f);
         $martyrs=Db::query($this->db,'SELECT m.* FROM martyrs m WHERE '.$w.' ORDER BY m.id',$args)->fetchAll();
