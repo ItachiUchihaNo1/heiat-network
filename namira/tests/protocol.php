@@ -91,9 +91,12 @@ check(Db::query($db,'SELECT * FROM images WHERE id=?',[$imageId])->fetch()===$im
 $beforeSections=$p->get($id)['sections'];saveStep($p,$id,6,['collections'=>[]]);check($p->get($id)['sections'][2]===$beforeSections[2],'saving another step preserves date/place sections');
 check((int)Db::query($db,'SELECT COUNT(*) FROM protocol_person_terms')->fetchColumn()>0,'multi selections stored in normalized junction tables');
 $collection=ProtocolController::term($db,$actor,['taxonomy'=>'collection','title'=>'مجموعه شرطی دانشمند','slug'=>'scientist-filter','collection_mode'=>'filter','filter_field'=>'occupations','filter_term_id'=>term($db,'occupation','دانشمند'),'active'=>'1']);
+rejected(fn()=>saveStep($p,$noCode,6,['collections'=>[$collection]]),'filter-based collections cannot be manually asserted');
 $derived=$p->publicSnapshot($p->get($noCode),[]);check(in_array($collection,$derived['sections'][6]['collections']??[],true),'filter-based collection membership derives from actual data');
 $editorial=term($db,'collection','هسته‌ای');saveStep($p,$id,6,['collections'=>[$editorial]]);transition($p,$id,'pending');transition($p,$id,'approved');
 rejected(fn()=>transition($p,$id,'published',['publication_ack'=>'1','incomplete_ack'=>'1','reason'=>'آزمون']),'editorial collection cannot publish without reviewed source');
+saveStep($p,$id,6,['collections'=>[]]);$editIdentity=$p->get($id)['sections'][1];$editIdentity['archive_code']='000009';saveStep($p,$id,1,$editIdentity);check($p->get($id)['core']['code']==='000002','draft archive code change does not affect active public profile');
+transition($p,$id,'pending');transition($p,$id,'approved');transition($p,$id,'published',['publication_ack'=>'1','incomplete_ack'=>'1','reason'=>'بررسی و اصلاح کد آرشیو']);check($p->get($id)['core']['code']==='000009','reviewed archive code change also updates upload matching code');
 check((int)Db::query($db,'SELECT COUNT(*) FROM protocol_changes WHERE martyr_id=?',[$id])->fetchColumn()>0,'field history records actor and before/after data');
 transition($p,$id,'archived',['reason'=>'بایگانی آزمایشی']);check((new Archive($db))->find($id)===false&&$p->get($id)['profile']['status']==='archived','archive removes public visibility without deleting person');
 ob_start();Namira\ProtocolController::show($db,$actor);$html=ob_get_clean();check(str_contains($html,'name="form_complete"')&&!str_contains($html,'type="file"'),'rendered registration form is independent from file upload');

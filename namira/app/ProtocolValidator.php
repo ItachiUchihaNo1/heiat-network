@@ -25,7 +25,7 @@ final class ProtocolValidator {
             case 'place':return $this->place(is_array($v)?$v:[]);
             case 'terms':case 'term':
                 if($def['type']==='terms'&&!is_array($v)&&$v!==null)throw new HttpError(422,'گزینه‌های چندانتخابی باید فهرست شناسه‌ها باشند.');$ids=$def['type']==='term'?($v?[$v]:[]):($v??[]);if(count($ids)>100)throw new HttpError(422,'تعداد گزینه‌ها بیش از حد است.');$result=[];
-                foreach(array_unique($ids) as $id){if(!ctype_digit((string)$id))throw new HttpError(422,'شناسه گزینه نامعتبر است.');$term=Db::query($this->db,'SELECT * FROM protocol_terms WHERE id=? AND taxonomy=?',[(int)$id,$def['options']['taxonomy']])->fetch();if(!$term||(!$term['active']&&!in_array((int)$id,(array)$old)))throw new HttpError(422,'گزینه از فرهنگ موردنظر نیست یا غیرفعال است.');$result[]=(int)$id;}
+                foreach(array_unique($ids) as $id){if(!ctype_digit((string)$id))throw new HttpError(422,'شناسه گزینه نامعتبر است.');$term=Db::query($this->db,'SELECT * FROM protocol_terms WHERE id=? AND taxonomy=?',[(int)$id,$def['options']['taxonomy']])->fetch();if(!$term||(!$term['active']&&!in_array((int)$id,(array)$old)))throw new HttpError(422,'گزینه از فرهنگ موردنظر نیست یا غیرفعال است.');if($key==='collections'&&(Protocol::decode($term['metadata'])['mode']??'')==='filter')throw new HttpError(422,'مجموعه مبتنی بر شرط از داده‌های پرونده محاسبه می‌شود و انتخاب دستی ندارد.');$result[]=(int)$id;}
                 return $def['type']==='term'?($result[0]??null):$result;
             case 'source':case 'event':case 'record':case 'affiliation':
                 if($v===null||$v==='')return null;if(!ctype_digit((string)$v))throw new HttpError(422,'شناسه ارجاع نامعتبر است.');$table=match($def['type']){'source'=>'protocol_sources','event'=>'protocol_events',default=>'protocol_records'};$args=[(int)$v];$sql='SELECT id FROM '.$table.' WHERE id=?';
@@ -52,3 +52,4 @@ final class ProtocolValidator {
     }
     public function assert():void {if($this->errors)throw new ProtocolErrors($this->errors);}
 }
+
