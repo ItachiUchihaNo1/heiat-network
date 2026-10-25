@@ -32,6 +32,10 @@ jobs:
         run: find namira -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Upload progress behavior checks
         run: node namira/tests/upload-progress.cjs
+      - name: Large image and client preview checks
+        run: |
+          node namira/tests/image-previews.cjs
+          php namira/tests/large-images.php
       - name: SQLite behavior tests
         run: php namira/tests/run.php
       - name: Protocol acceptance tests on SQLite
@@ -79,6 +83,7 @@ jobs:
           DEPLOY_FTPS_PORT: ${{ vars.DEPLOY_FTPS_PORT || '21' }}
           DEPLOY_SITE_URL: https://test.shahidpics.com
         run: python3 namira/deploy/ftps.py
+
 
 
 

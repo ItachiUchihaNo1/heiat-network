@@ -43,6 +43,8 @@
         message.textContent = 'ارسال به ۱۰۰٪ رسید؛ سرور در حال بررسی، ذخیره و ساخت پیش‌نمایش‌هاست…';
         totals.textContent = 'ارسال کامل شد؛ تا دریافت گزارش سرور این صفحه را باز نگه دارید.';
       };
+      const transmit = () => {
+      box.dataset.state='uploading';meter.value=0;message.textContent='در حال شروع ارسال…';
       const xhr = new XMLHttpRequest();
       xhr.upload.addEventListener('progress', event => {
         if (event.lengthComputable && event.total > 0) {
@@ -81,6 +83,20 @@
         xhr.timeout = 600000;
         xhr.send(data);
       } catch { fail(pending); }
+      };
+      if(form.dataset.uploadPreview==='true'){
+        if(typeof window.NamiraImagePreviews!=='function'){fail('ابزار پیش‌نمایش بارگیری نشده است؛ صفحه را با Ctrl+F5 تازه کنید.');return;}
+        box.dataset.state='preparing';meter.removeAttribute('value');
+        window.NamiraImagePreviews(files,(done,total)=>{
+          message.textContent='در حال آماده‌سازی پیش‌نمایش سبک: '+fa.format(done)+' از '+fa.format(total)+' فایل؛ اصل فایل تغییر نمی‌کند.';
+          totals.textContent='پس از آماده‌سازی، درصد ارسال و حجم باقی‌مانده نمایش داده می‌شود.';
+        }).then(previews=>{
+          if(previews.length!==files.length)throw new Error('تعداد پیش‌نمایش‌ها کامل نیست.');
+          previews.forEach((blob,index)=>data.append('previews['+index+']',blob,'preview-'+index+(blob.type==='image/png'?'.png':'.webp')));
+          transmit();
+        }).catch(error=>{totals.textContent='هنوز فایلی به سرور ارسال نشده است.';fail(error.message||'ساخت پیش‌نمایش انجام نشد؛ فایل را بررسی کنید.');});
+      }else transmit();
     });
   });
 })();
+

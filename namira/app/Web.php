@@ -96,9 +96,10 @@ final class Web {
             case 'martyr-save': throw new HttpError(410,'از فرم هشت‌مرحله‌ای ثبت شهید استفاده کنید.'); Security::requireRole($db,'content'); $id=$archive->save($_POST,!empty($_POST['id'])?(int)$_POST['id']:null); $_SESSION['flash']='اطلاعات ذخیره شد.'; redirect('admin',['tab'=>'martyrs','edit'=>$id]);
             case 'category': Security::requireRole($db,'content'); Db::insert($db,'categories',['name'=>Security::text($_POST,'name',150)]); Db::audit($db,'category.create',''); redirect('admin',['tab'=>'categories']);
             case 'images':
-                Security::requireRole($db,'content'); $files=self::files('images'); if(!$files||count($files)>10) throw new HttpError(422,'از ۱ تا ۱۰ فایل در هر نوبت انتخاب کنید.'); $messages=[];
-                foreach($files as $f){ try{ $id=Upload::image($db,Upload::receive($f),$f['name'],$_POST); $messages[]=$f['name'].' : ثبت/موجود '.$id; }catch(\Throwable $ex){ error_log('Upload: '.$ex->getMessage()); $messages[]=$f['name'].' : '.($ex instanceof HttpError?$ex->getMessage():'خطای پردازش؛ دوباره تلاش کنید'); } }
-                $_SESSION['flash']=implode("\n",$messages); self::uploadResponse('admin',['tab'=>'images']);
+                Security::requireRole($db,'content'); $files=self::files('images'); if(!$files||count($files)>10) throw new HttpError(422,'از ۱ تا ۱۰ فایل در هر نوبت انتخاب کنید.'); $messages=[]; $failedUploads=0;
+                 $previews=self::files('previews');if($previews&&count($previews)!==count($files))throw new HttpError(422,'تعداد پیش‌نمایش‌های همراه با فایل‌های اصلی یکسان نیست.');
+                foreach($files as $index=>$f){ try{ $id=Upload::image($db,Upload::receive($f),$f['name'],$_POST,isset($previews[$index])?Upload::receive($previews[$index]):null); $messages[]=$f['name'].' : ثبت/موجود '.$id; }catch(\Throwable $ex){ $failedUploads++; error_log('Upload: '.$ex->getMessage()); $messages[]=$f['name'].' : '.($ex instanceof HttpError?$ex->getMessage():'خطای پردازش؛ دوباره تلاش کنید'); } }
+                $_SESSION['flash_type']=$failedUploads?'error':'success'; $_SESSION['flash']=implode("\n",$messages); self::uploadResponse('admin',['tab'=>'images']);
             case 'image-publish': Security::requireRole($db,'content'); Db::query($db,'UPDATE images SET published=? WHERE id=?',[(int)!empty($_POST['published']),(int)$_POST['id']]); Db::audit($db,'image.publish',(string)(int)$_POST['id']); redirect('admin',['tab'=>'images']);
             case 'import-preview': Security::requireRole($db,'content'); $files=self::files('excel'); if(count($files)!==1) throw new HttpError(422,'یک فایل XLSX انتخاب کنید.'); $_SESSION['import_rows']=Xlsx::read(Upload::receive($files[0])); redirect('admin',['tab'=>'import']);
             case 'import-commit': Security::requireRole($db,'content'); $result=Importer::commit($db,$_SESSION['import_rows']??[]); unset($_SESSION['import_rows']); $_SESSION['import_result']=$result; $_SESSION['flash']='ورود انجام شد: '.$result['inserted'].' جدید، '.$result['skipped'].' بدون تغییر، '.count($result['errors']).' خطا.'; redirect('admin',['tab'=>'import']);
@@ -139,5 +140,6 @@ final class Web {
         header('Content-Type: '.$mime); header('Content-Length: '.filesize($path)); header('Content-Disposition: '.$disposition.'; filename="'.$name.'"'); header('Cache-Control: private, no-store'); readfile($path);
     }
 }
+
 
 
