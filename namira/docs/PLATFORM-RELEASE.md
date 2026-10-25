@@ -34,7 +34,7 @@
 - tests/run.php: ۳۴ بررسی رفتار اصلی.
 - tests/protocol.php: ۵۹ بررسی پروتکل و حریم داده.
 - tests/installer.php: ۱۸ بررسی نصب.
-- tests/platform.php: ۵۷ بررسی جدید شامل migration، قفل هم‌زمان، بازیابی SQL، حفظ داده و فایل، نقش‌ها، snapshot، انتساب، تفکیک رسانه و رندر بخش‌های مدیریت.
+- tests/platform.php: ۵۸ بررسی جدید شامل migration، قفل هم‌زمان، بازیابی SQL، حفظ داده و فایل، نقش‌ها، snapshot، انتساب، تفکیک رسانه و رندر بخش‌های مدیریت.
 - tests/large-images.php: ۱۳ بررسی فایل ۴۸ مگاپیکسل با حافظه ۱۲۸ مگابایت و پیش‌نمایش همراه.
 - tests/upload-progress.cjs: ۲۰ بررسی فرایند ارسال.
 - tests/image-previews.cjs: ۹ بررسی پیش‌نمایش مرورگر.

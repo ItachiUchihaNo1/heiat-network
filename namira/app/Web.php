@@ -107,7 +107,7 @@ final class Web {
         $a=Security::text($_POST,'action',40);if(AdminPanel::handles($a))AdminPanel::action($db,$a);
         switch($a){
             case 'login':
-                Security::limit($db,'login',8); $email=Security::text($_POST,'email',190); $password=Security::text($_POST,'password',1024);
+                Security::limit($db,'login',8); $email=Security::text($_POST,'email',190); $password=$_POST['password']??'';if(!is_string($password)||strlen($password)>1024)throw new HttpError(422,'ایمیل یا رمز معتبر نیست.');
                 $u=Db::query($db,'SELECT * FROM users WHERE email=? AND active=1',[$email])->fetch();
                 $dummy='$2y$10$wHVV71XhPT3QCKoRV4pxXej0zu1ZokgOphJ9BSkS0HAsRkUPdMQpK';
                 if(!password_verify($password,$u['password_hash']??$dummy)||!$u) throw new HttpError(422,'ایمیل یا رمز معتبر نیست.');

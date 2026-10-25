@@ -45,7 +45,9 @@ final class Archive {
         return Db::query($this->db,'SELECT ma.artist_id,ma.creator_role,ma.credit_name,a.slug,a.status,a.archived,a.public_visible FROM media_public_artists ma JOIN artists a ON a.id=ma.artist_id WHERE ma.image_id=? ORDER BY ma.credit_order,ma.artist_id',[$image])->fetchAll();
     }
     public function images(array $f=[],int $page=1,int $perPage=24): array {
-        [$where,$args]=$this->conditions($f); $where.=' AND i.published=1';
+        [$where,$args]=$this->conditions($f);
+        if(PlatformSchema::ready($this->db))$where='EXISTS(SELECT 1 FROM media_public_martyrs related JOIN martyrs m ON m.id=related.martyr_id WHERE related.image_id=i.id AND '.$where.')';
+        $where.=' AND i.published=1';
         $kind=Security::text($f,'kind',30,false)?:'design';if($kind!=='all'){$where.=' AND i.kind=?';$args[]=$kind;}
         if(PlatformSchema::ready($this->db)){
             if(!empty($f['martyr_id'])){$where.=' AND EXISTS(SELECT 1 FROM media_public_martyrs mm WHERE mm.image_id=i.id AND mm.martyr_id=?)';$args[]=(int)$f['martyr_id'];}

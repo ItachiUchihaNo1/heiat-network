@@ -46,6 +46,7 @@ ok(Db::query($db,'SELECT title FROM images WHERE id=?',[$image])->fetchColumn()=
 function mediaTransition(Media $s,int $id,string $to):void{$s->transition($id,$to,['revision'=>$s->get($id)['revision'],'publication_ack'=>'1']);}
 mediaTransition($media,$image,'pending');mediaTransition($media,$image,'approved');mediaTransition($media,$image,'published');
 ok((int)Db::query($db,'SELECT COUNT(*) FROM media_public_martyrs WHERE image_id=?',[$image])->fetchColumn()===2,'one published artwork links to multiple martyrs');
+ok((new Archive($db))->images(['q'=>'دوم'])['count']===1,'shared artwork can be found by the secondary martyr name');
 ok(Db::query($db,'SELECT artist_id FROM media_public_artists WHERE image_id=?',[$image])->fetchColumn()==$artist,'creator link uses stable artist id');
 ok(hash_file('sha256',Upload::absolute($before['original_path']))===hash_file('sha256',$file),'artist attribution never rewrites original image bytes');
 reject(fn()=>(new Media($db,$content))->transition($image,'published',['revision'=>$media->get($image)['revision'],'publication_ack'=>'1']),403,'registrar cannot bypass media publication permission');
