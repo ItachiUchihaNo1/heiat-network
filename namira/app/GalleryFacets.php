@@ -18,7 +18,7 @@ final class GalleryFacets {
     }
     public static function geo(PDO $db,array $f,string $role):array {
         [$from,$where,$args]=self::base($db,self::withoutGeo($f));$out=[];$parents=[];$parentArgs=[];
-        foreach(self::LEVELS as $level){$col=$level.'_id';$sql='SELECT DISTINCT t.id,t.title,t.parent_id '.$from.' JOIN martyr_public_facts gf ON gf.martyr_id=m.id JOIN protocol_terms t ON t.id=gf.'.$col.' WHERE '.$where.' AND gf.fact_key=? AND t.taxonomy=? AND t.active=1';if($parents)$sql.=' AND '.implode(' AND ',$parents);$out[$level]=Db::query($db,$sql.' ORDER BY t.sort_order,t.title,t.id',[...$args,$role,$level,...$parentArgs])->fetchAll();if(($f['geo_'.$level]??'')!==''){$parents[]='gf.'.$col.'=?';$parentArgs[]=(int)$f['geo_'.$level];}}
+        foreach(self::LEVELS as $level){$col=$level.'_id';$sql='SELECT DISTINCT t.id,t.title,t.parent_id,t.sort_order '.$from.' JOIN martyr_public_facts gf ON gf.martyr_id=m.id JOIN protocol_terms t ON t.id=gf.'.$col.' WHERE '.$where.' AND gf.fact_key=? AND t.taxonomy=? AND t.active=1';if($parents)$sql.=' AND '.implode(' AND ',$parents);$out[$level]=Db::query($db,$sql.' ORDER BY t.sort_order,t.title,t.id',[...$args,$role,$level,...$parentArgs])->fetchAll();if(($f['geo_'.$level]??'')!==''){$parents[]='gf.'.$col.'=?';$parentArgs[]=(int)$f['geo_'.$level];}}
         return $out;
     }
     public static function options(PDO $db,array $f=[]):array {
