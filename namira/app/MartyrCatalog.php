@@ -8,7 +8,8 @@ final class MartyrCatalog {
     }
     public static function axes(PDO $db,bool $public=false):array {
         if(!MartyrTaxonomySchema::ready($db))return [];
-        return Db::query($db,'SELECT a.*,s.description,s.selection_mode,s.form_section,s.form_order,s.filter_order,s.hierarchical,s.show_in_form,s.binding_kind,s.binding_key,s.revision FROM taxonomy_axes a JOIN martyr_axis_settings s ON s.axis_key=a.axis_key WHERE a.subject=?'.($public?' AND a.active=1 AND a.public_filter=1':'').' ORDER BY '.($public?'s.filter_order':'s.form_order').',a.axis_key',['martyr'])->fetchAll();
+        $join=$db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?"CONCAT('gallery_group_',a.axis_key)":"'gallery_group_' || a.axis_key";
+        return Db::query($db,"SELECT a.*,s.description,s.selection_mode,s.form_section,s.form_order,s.filter_order,s.hierarchical,s.show_in_form,s.binding_kind,s.binding_key,s.revision,COALESCE(g.value,CASE WHEN a.axis_key='collection' THEN 'thematic' ELSE 'other' END) AS filter_group FROM taxonomy_axes a JOIN martyr_axis_settings s ON s.axis_key=a.axis_key LEFT JOIN app_settings g ON g.setting_key=".$join.' WHERE a.subject=?'.($public?' AND a.active=1 AND a.public_filter=1':'').' ORDER BY '.($public?'s.filter_order':'s.form_order').',a.axis_key',['martyr'])->fetchAll();
     }
     public static function definitions(PDO $db,int|string $part):array {
         $defs=ProtocolSpec::fields($part);if(!MartyrTaxonomySchema::ready($db))return $defs;
