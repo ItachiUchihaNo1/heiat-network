@@ -14,14 +14,17 @@ Create a file with code, first and last name, then complete its sections progres
 
 Category axes and terms use stable identifiers. Built-in semantic bindings remain distinct. Custom axes can be created centrally; form visibility, public filter visibility, order and selection mode are configurable. Used semantic bindings cannot be silently repurposed. Merge records redirect lookup while preserving original relationships; geographic merges require manual review rather than automatic conversion.
 
-## Public filters
-Only approved publication snapshots build the public term/geography/year indexes. Draft changes do not replace these indexes. Values within an axis use OR; axes use AND. All selected martyr properties must belong to the same martyr related to the image. Images are returned once even when several related martyrs qualify. Older raw-text filter URLs remain supported separately until manual mapping is complete. Time filtering uses known years in the selected calendar; it does not infer missing dates or convert calendars.
+## Gallery filter policy — updated 2026-10-27
+The gallery sidebar shows exactly the active public martyr axes configured in the central manager, in the configured order, plus the date/year filter. Empty axes retain their titles with an explicit empty state. Published-value isolation remains enforced. Legacy categories, standalone geography, orientation and sorting controls are removed. Their query parameters are ignored on the gallery route, preventing hidden restrictions from older URLs. The shared category-pill links to those removed filters are also removed. Global header search remains available. No migration or personal-data mapping is performed by this update.
+
+## Public filter data
+Only approved publication snapshots build the public term/geography/year indexes. Draft changes do not replace these indexes. Values within an axis use OR; axes use AND. All selected martyr properties must belong to the same martyr related to the image. Images are returned once even when several related martyrs qualify. Legacy raw-text conditions remain available to internal archive operations; the public gallery route no longer accepts them. Time filtering uses known years in the selected calendar; it does not infer missing dates or convert calendars.
 
 ## Geography attribution and limits
 The packaged reference contains 31 provinces, 484 counties and 1481 cities, source year 1404. Source: https://github.com/sajaddp/list-of-cities-in-Iran at commit ace21bb251f96ced350bbc01541acffd71121feb (dist/json/provinces.json, counties.json, cities-filtered.json). Included GPL-3.0 license: licenses/iran-geography-GPL-3.0.txt. The catalog excludes urban zones, villages and coordinates; missing places can be managed by an authorized administrator. It is a reference dataset, not proof of a personal location or a guarantee of current administrative boundaries.
 
 ## Verification
-Run php tests/martyr-catalog.php for the 67 dedicated checks, plus existing run.php, protocol.php, platform.php, community.php, installer.php, large-images.php and release-paths.php. Run node tests/upload-progress.cjs, node tests/image-previews.cjs and python tests/deploy.py. CI repeats database suites on MySQL 8.4 using isolated databases and verifies SQL restore. Browser fixtures are synthetic; never test writes against real martyr files.
+Run php tests/martyr-catalog.php for the 72 dedicated checks, plus existing run.php, protocol.php, platform.php, community.php, installer.php, large-images.php and release-paths.php. Run node tests/upload-progress.cjs, node tests/image-previews.cjs and python tests/deploy.py. CI repeats database suites on MySQL 8.4 using isolated databases and verifies SQL restore. Browser fixtures are synthetic; never test writes against real martyr files.
 
 Dedicated checks cover quick creation, true rendered form serialization and reload, partial edits, explicit clears, nested dates/places, multiple records, permissions, migration counts/backup/restore, taxonomy creation/rename/merge/undo, frozen publication indexes, combined image filters, same-person matching and strict view rendering.
 

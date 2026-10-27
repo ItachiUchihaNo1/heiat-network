@@ -52,8 +52,7 @@ final class Web {
             ob_start();
             switch($page){
                 case 'home': case 'gallery':
-                    $f=$_GET; $catalogFilters=MartyrFilters::options($db); $result=$archive->images($f,max(1,(int)($_GET['p']??1))); $categories=Db::query($db,'SELECT * FROM categories ORDER BY name')->fetchAll();
-                    $options=[]; foreach(['province','city','job','organization'] as $key) $options[$key]=Db::query($db,'SELECT DISTINCT '.$key.' AS value FROM martyrs WHERE published=1 AND '.$key."<>'' ORDER BY ".$key)->fetchAll();
+                    $f=$page==='gallery'?MartyrFilters::galleryInput($_GET):$_GET; $catalogFilters=MartyrFilters::options($db); $result=$archive->images($f,max(1,(int)($_GET['p']??1))); $categories=[]; $options=[];
                     view('gallery',compact('db','page','f','result','categories','options','catalogFilters')); break;
                 case 'profile':
                     $m=$archive->find((int)($_GET['id']??0)); if(!$m)throw new HttpError(404,'پروفایل پیدا نشد.');
