@@ -103,13 +103,28 @@ final class Protocol {
         foreach($r['evidence']??[] as $e)if(($e['data']['review_status']??'')==='conflict')$warnings[]='پرونده دارای تعارض منابع است؛ روایت‌های پیشین حفظ شده‌اند.';
         return array_values(array_unique($warnings));
     }
+    private const TRANSITIONS=['draft'=>['pending','archived'],'needs_changes'=>['pending','archived'],'pending'=>['approved','needs_changes','archived'],'approved'=>['published','needs_changes','archived'],'published'=>['pending','archived'],'archived'=>['draft']];
+    public static function statusLabel(string $status):string {return ['draft'=>'پیش‌نویس','pending'=>'در انتظار بازبینی','needs_changes'=>'نیازمند اصلاح','approved'=>'تأییدشده داخلی','published'=>'منتشرشده','archived'=>'بایگانی'][$status]??'نامشخص';}
+    public static function transitionOptions(string $from,string $role):array {
+        $labels=['pending'=>'ارسال برای بازبینی','approved'=>'تأیید داخلی بازبین','needs_changes'=>'درخواست اصلاح','published'=>'انتشار نسخه بررسی‌شده','archived'=>'بایگانی پرونده','draft'=>'بازگشت از بایگانی به پیش‌نویس'];$out=[];
+        foreach(self::TRANSITIONS[$from]??[] as $to)if($to==='pending'||$role==='superadmin')$out[$to]=$labels[$to];return $out;
+    }
+    public static function transitionGuide(string $from):string {return match($from){
+        'draft','needs_changes'=>'ابتدا پرونده را برای بازبینی ارسال کنید؛ سپس بازبین آن را تأیید داخلی می‌کند و در مرحله بعد، ناشر نسخه بررسی‌شده را منتشر می‌کند.',
+        'pending'=>'پرونده برای بازبینی ارسال شده است. بازبین باید تأیید داخلی یا درخواست اصلاح را ثبت کند؛ پس از تأیید داخلی، گزینه انتشار فعال می‌شود.',
+        'approved'=>'تأیید داخلی انجام شده است. برای انتشار، مجوز ناشر را تأیید کنید؛ اگر هشدار نقص یا تعارض وجود دارد، بررسی هشدارها و دلیل تصمیم نیز لازم است.',
+        'published'=>'برای انتشار تغییرات جدید، دوباره پرونده را برای بازبینی ارسال کنید. نسخه عمومی فعلی تا انتشار نسخه جدید حفظ می‌شود.',
+        'archived'=>'ابتدا پرونده را به پیش‌نویس بازگردانید و سپس مراحل بازبینی و انتشار را طی کنید.',default=>'وضعیت پرونده نیازمند بررسی مدیر است.'};}
+    public static function submissionErrors(array $bundle):array {
+        $errors=[];if(empty($bundle['sections'][1]['display_name']))$errors['display_name']='نام نمایشی لازم است.';if(empty($bundle['sections'][1]['short_bio']))$errors['short_bio']='معرفی کوتاه را در بخش مشخصات هویتی تکمیل کنید.';if(!in_array($bundle['sections'][5]['martyrdom_info_status']??'missing',['unknown','documented'],true))$errors['martyrdom_info_status']='در بخش رویداد و شرایط، وضعیت اطلاعات شهادت را تعیین کنید؛ نامشخص هم مجاز است.';
+        $intro=array_filter($bundle['records']['evidence']??[],fn($e)=>in_array($e['data']['claim_key']??'',['identity','identity.display_name','identity.identification'],true)&&!empty($e['data']['source_id']));if(!$intro)$errors['source']='در بخش زندگی‌نامه و اسناد، یک ارجاع به منبع معرفی یا شناسایی هویت ثبت کنید.';return $errors;
+    }
     public function transition(int $id,string $status,array $in):void {
-        $bundle=$this->get($id);$from=$bundle['profile']['status'];$allowed=['draft'=>['pending','archived'],'needs_changes'=>['pending','archived'],'pending'=>['approved','needs_changes','archived'],'approved'=>['published','needs_changes','archived'],'published'=>['pending','archived'],'archived'=>['draft']];
-        if(!in_array($status,$allowed[$from]??[],true))throw new HttpError(422,'تغییر وضعیت مجاز نیست.');if($status!=='pending'&&$this->actor['role']!=='superadmin')throw new HttpError(403,'بازبینی، انتشار و بایگانی فقط برای مدیر مجاز است.');
-        if($status==='pending'){
-            $errors=[];if(empty($bundle['sections'][1]['display_name']))$errors['display_name']='نام نمایشی لازم است.';if(empty($bundle['sections'][1]['short_bio']))$errors['short_bio']='معرفی کوتاه برای درخواست بازبینی لازم است.';if(!in_array($bundle['sections'][5]['martyrdom_info_status']??'missing',['unknown','documented'],true))$errors['martyrdom_info_status']='وضعیت اطلاعات شهادت را تعیین کنید؛ نامشخص هم مجاز است.';
-            $intro=array_filter($bundle['records']['evidence']??[],fn($e)=>in_array($e['data']['claim_key']??'',['identity','identity.display_name','identity.identification'],true)&&!empty($e['data']['source_id']));if(!$intro)$errors['source']='حداقل یک منبع معرفی یا شناسایی با ادعای identity لازم است.';if($errors)throw new ProtocolErrors($errors);
-        }
+        $bundle=$this->get($id);$from=$bundle['profile']['status'];
+        if((int)($in['revision']??-1)!==(int)$bundle['profile']['revision'])throw new HttpError(409,'پرونده پس از باز شدن این فرم تغییر کرده است. دلیل و تأییدهای شما حفظ شده‌اند؛ ابتدا نسخه فعلی را بازخوانی و بررسی کنید.');
+        $allowed=self::transitionOptions($from,'superadmin');if(!isset($allowed[$status]))throw new HttpError(422,'پرونده در وضعیت «'.self::statusLabel($from).'» است و این عملیات در این مرحله مجاز نیست. عملیات مجاز: '.implode('، ',array_values(self::transitionOptions($from,$this->actor['role']))).'.');
+        if($status!=='pending'&&$this->actor['role']!=='superadmin')throw new HttpError(403,'بازبینی، انتشار و بایگانی فقط برای مدیر مجاز است.');
+        if($status==='pending'&&($errors=self::submissionErrors($bundle)))throw new ProtocolErrors($errors);
         $warnings=$this->warnings($bundle);$reason=Security::text($in,'reason',5000,in_array($status,['needs_changes','archived'],true));
         if($status==='published'){
             $publicationErrors=[];

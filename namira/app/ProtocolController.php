@@ -20,9 +20,9 @@ final class ProtocolController {
                 case 'protocol-term':self::term($db,$actor,$_POST);$panel='terms';break;
                 default:throw new HttpError(404,'عملیات پیدا نشد.');
             }
-            unset($_SESSION['protocol_feedback']);$_SESSION['flash']='اطلاعات ذخیره شد. شناسه پرونده ثابت می‌ماند.';
+            unset($_SESSION['protocol_feedback']);$_SESSION['flash']=$action==='protocol-transition'?'وضعیت پرونده به «'.Protocol::statusLabel((string)$_POST['status']).'» تغییر کرد.':'اطلاعات ذخیره شد. شناسه پرونده ثابت می‌ماند.';
         }catch(ProtocolErrors|HttpError $e){
-            $_SESSION['protocol_feedback']=['input'=>$_POST,'errors'=>$e instanceof ProtocolErrors?$e->errors:['form'=>$e->getMessage()],'id'=>$id,'step'=>max(1,min(8,(int)($_POST['return_step']??$step))),'panel'=>$panel];
+            $_SESSION['protocol_feedback']=['input'=>$_POST,'status'=>$e instanceof HttpError?$e->status:422,'errors'=>$e instanceof ProtocolErrors?$e->errors:['form'=>$e->getMessage()],'id'=>$id,'step'=>max(1,min(8,(int)($_POST['return_step']??$step))),'panel'=>$panel];
         }
         $returnStep=(int)($_POST['return_step']??$step);if($returnStep<1||$returnStep>8)$returnStep=$step;$args=['tab'=>'martyrs','edit'=>$id,'step'=>$returnStep];if($panel)$args['panel']=$panel;redirect('admin',$args);
     }
@@ -31,10 +31,10 @@ final class ProtocolController {
         $bundle=$id?$p->get($id):null;$feedback=$_SESSION['protocol_feedback']??null;unset($_SESSION['protocol_feedback']);
         if($feedback&&($feedback['id']!==$id||$feedback['step']!==$step||$feedback['panel']!==$panel))$feedback=null;
         $fieldDefinitions=[];foreach([1,2,3,4,5,6,7,'source','event','event_location','education','affiliation','military','residence','burial','person_event','evidence'] as $part)$fieldDefinitions[$part]=$p->definitions($part);
-        $terms=$p->terms();$sources=$p->sources();$events=$p->events();$errors=$feedback['errors']??[];$old=$feedback['input']??null;
+        $terms=$p->terms();$sources=$p->sources();$events=$p->events();$errors=$feedback['errors']??[];$old=$feedback['input']??null;$feedbackStatus=$feedback['status']??422;
         $martyrs=Db::query($db,"SELECT m.id,m.code,m.first_name,m.last_name,m.published,p.display_name,p.status FROM martyrs m LEFT JOIN martyr_protocols p ON p.martyr_id=m.id ORDER BY m.id DESC LIMIT 100")->fetchAll();
         $warnings=$bundle?$p->warnings($bundle):[];$similar=$bundle?$p->similar($bundle):[];$preview=$bundle?$p->publicSnapshot($bundle,[]):[];
-        view('protocol',compact('db','actor','id','step','panel','bundle','terms','sources','events','errors','old','martyrs','warnings','similar','preview','fieldDefinitions'));
+        view('protocol',compact('db','actor','id','step','panel','bundle','terms','sources','events','errors','old','martyrs','warnings','similar','preview','fieldDefinitions','feedbackStatus'));
     }
     public static function term(PDO $db,array $actor,array $in):int {
         if(MartyrTaxonomySchema::ready($db))return (new MartyrCatalogManager($db,$actor))->term($in);
