@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="/assets/gallery-filters.css?v=20261027-chips2"><script src="/assets/gallery-filters.js?v=20261027-chips2" defer></script>
+<link rel="stylesheet" href="/assets/gallery-filters.css?v=20261027-chips3"><script src="/assets/gallery-filters.js?v=20261027-chips3" defer></script>
 <section class="gallery-filter-tools" data-gallery-controller aria-label="فیلتر تصاویر">
 <div class="gallery-chip-row" role="group" aria-label="انتخاب فیلتر"><?php foreach(['topic'=>'موضوعی','geo_role'=>'نوع محدوده جغرافیایی','geo_country'=>'کشور','geo_province'=>'استان','geo_county'=>'شهرستان','geo_city'=>'شهر','other'=>'سایر فیلترها'] as $key=>$label): ?><button class="gallery-filter-chip" type="button" data-filter-chip="<?= $key ?>" aria-haspopup="dialog" aria-expanded="false"><span><?= $label ?></span><small data-chip-count></small><span aria-hidden="true">⌄</span></button><?php endforeach ?></div>
 <p class="gallery-feedback" role="status" aria-live="polite" data-gallery-status hidden></p><button type="button" class="outline gallery-retry" data-gallery-retry hidden>تلاش دوباره</button>
