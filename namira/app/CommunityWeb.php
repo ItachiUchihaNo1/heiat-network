@@ -36,20 +36,20 @@ final class CommunityWeb {
                 case 'account-profile':$params=['section'=>'profile'];Accounts::profile($db,$actor,$_POST);break;
                 case 'claim-create':$params=['section'=>'claims'];ArtistAccounts::claim($db,$actor,$_POST);break;
                 case 'claim-review':$back='admin';$params=['tab'=>'claims','edit'=>$id];ArtistAccounts::review($db,$actor,$id,$_POST);break;
-                case 'call-save':$back='admin';$params=['tab'=>'calls']+($id?['edit'=>$id]:['new'=>1]);$files=Web::files('poster');if(count($files)>1)throw new HttpError(422,'یک پوستر انتخاب کنید.');$id=(new Calls($db,$actor))->save($_POST,$id,$files?Upload::receive($files[0]):null);$params=['tab'=>'calls','edit'=>$id];break;
-                case 'call-state':$back='admin';$params=['tab'=>'calls','edit'=>$id];(new Calls($db,$actor))->transition($id,$_POST);break;
+                case 'call-save':$back='admin';$params=['tab'=>'calls']+($id?['edit'=>$id]:['new'=>1]);$files=Web::files('poster');if(count($files)>1)throw new HttpError(422,'یک پوستر انتخاب کنید.');$id=AdminPublishing::save($db,$actor,'call',fn()=>(new Calls($db,$actor))->save($_POST,$id,$files?Upload::receive($files[0]):null),['existing_id'=>$id]);$params=['tab'=>'calls','edit'=>$id];break;
+                case 'call-state':$back='admin';$params=['tab'=>'calls','edit'=>$id];AdminPublishing::visibility($db,$actor,'call',$id,Security::text($_POST,'status',30),(int)($_POST['revision']??-1));break;
                 case 'submission-save':
                     $back='submit-art';$params=$id?['id'=>$id]:['call_id'=>(int)($_POST['call_id']??0)];$files=self::sources('artwork',1);
                     $id=(new Submissions($db,$actor))->submit($_POST,$files[0]['source']??null,$files[0]['preview']??null,$id);Web::uploadResponse('account',['section'=>'submissions','id'=>$id]);
-                case 'submission-review':$back='admin';$params=['tab'=>'submissions','edit'=>$id];(new Submissions($db,$actor))->review($id,$_POST);break;
+                case 'submission-review':$back='admin';$params=['tab'=>'submissions','edit'=>$id];throw new HttpError(410,'مراحل بررسی حذف شده‌اند؛ از ثبت و انتشار مستقیم اثر استفاده کنید.');
                 case 'submission-publish':
                     $back='admin';$params=['tab'=>'submissions','edit'=>$id];$previews=self::verified();$row=(new Submissions($db,$actor))->get($id);$current=null;foreach($row['assets']??[] as $asset)if($asset['is_current'])$current=$asset['id'];
-                    (new Submissions($db,$actor))->publish($id,$_POST,$previews[$current]??null);$_SESSION['flash']='اثر با انتساب و حقوق بررسی‌شده منتشر شد.';Web::uploadResponse('admin',$params);
+                    (new Submissions($db,$actor))->publish($id,$_POST,$previews[$current]??null,true);$_SESSION['flash']='اثر مستقیماً منتشر شد.';Web::uploadResponse('admin',$params);
                 case 'contribution-save':
                     $back='contribute';$params=$id?['id'=>$id]:['martyr_id'=>(int)($_POST['martyr_id']??0)];$files=self::sources('photos',5);$id=(new Contributions($db,$actor))->submit($_POST,$files,$id);Web::uploadResponse('account',['section'=>'contributions','id'=>$id]);
-                case 'contribution-review':$back='admin';$params=['tab'=>'contributions','edit'=>$id];(new Contributions($db,$actor))->review($id,$_POST);break;
+                case 'contribution-review':$back='admin';$params=['tab'=>'contributions','edit'=>$id];throw new HttpError(410,'مراحل بررسی حذف شده‌اند؛ از ثبت و انتشار مستقیم بخش انتخاب‌شده استفاده کنید.');
                 case 'contribution-merge':
-                    $back='admin';$params=['tab'=>'contributions','edit'=>$id];(new Contributions($db,$actor))->merge($id,$_POST,self::verified());$_SESSION['flash']='فقط بخش‌های انتخاب‌شده به پیش‌نویس منتقل شدند؛ انتشار عمومی پرونده و رسانه جداگانه بررسی می‌شود.';Web::uploadResponse('admin',$params);
+                    $back='admin';$params=['tab'=>'contributions','edit'=>$id];(new Contributions($db,$actor))->merge($id,$_POST,self::verified(),true);$_SESSION['flash']='بخش‌های انتخاب‌شده ثبت و مستقیماً منتشر شدند.';Web::uploadResponse('admin',$params);
                 case 'owned-artist-save':
                     $params=['section'=>'artists','id'=>$id];if(!ArtistAccounts::owns($db,$actor,$id))throw new HttpError(403,'این پروفایل به حساب شما متصل نیست.');$files=Web::files('avatar');if(count($files)>1)throw new HttpError(422,'یک تصویر انتخاب کنید.');(new Artists($db,$actor))->save($_POST,$id,$files?Upload::receive($files[0]):null);break;
                 case 'owned-artist-submit':
@@ -104,7 +104,7 @@ final class CommunityWeb {
         if($tab==='calls'){$service=new Calls($db,$user);$data+=['editing'=>$id?$service->get($id):null,'result'=>$service->listing($_GET),'terms'=>Db::query($db,"SELECT * FROM protocol_terms WHERE taxonomy IN ('media_type','art_specialty') AND active=1 ORDER BY title")->fetchAll()];view('admin-calls',$data);return;}
         if($tab==='claims'){$where='1=1';$args=[];if(!empty($_GET['status'])){$where='c.status=?';$args[]=$_GET['status'];}$data+=['result'=>AdminQueries::paginate($db,'SELECT c.*,a.display_name,u.email','FROM artist_account_claims c JOIN artists a ON a.id=c.artist_id JOIN users u ON u.id=c.user_id',$where,$args,['new'=>'c.id DESC'],$_GET),'editing'=>$id?Db::query($db,'SELECT c.*,a.display_name,u.email FROM artist_account_claims c JOIN artists a ON a.id=c.artist_id JOIN users u ON u.id=c.user_id WHERE c.id=?',[$id])->fetch():null];view('admin-claims',$data);return;}
         $service=$tab==='submissions'?new Submissions($db,$user):new Contributions($db,$user);$editing=$id?$service->get($id):null;if($id&&!$editing)throw new HttpError(404,'مورد پیدا نشد.');$data+=['editing'=>$editing,'result'=>$service->listing($_GET),'terms'=>Db::query($db,"SELECT * FROM protocol_terms WHERE taxonomy IN ('media_type','art_specialty') ORDER BY title")->fetchAll()];
-        if($tab==='contributions'&&$editing&&$editing['martyr_id']&&Permissions::allows($db,$user,'martyrs.edit'))$data['bundle']=(new Protocol($db,$user))->get((int)$editing['martyr_id']);
+        if($tab==='contributions'&&$editing&&($data['old']['martyr_id']??$editing['martyr_id'])&&Permissions::allows($db,$user,'martyrs.edit'))$data['bundle']=(new Protocol($db,$user))->get((int)($data['old']['martyr_id']??$editing['martyr_id']));
         view($tab==='submissions'?'admin-submissions':'admin-contributions',$data);
     }
 }

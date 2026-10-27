@@ -60,14 +60,14 @@ final class AdminPanel {
         $user=Security::user($db);if(!$user)throw new HttpError(403,'ورود لازم است.');self::boot($db,$user);$id=(int)($_POST['id']??0);$tab=$action==='user-save'?'users':(str_starts_with($action,'artist')?'artists':(str_starts_with($action,'media')?'images':'settings'));
         try{
             switch($action){
-                case 'artist-save':$avatars=Web::files('avatar');if(count($avatars)>1)throw new HttpError(422,'یک تصویر پروفایل انتخاب کنید.');$id=(new Artists($db,$user))->save($_POST,$id,$avatars?Upload::receive($avatars[0]):null);break;
-                case 'artist-transition':(new Artists($db,$user))->transition($id,Security::text($_POST,'status',30),$_POST);break;
-                case 'media-save':(new Media($db,$user))->save($id,$_POST);break;
-                case 'media-transition':(new Media($db,$user))->transition($id,Security::text($_POST,'status',30),$_POST);break;
+                case 'artist-save':$avatars=Web::files('avatar');if(count($avatars)>1)throw new HttpError(422,'یک تصویر پروفایل انتخاب کنید.');$id=AdminPublishing::save($db,$user,'artist',fn()=>(new Artists($db,$user))->save($_POST,$id,$avatars?Upload::receive($avatars[0]):null),['existing_id'=>$id]+$_POST);break;
+                case 'artist-transition':AdminPublishing::visibility($db,$user,'artist',$id,Security::text($_POST,'status',30),(int)($_POST['revision']??-1),$_POST);break;
+                case 'media-save':AdminPublishing::save($db,$user,'media',function()use($db,$user,$id){(new Media($db,$user))->save($id,$_POST);return $id;});break;
+                case 'media-transition':AdminPublishing::visibility($db,$user,'media',$id,Security::text($_POST,'status',30),(int)($_POST['revision']??-1));break;
                 case 'user-save':$id=Accounts::save($db,$user,$_POST);break;
                 case 'backup-create':Permissions::require($db,'settings.manage');$backup=DataBackup::create($db);Db::audit($db,'backup.create',$backup['name']);break;
             }
-            $_SESSION['flash']='تغییرات ثبت شد. انتشار عمومی فقط پس از تأیید ناشر انجام می‌شود.';
+            $_SESSION['flash']='تغییرات ثبت شد. محتوای ذخیره‌شده مستقیماً منتشر می‌شود.';
         }catch(ProtocolErrors|HttpError $e){$input=$_POST;unset($input['password'],$input['password_confirm'],$input['current_password']);$_SESSION['panel_feedback']=['input'=>$input,'errors'=>$e instanceof ProtocolErrors?$e->errors:['form'=>$e->getMessage()]];$_SESSION['flash_type']='error';}
         redirect('admin',['tab'=>$tab]+($id?['edit'=>$id]:[]));
     }

@@ -13,7 +13,7 @@ final class Contributions {
     }
     public function listing(array $f=[],bool $own=false):array {
         if(!$own)$this->permit('contributions.view');$where=$own?'c.user_id=?':'1=1';$args=$own?[$this->actor['id']]:[];
-        foreach(['status','kind'] as $key)if(($f[$key]??'')!==''){$where.=' AND c.'.$key.'=?';$args[]=Security::text($f,$key,40);}
+        foreach(['status','kind'] as $key)if(($f[$key]??'')!==''){if($key==='status'&&$f[$key]==='unpublished')$where.=" AND c.status<>'merged'";else{$where.=' AND c.'.$key.'=?';$args[]=Security::text($f,$key,40);}}
         if(!empty($f['martyr_id'])){$where.=' AND c.martyr_id=?';$args[]=(int)$f['martyr_id'];}
         return AdminQueries::paginate($this->db,'SELECT c.id,c.user_id,c.martyr_id,c.kind,c.status,c.revision,c.tracking,c.created_at,c.updated_at,u.email','FROM public_contributions c LEFT JOIN users u ON u.id=c.user_id',$where,$args,['new'=>'c.id DESC','updated'=>'c.updated_at DESC'],$f);
     }
@@ -49,13 +49,13 @@ final class Contributions {
             Db::query($this->db,'UPDATE public_contributions SET status=?,martyr_id=?,review_note=?,reviewed_by=?,revision=revision+1,updated_at=? WHERE id=?',[$to,$person?:null,$note,$this->actor['id'],date('Y-m-d H:i:s'),$id]);CommunityHistory::add($this->db,'contribution',$id,$this->actor,$row['status'],$to,$note);
         });
     }
-    public function merge(int $id,array $in,array $verifiedPreviews=[]):array {
-        $this->permit('contributions.merge');$this->permit('martyrs.edit');if(($in['merge_ack']??'')!=='1')throw new HttpError(422,'تطبیق اطلاعات و انتقال بخش انتخاب‌شده به پیش‌نویس را تأیید کنید.');
-        $key=Security::text($in,'request_key',64);if(!preg_match('/^[a-f0-9]{32,64}$/D',$key))throw new HttpError(422,'شناسه عملیات معتبر نیست.');$reason=Security::text($in,'reason',5000);$created=[];
-        try{return Db::transaction($this->db,function()use($id,$in,$key,$reason,$verifiedPreviews,&$created){
+    public function merge(int $id,array $in,array $verifiedPreviews=[],bool $direct=false):array {
+        $this->permit('contributions.merge');$this->permit('martyrs.edit');if(!$direct&&($in['merge_ack']??'')!=='1')throw new HttpError(422,'تطبیق اطلاعات و انتقال بخش انتخاب‌شده به پیش‌نویس را تأیید کنید.');
+        $key=Security::text($in,'request_key',64);if(!preg_match('/^[a-f0-9]{32,64}$/D',$key))throw new HttpError(422,'شناسه عملیات معتبر نیست.');$reason=Security::text($in,'reason',5000,!$direct);if($direct)AdminPublishing::guard($this->db,$this->actor,'martyr');$created=[];
+        try{return Db::transaction($this->db,function()use($id,$in,$key,$reason,$verifiedPreviews,$direct,&$created){
             $previous=Db::query($this->db,'SELECT * FROM contribution_merges WHERE request_key=?',[$key])->fetch();if($previous){if((int)$previous['contribution_id']!==$id)throw new HttpError(409,'شناسه عملیات برای مشارکت دیگری استفاده شده است.');return ['martyr_id'=>(int)$previous['martyr_id'],'media_ids'=>Protocol::decode($previous['media_ids'])];}
             $lock=$this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':'';$row=Db::query($this->db,'SELECT * FROM public_contributions WHERE id=?'.$lock,[$id])->fetch();
-            if(!$row||!in_array($row['status'],['approved','partial_approved'],true)||(int)$row['revision']!==(int)($in['revision']??-1))throw new HttpError(409,'مشارکت تأییدشده با نسخه فعلی لازم است.');
+            if(!$row||(!$direct&&!in_array($row['status'],['approved','partial_approved'],true))||($direct&&$row['status']==='merged')||(int)$row['revision']!==(int)($in['revision']??-1))throw new HttpError(409,'مشارکت تأییدشده با نسخه فعلی لازم است.');
             $person=(int)($in['martyr_id']??$row['martyr_id']);$protocol=new Protocol($this->db,$this->actor);$new=false;
             if(!$person){
                 if(($in['create_new']??'')!=='1')throw new HttpError(422,'پرونده مقصد را انتخاب کنید یا ساخت پیش‌نویس جدید را تأیید کنید.');$name=Security::normalize(Security::text($in,'new_name',255));
@@ -75,7 +75,7 @@ final class Contributions {
                 $this->permit('media.create');$this->permit('media.edit');
                 $asset=Db::query($this->db,'SELECT a.*,f.id AS file_id FROM contribution_files f JOIN contribution_file_assets x ON x.file_id=f.id JOIN incoming_assets a ON a.id=x.asset_id WHERE f.id=? AND f.contribution_id=?',[$fid,$id])->fetch();if(!$asset)throw new HttpError(422,'فایل انتخاب‌شده متعلق به این مشارکت نیست.');IncomingAssets::verify($asset);
                 $existing=Db::query($this->db,'SELECT id FROM images WHERE sha256=?',[$asset['sha256']])->fetchColumn();
-                if($existing){if(($in['existing_media_ack']??'')!=='1'||!Db::query($this->db,'SELECT image_id FROM media_martyrs WHERE image_id=? AND martyr_id=?',[$existing,$person])->fetchColumn())throw new HttpError(409,'فایل در آرشیو موجود است؛ پیش از استفاده مجدد، ارتباط آن را در مدیریت رسانه تطبیق دهید.');$image=(int)$existing;}
+                if($existing){if((!$direct&&($in['existing_media_ack']??'')!=='1')||!Db::query($this->db,'SELECT image_id FROM media_martyrs WHERE image_id=? AND martyr_id=?',[$existing,$person])->fetchColumn())throw new HttpError(409,'فایل در آرشیو موجود است؛ پیش از استفاده مجدد، ارتباط آن را در مدیریت رسانه تطبیق دهید.');$image=(int)$existing;}
                 else{
                     $slug=match($row['kind']){'photo'=>'photo','grave'=>'grave','will'=>'will','handwriting'=>'handwriting',default=>'document'};$type=(int)($in['type_id']??0)?:PlatformSchema::termId($this->db,'media_type',$slug);
                     $image=IncomingAssets::promote($this->db,$asset,$person,'پیوست پذیرفته‌شده مشارکت '.$id,$type,$created,$verifiedPreviews[$asset['id']]??null);$media=new Media($this->db,$this->actor);$m=$media->get($image);
@@ -83,6 +83,7 @@ final class Contributions {
                 }
                 Db::query($this->db,'UPDATE contribution_files SET image_id=? WHERE id=?',[$image,$fid]);$mediaIds[]=$image;
             }
+            if($direct){AdminPublishing::martyr($this->db,$this->actor,$person);foreach($mediaIds as $mediaId)AdminPublishing::media($this->db,$this->actor,(int)$mediaId);}
             if($destination==='none'&&!$mediaIds&&!$new)throw new HttpError(422,'بخش یا فایلی برای پذیرش انتخاب نشده است.');
             Db::insert($this->db,'contribution_merges',['contribution_id'=>$id,'request_key'=>$key,'martyr_id'=>$person,'field_key'=>$destination,'accepted_text'=>$excerpt,'before_value'=>Protocol::encode($before),'after_value'=>Protocol::encode($after),'media_ids'=>Protocol::encode($mediaIds),'created_by'=>$this->actor['id'],'created_at'=>date('Y-m-d H:i:s')]);
             Db::query($this->db,"UPDATE public_contributions SET status='merged',martyr_id=?,revision=revision+1,updated_at=? WHERE id=?",[$person,date('Y-m-d H:i:s'),$id]);CommunityHistory::add($this->db,'contribution',$id,$this->actor,$row['status'],'merged',Protocol::encode(['reason'=>$reason,'destination'=>$destination,'media_ids'=>$mediaIds,'created_person'=>$new]));return ['martyr_id'=>$person,'media_ids'=>$mediaIds];

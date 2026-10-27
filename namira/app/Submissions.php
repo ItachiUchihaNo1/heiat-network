@@ -12,7 +12,7 @@ final class Submissions {
     }
     public function listing(array $f=[],bool $own=false):array {
         if(!$own)$this->permit('submissions.view');$where=$own?'s.user_id=?':'1=1';$args=$own?[$this->actor['id']]:[];
-        foreach(['status'=>'s.status','call_id'=>'s.call_id'] as $key=>$col)if(($f[$key]??'')!==''){$where.=' AND '.$col.'=?';$args[]=$key==='call_id'?(int)$f[$key]:Security::text($f,$key,30);}
+        foreach(['status'=>'s.status','call_id'=>'s.call_id'] as $key=>$col)if(($f[$key]??'')!==''){if($key==='status'&&$f[$key]==='unpublished')$where.=" AND s.status<>'published'";else{$where.=' AND '.$col.'=?';$args[]=$key==='call_id'?(int)$f[$key]:Security::text($f,$key,30);}}
         $q=Security::text($f,'q',150,false);if($q!==''){$where.=' AND s.title LIKE ?';$args[]='%'.$q.'%';}
         return AdminQueries::paginate($this->db,'SELECT s.id,s.title,s.status,s.revision,s.call_id,s.artist_id,s.martyr_id,s.image_id,s.created_at,s.updated_at,u.email,c.title AS call_title','FROM art_submissions s JOIN users u ON u.id=s.user_id LEFT JOIN art_calls c ON c.id=s.call_id',$where,$args,['new'=>'s.id DESC','updated'=>'s.updated_at DESC'],$f);
     }
@@ -63,24 +63,28 @@ final class Submissions {
             Db::query($this->db,'UPDATE art_submissions SET status=?,artist_id=?,martyr_id=?,payload=?,review_note=?,reviewed_by=?,revision=revision+1,updated_at=? WHERE id=?',[$to,$artist?:null,$person?:null,Protocol::encode($data),$note,$this->actor['id'],date('Y-m-d H:i:s'),$id]);CommunityHistory::add($this->db,'art_submission',$id,$this->actor,$row['status'],$to,Protocol::encode(['note'=>$note,'artist_id'=>$artist,'martyr_id'=>$person,'reviewed_rights'=>$data['reviewed_rights']??null]));
         });
     }
-    public function publish(int $id,array $in,?string $verifiedPreview=null):int {
-        $this->permit('submissions.publish');$this->permit('media.publish');if($verifiedPreview&&($in['verified_visual_ack']??'')!=='1')throw new HttpError(422,'پیش‌نمایش بازتولیدشده از اصل فایل را پیش از انتشار بررسی کنید.');if(($in['publication_ack']??'')!=='1')throw new HttpError(422,'انتشار اثر و حقوق و انتساب آن را صریحاً تأیید کنید.');
-        $created=[];try{return Db::transaction($this->db,function()use($id,$in,$verifiedPreview,&$created){
+    public function publish(int $id,array $in,?string $verifiedPreview=null,bool $direct=false):int {
+        $this->permit('submissions.publish');if(!$direct)$this->permit('media.publish');if(!$direct&&$verifiedPreview&&($in['verified_visual_ack']??'')!=='1')throw new HttpError(422,'پیش‌نمایش بازتولیدشده از اصل فایل را پیش از انتشار بررسی کنید.');if(!$direct&&($in['publication_ack']??'')!=='1')throw new HttpError(422,'انتشار اثر و حقوق و انتساب آن را صریحاً تأیید کنید.');if($direct)AdminPublishing::guard($this->db,$this->actor,'media');
+        $created=[];try{return Db::transaction($this->db,function()use($id,$in,$verifiedPreview,$direct,&$created){
             $lock=$this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':'';$row=Db::query($this->db,'SELECT * FROM art_submissions WHERE id=?'.$lock,[$id])->fetch();if(!$row)throw new HttpError(404,'اثر پیدا نشد.');if($row['status']==='published'&&$row['image_id'])return (int)$row['image_id'];
-            if($row['status']!=='approved'||(int)$row['revision']!==(int)($in['revision']??-1))throw new HttpError(409,'اثر تأییدشده با نسخه فعلی لازم است.');
+            if((!$direct&&$row['status']!=='approved')||(int)$row['revision']!==(int)($in['revision']??-1))throw new HttpError(409,'نسخه اثر تغییر کرده است؛ صفحه را دوباره باز کنید.');
+            if($direct){$data=Protocol::decode($row['payload']);$row['martyr_id']=(int)($in['martyr_id']??$row['martyr_id']);$row['artist_id']=(int)($in['artist_id']??$row['artist_id']);if(!$row['martyr_id']||!$row['artist_id'])throw new HttpError(422,'شهید و هنرمند مرتبط را انتخاب کنید.');
+                if(!Db::query($this->db,'SELECT published FROM martyrs WHERE id=?',[$row['martyr_id']])->fetchColumn())AdminPublishing::martyr($this->db,$this->actor,$row['martyr_id']);if(!Db::query($this->db,'SELECT id FROM artists WHERE id=? AND public_visible=1 AND archived=0',[$row['artist_id']])->fetchColumn())AdminPublishing::artist($this->db,$this->actor,$row['artist_id']);
+                $data['reviewed_rights']=array_key_exists('reviewed_rights',$in)?Security::text($in,'reviewed_rights',5000,false):($data['rights_text']??'');$data['creator_role']=Security::text($in,'creator_role',100,false)?:'پدیدآورنده';$data['review_download']=!empty($in['allow_download'])&&!empty($data['download_consent']);$row['payload']=Protocol::encode($data);
+            }
             if(!Db::query($this->db,'SELECT id FROM martyrs WHERE id=? AND published=1',[$row['martyr_id']])->fetchColumn())throw new HttpError(422,'پرونده شهید باید پیش از اثر منتشر شود.');
             if(!Db::query($this->db,'SELECT id FROM artists WHERE id=? AND public_visible=1 AND archived=0',[$row['artist_id']])->fetchColumn())throw new HttpError(422,'پروفایل هنرمند باید پیش از اثر منتشر شود.');
             $asset=Db::query($this->db,'SELECT a.* FROM submission_assets s JOIN incoming_assets a ON a.id=s.asset_id WHERE s.submission_id=? AND s.is_current=1',[$id])->fetch();if(!$asset)throw new HttpError(422,'اصل فایل اثر پیدا نشد.');$data=Protocol::decode($row['payload']);IncomingAssets::verify($asset);
             $existing=Db::query($this->db,'SELECT id FROM images WHERE sha256=?',[$asset['sha256']])->fetchColumn();
             if($existing){
                 $public=(new Archive($this->db))->image((int)$existing);$matching=$public&&Db::query($this->db,'SELECT image_id FROM media_public_martyrs WHERE image_id=? AND martyr_id=?',[$existing,$row['martyr_id']])->fetchColumn()&&Db::query($this->db,'SELECT image_id FROM media_public_artists WHERE image_id=? AND artist_id=?',[$existing,$row['artist_id']])->fetchColumn();
-                if(($in['existing_ack']??'')!=='1'||!$matching)throw new HttpError(409,'اصل فایل قبلاً در آرشیو است؛ ابتدا انتساب رسانه موجود را بررسی کنید. بدون تأیید، بازنویسی انجام نمی‌شود.');$image=(int)$existing;
+                if((!$direct&&($in['existing_ack']??'')!=='1')||!$matching)throw new HttpError(409,'اصل فایل قبلاً در آرشیو است؛ ابتدا انتساب رسانه موجود را بررسی کنید. بدون تأیید، بازنویسی انجام نمی‌شود.');$image=(int)$existing;
             }else{
                 $image=IncomingAssets::promote($this->db,$asset,(int)$row['martyr_id'],$row['title'],(int)$data['type_id'],$created,$verifiedPreview);$media=new Media($this->db,$this->actor);$current=$media->get($image);
                 $media->save($image,['revision'=>$current['revision'],'title'=>$row['title'],'type_id'=>$data['type_id'],'description'=>$data['description'],'source_text'=>$data['source_text'],'rights_text'=>$data['reviewed_rights'],'download_allowed'=>!empty($data['review_download'])?'1':'','martyrs'=>[$row['martyr_id']],'creators'=>[['artist_id'=>$row['artist_id'],'role'=>$data['creator_role']]],'reason'=>'انتقال اثر تأییدشده شماره '.$id]);
-                foreach(['pending','approved','published'] as $status)$media->transition($image,$status,['revision'=>$media->get($image)['revision'],'publication_ack'=>'1','reason'=>'بررسی اثر شماره '.$id]);
+                if($direct)AdminPublishing::media($this->db,$this->actor,$image);else foreach(['pending','approved','published'] as $status)$media->transition($image,$status,['revision'=>$media->get($image)['revision'],'publication_ack'=>'1','reason'=>'بررسی اثر شماره '.$id]);
             }
-            Db::query($this->db,"UPDATE art_submissions SET status='published',image_id=?,reviewed_by=?,revision=revision+1,updated_at=? WHERE id=?",[$image,$this->actor['id'],date('Y-m-d H:i:s'),$id]);CommunityHistory::add($this->db,'art_submission',$id,$this->actor,'approved','published',Protocol::encode(['image_id'=>$image,'existing'=>$existing?:null]));return $image;
+            Db::query($this->db,"UPDATE art_submissions SET status='published',image_id=?,artist_id=?,martyr_id=?,payload=?,reviewed_by=?,revision=revision+1,updated_at=? WHERE id=?",[$image,$row['artist_id'],$row['martyr_id'],$row['payload'],$this->actor['id'],date('Y-m-d H:i:s'),$id]);CommunityHistory::add($this->db,'art_submission',$id,$this->actor,$row['status'],'published',Protocol::encode(['image_id'=>$image,'existing'=>$existing?:null]));return $image;
         });}catch(\Throwable $e){IncomingAssets::discardPaths($created);throw $e;}
     }
 }

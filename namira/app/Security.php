@@ -4,6 +4,7 @@ namespace Namira;
 use PDO;
 final class Security {
     public static function start(): void {
+        if(Env::get('APP_ENV','production')==='production'){ini_set('display_errors','0');ini_set('log_errors','1');}
         ini_set('session.use_strict_mode','1'); session_name('namira_session');
         session_set_cookie_params(['httponly'=>true,'secure'=>Env::get('APP_ENV','production')==='production','samesite'=>'Lax','path'=>'/']); session_start();
         header('X-Content-Type-Options: nosniff'); header('Referrer-Policy: same-origin'); header('X-Frame-Options: DENY');

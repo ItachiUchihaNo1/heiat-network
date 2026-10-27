@@ -54,7 +54,7 @@ final class Artists {
         if(!$public)$this->permit('artists.view');
         $where=[$public?"a.public_visible=1 AND a.archived=0":'1=1'];$args=[];$q=Security::text($f,'q',150,false);
         if($q!==''){$where[]=$public?'a.public_snapshot LIKE ?':'a.display_name LIKE ?';$args[]='%'.$q.'%';}
-        if(!$public&&!empty($f['status'])){$where[]='a.status=?';$args[]=Security::text($f,'status',30);}
+        if(!$public&&!empty($f['status'])){if($f['status']==='unpublished')$where[]="a.status NOT IN ('published','archived')";else{$where[]='a.status=?';$args[]=Security::text($f,'status',30);}}
         if(!empty($f['specialty'])){$where[]='EXISTS(SELECT 1 FROM '.($public?'artist_public_terms':'artist_terms').' at WHERE at.artist_id=a.id AND at.term_id=?)';$args[]=(int)$f['specialty'];}
         $sql=implode(' AND ',$where);$count=(int)Db::query($this->db,'SELECT COUNT(*) FROM artists a WHERE '.$sql,$args)->fetchColumn();$per=24;$page=min(max(1,(int)ceil($count/$per)),max(1,(int)($f['p']??1)));
         $items=Db::query($this->db,"SELECT a.*,(SELECT COUNT(*) FROM media_public_artists ma JOIN images i ON i.id=ma.image_id WHERE ma.artist_id=a.id AND i.kind='design' AND i.published=1 AND EXISTS(SELECT 1 FROM media_public_martyrs pm JOIN martyrs m ON m.id=pm.martyr_id WHERE pm.image_id=i.id AND m.published=1)) AS work_count FROM artists a WHERE $sql ORDER BY a.updated_at DESC,a.id DESC LIMIT $per OFFSET ".(($page-1)*$per),$args)->fetchAll();

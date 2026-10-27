@@ -21,7 +21,7 @@ final class Calls {
     }
     public function listing(array $f=[],bool $public=false):array {
         if(!$public)$this->permit('calls.view');$where=$public?"c.status='published'":'1=1';$args=[];$q=Security::text($f,'q',150,false);
-        if($q!==''){$where.=' AND c.title LIKE ?';$args[]='%'.$q.'%';}if(!$public&&!empty($f['status'])){$where.=' AND c.status=?';$args[]=Security::text($f,'status',30);}
+        if($q!==''){$where.=' AND c.title LIKE ?';$args[]='%'.$q.'%';}if(!$public&&!empty($f['status'])){if($f['status']==='unpublished')$where.=" AND c.status NOT IN ('published','paused','archived')";else{$where.=' AND c.status=?';$args[]=Security::text($f,'status',30);}}
         $result=AdminQueries::paginate($this->db,'SELECT c.id,c.title,c.slug,c.status,c.start_at,c.end_at,c.poster_asset_id,c.created_at,c.updated_at,(SELECT COUNT(*) FROM art_submissions s WHERE s.call_id=c.id) AS submission_count','FROM art_calls c',$where,$args,['new'=>'c.id DESC','deadline'=>'c.end_at,c.id DESC'],$f,12);
         if($public)foreach($result['items'] as &$row)unset($row['submission_count']);return $result;
     }

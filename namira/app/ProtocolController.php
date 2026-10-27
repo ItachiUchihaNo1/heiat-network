@@ -13,14 +13,14 @@ final class ProtocolController {
         $id=(int)($_POST['id']??0);$step=max(1,min(8,(int)($_POST['step']??1)));$panel=Security::text($_POST,'panel',20,false);
         try{
             switch($action){
-                case 'protocol-quick':$id=$p->quick($_POST);$step=1;break;
-                case 'protocol-save':$id=$p->save($id,$step,$_POST);break;
-                case 'protocol-transition':$p->transition($id,Security::text($_POST,'status',30),$_POST);$step=8;break;
+                case 'protocol-quick':$id=AdminPublishing::save($db,$actor,'martyr',fn()=>$p->quick($_POST));$step=1;break;
+                case 'protocol-save':$id=AdminPublishing::save($db,$actor,'martyr',fn()=>$p->save($id,$step,$_POST));break;
+                case 'protocol-transition':AdminPublishing::visibility($db,$actor,'martyr',$id,Security::text($_POST,'status',30),(int)($_POST['revision']??-1),$_POST);$step=8;break;
                 case 'protocol-shared':$p->shared($panel,$_POST,!empty($_POST['shared_id'])?(int)$_POST['shared_id']:null);break;
                 case 'protocol-term':self::term($db,$actor,$_POST);$panel='terms';break;
                 default:throw new HttpError(404,'عملیات پیدا نشد.');
             }
-            unset($_SESSION['protocol_feedback']);$_SESSION['flash']=$action==='protocol-transition'?'وضعیت پرونده به «'.Protocol::statusLabel((string)$_POST['status']).'» تغییر کرد.':'اطلاعات ذخیره شد. شناسه پرونده ثابت می‌ماند.';
+            unset($_SESSION['protocol_feedback']);$_SESSION['flash']=$action==='protocol-transition'?'وضعیت پرونده به «'.Protocol::statusLabel((string)$_POST['status']).'» تغییر کرد.':(in_array($action,['protocol-quick','protocol-save'],true)?'اطلاعات ثبت و مستقیماً منتشر شد. شناسه پرونده ثابت می‌ماند.':'اطلاعات مرجع ثبت شد.');
         }catch(ProtocolErrors|HttpError $e){
             $_SESSION['protocol_feedback']=['input'=>$_POST,'status'=>$e instanceof HttpError?$e->status:422,'errors'=>$e instanceof ProtocolErrors?$e->errors:['form'=>$e->getMessage()],'id'=>$id,'step'=>max(1,min(8,(int)($_POST['return_step']??$step))),'panel'=>$panel];
         }
@@ -31,7 +31,7 @@ final class ProtocolController {
         $bundle=$id?$p->get($id):null;$feedback=$_SESSION['protocol_feedback']??null;unset($_SESSION['protocol_feedback']);
         if($feedback&&($feedback['id']!==$id||$feedback['step']!==$step||$feedback['panel']!==$panel))$feedback=null;
         $fieldDefinitions=[];foreach([1,2,3,4,5,6,7,'source','event','event_location','education','affiliation','military','residence','burial','person_event','evidence'] as $part)$fieldDefinitions[$part]=$p->definitions($part);
-        $terms=$p->terms();$sources=$p->sources();$events=$p->events();$errors=$feedback['errors']??[];$old=$feedback['input']??null;$feedbackStatus=$feedback['status']??422;
+        unset($fieldDefinitions['evidence']['review_status']);$terms=$p->terms();$sources=$p->sources();$events=$p->events();$errors=$feedback['errors']??[];$old=$feedback['input']??null;$feedbackStatus=$feedback['status']??422;
         $martyrs=Db::query($db,"SELECT m.id,m.code,m.first_name,m.last_name,m.published,p.display_name,p.status FROM martyrs m LEFT JOIN martyr_protocols p ON p.martyr_id=m.id ORDER BY m.id DESC LIMIT 100")->fetchAll();
         $warnings=$bundle?$p->warnings($bundle):[];$similar=$bundle?$p->similar($bundle):[];$preview=$bundle?$p->publicSnapshot($bundle,[]):[];
         view('protocol',compact('db','actor','id','step','panel','bundle','terms','sources','events','errors','old','martyrs','warnings','similar','preview','fieldDefinitions','feedbackStatus'));
