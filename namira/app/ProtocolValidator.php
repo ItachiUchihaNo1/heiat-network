@@ -14,21 +14,28 @@ final class ProtocolValidator {
         return $saved;
     }
     public function fields(array $definitions,array $input,string $prefix='',array $old=[]):array {
-        $out=[];
-        foreach($definitions as $key=>$def){try{$out[$key]=$this->value($key,$def,$input[$key]??null,$old[$key]??null);if(in_array($def['type'],['terms','term'],true)){
+        $out=$old;$presence=$input['_present']??[];if(!is_array($presence)){$this->errors[$prefix.'_present']='نشانگر فیلدهای فرم معتبر نیست.';$presence=[];}
+        foreach($definitions as $key=>$def){try{
+            if(!array_key_exists($key,$input)&&empty($presence[$key])&&array_key_exists($key,$old))continue;
+            $raw=$input[$key]??null;
+            if(in_array($def['type'],['date','place'],true)&&is_array($raw)&&is_array($old[$key]??null))$raw=array_replace(self::formValues([$key=>$def],[$key=>$old[$key]])[$key],$raw);
+            $out[$key]=$this->value($key,$def,$raw,$old[$key]??null);if(in_array($def['type'],['terms','term'],true)){
             $ids=$def['type']==='term'?array_filter([$out[$key]]):$out[$key];$titles=[];foreach($ids as $id)$titles[]=Db::query($this->db,'SELECT title FROM protocol_terms WHERE id=?',[$id])->fetchColumn();
             if(count($ids)>1&&(in_array('نامشخص',$titles,true)||in_array('مشغول تحصیل نبوده',$titles,true)))throw new HttpError(422,'نامشخص یا مشغول تحصیل نبوده با گزینه‌های دیگر قابل انتخاب نیست.');
-            if(in_array('سایر',$titles,true))$out[$key.'_other']=Security::text($input,$key.'_other',1000);
+            if(in_array('سایر',$titles,true)){$out[$key.'_other']=array_key_exists($key.'_other',$input)?Security::text($input,$key.'_other',1000):($old[$key.'_other']??'');if($out[$key.'_other']==='')throw new HttpError(422,'توضیح سایر لازم است.');}
         }}catch(HttpError $e){$this->errors[$prefix.$key]=$def['label'].' — '.$e->getMessage();}}
-        $states=$input['states']??[];if(!is_array($states))$states=[];$out['states']=[];
-        foreach($states as $key=>$state){if(!isset($definitions[$key])||!in_array($state,['missing','unknown','not_applicable','recorded'],true)){$this->errors[$prefix.'states']='وضعیت فقدان اطلاعات معتبر نیست.';continue;}$out['states'][$key]=$state;}
+        $states=$input['states']??[];if(!is_array($states))$states=[];$out['states']=$old['states']??[];
+        foreach($states as $key=>$state){if($state==='')continue;if(!isset($definitions[$key])||!in_array($state,['missing','unknown','not_applicable','recorded'],true)){$this->errors[$prefix.'states']='وضعیت فقدان اطلاعات معتبر نیست.';continue;}$out['states'][$key]=$state;}
         return $out;
     }
     private function value(string $key,array $def,mixed $v,mixed $old):mixed {
+        if(in_array($def['type'],['date','place'],true)&&$v!==null&&!is_array($v))throw new HttpError(422,'ساختار تاریخ یا مکان معتبر نیست.');
+        if(in_array($def['type'],['integer','source','event','record','affiliation','term'],true)&&$v!==null&&!is_string($v)&&!is_int($v))throw new HttpError(422,'مقدار تکی معتبر لازم است.');
+        if($def['type']==='bool'&&!in_array($v,[null,'',0,'0',false,1,'1',true,'on'],true))throw new HttpError(422,'مقدار انتخاب معتبر نیست.');
         switch($def['type']){
             case 'bool':return in_array($v,['1',1,true,'on'],true);
             case 'integer':if($v===null||$v==='')return null;$n=Security::normalize((string)$v);if(!ctype_digit($n)||strlen($n)>6)throw new HttpError(422,'عدد صحیح نامنفی یا مقدار خالی لازم است.');return (int)$n;
-            case 'enum':$v=$v??array_key_first($def['options']);if(!is_string($v)||!array_key_exists($v,$def['options']))throw new HttpError(422,'گزینه معتبر انتخاب کنید.');if($key==='review_status'&&$this->actor['role']!=='superadmin'&&$v==='reviewed')throw new HttpError(403,'تأیید ادعا فقط برای بازبین مجاز است.');return $v;
+            case 'enum':$v=$v??array_key_first($def['options']);if(!is_string($v)||!array_key_exists($v,$def['options']))throw new HttpError(422,'گزینه معتبر انتخاب کنید.');if($key==='review_status'&&$this->actor['role']!=='superadmin'&&$v==='reviewed'&&$old!=='reviewed')throw new HttpError(403,'تأیید ادعا فقط برای بازبین مجاز است.');return $v;
             case 'date':return ProtocolDates::read(is_array($v)?$v:[]);
             case 'place':return $this->place(is_array($v)?$v:[]);
             case 'terms':case 'term':

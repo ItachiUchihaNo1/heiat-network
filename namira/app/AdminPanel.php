@@ -9,7 +9,7 @@ final class AdminPanel {
         'artists'=>['بانک هنرمندان','بانک‌ها و آرشیو','artists.view'],
         'images'=>['تصاویر و آثار','بانک‌ها و آرشیو','media.view'],
         'import'=>['ورود و خروج گروهی','بانک‌ها و آرشیو','martyrs.edit'],
-        'categories'=>['دسته‌بندی و داده پایه','بانک‌ها و آرشیو','taxonomy.view'],
+        'categories'=>['مدیریت دسته‌بندی‌های شهدا','بانک‌ها و آرشیو','taxonomy.view'],
         'calls'=>['فراخوان‌های هنری','فراخوان و مشارکت','calls.view'],
         'submissions'=>['آثار ارسالی','فراخوان و مشارکت','submissions.view'],
         'contributions'=>['مشارکت‌های مردمی','فراخوان و مشارکت','contributions.view'],
@@ -23,9 +23,9 @@ final class AdminPanel {
         'settings'=>['تنظیمات و پشتیبان','مدیریت','settings.manage']
     ];}
     public static function boot(PDO $db,array $user):void {
-        if(PlatformSchema::ready($db)&&CommunitySchema::ready($db))return;
+        if(PlatformSchema::ready($db)&&CommunitySchema::ready($db)&&MartyrTaxonomySchema::ready($db))return;
         if($user['role']!=='superadmin')throw new HttpError(503,'مدیر اصلی باید یک بار پنل را باز کند تا پشتیبان و ارتقای ساختار اجرا شود.');
-        PlatformSchema::migrate($db);CommunitySchema::migrate($db);
+        PlatformSchema::migrate($db);CommunitySchema::migrate($db);MartyrTaxonomySchema::migrate($db);
     }
     public static function show(PDO $db,array|false $user):void {
         if(!$user)redirect('login');if(!Permissions::allows($db,$user,'dashboard.view'))redirect('account');
@@ -44,6 +44,7 @@ final class AdminPanel {
             case 'images':
                 $service=new Media($db,$user);$editing=!empty($_GET['edit'])?$service->get((int)$_GET['edit']):null;
                 view('admin-media',$data+['editing'=>$editing,'result'=>AdminQueries::media($db,$_GET),'types'=>Db::query($db,"SELECT * FROM protocol_terms WHERE taxonomy='media_type' ORDER BY sort_order,title")->fetchAll()]);break;
+            case 'categories':MartyrCatalogWeb::show($db,$user);break;
             case 'calls':case 'submissions':case 'contributions':case 'claims':CommunityWeb::admin($db,$user,$tab,$data);break;
             case 'users':
                 $q=Security::text($_GET,'q',150,false);$where=$q!==''?'email LIKE ?':'1=1';$args=$q!==''?['%'.$q.'%']:[];$result=AdminQueries::paginate($db,'SELECT id,email,role,active','FROM users',$where,$args,['new'=>'id DESC'],$_GET);

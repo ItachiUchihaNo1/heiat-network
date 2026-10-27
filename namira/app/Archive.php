@@ -33,6 +33,7 @@ final class Archive {
         if($q!=='') foreach(preg_split('/\s+/u',$q,-1,PREG_SPLIT_NO_EMPTY) as $term){ $name=ProtocolSchema::ready($this->db)?' OR EXISTS(SELECT 1 FROM martyr_protocols mp WHERE mp.martyr_id=m.id AND mp.public_name LIKE ?)':'';$where[]='(m.first_name LIKE ? OR m.last_name LIKE ? OR m.code LIKE ? OR m.summary LIKE ?'.$name.')'; $args=[...$args,...array_fill(0,$name?5:4,'%'.$term.'%')]; }
         foreach(['province','city','job','organization'] as $key){ $v=Security::text($f,$key,150,false); if($v!==''){ $where[]='m.'.$key.'=?'; $args[]=$v; } }
         if(!empty($f['category'])){ $where[]='EXISTS(SELECT 1 FROM martyr_categories mc WHERE mc.martyr_id=m.id AND mc.category_id=?)'; $args[]=(int)$f['category']; }
+        [$catalogSql,$catalogArgs]=MartyrFilters::conditions($this->db,$f);if($catalogSql!==''){$where[]=$catalogSql;$args=[...$args,...$catalogArgs];}
         return [implode(' AND ',$where),$args];
     }
     private function mediaFrom():string {

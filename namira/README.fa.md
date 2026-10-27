@@ -129,3 +129,5 @@ TEST_DB_DSN='mysql:host=127.0.0.1;dbname=namira_test;charset=utf8mb4' TEST_DB_US
 
 ## مرحله حساب و مشارکت
 راهنمای نصب، روش آزمون، جریان بررسی آثار و محدودیت‌ها: [COMMUNITY-RELEASE.md](docs/COMMUNITY-RELEASE.md). کد هر انتشار در پوشه خصوصی releases قرار می‌گیرد و تنظیمات و storage قبلی مشترک باقی می‌مانند.
+
+راهنمای تغییرات بانک شهدا و مهاجرت: [MARTYR-CATALOG-RELEASE.md](docs/MARTYR-CATALOG-RELEASE.md)

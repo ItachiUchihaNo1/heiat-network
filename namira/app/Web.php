@@ -20,6 +20,7 @@ final class Web {
                 Security::verify($_POST); self::action($db,$archive,$shop);
             }
 
+            if($page==='catalog-geography')MartyrCatalogWeb::options($db);
             if($page==='public-lookup')CommunityWeb::lookup($db);
             if($page==='community-file')CommunityWeb::file($db);
             if($page==='admin-lookup'){
@@ -51,9 +52,9 @@ final class Web {
             ob_start();
             switch($page){
                 case 'home': case 'gallery':
-                    $f=$_GET; $result=$archive->images($f,max(1,(int)($_GET['p']??1))); $categories=Db::query($db,'SELECT * FROM categories ORDER BY name')->fetchAll();
+                    $f=$_GET; $catalogFilters=MartyrFilters::options($db); $result=$archive->images($f,max(1,(int)($_GET['p']??1))); $categories=Db::query($db,'SELECT * FROM categories ORDER BY name')->fetchAll();
                     $options=[]; foreach(['province','city','job','organization'] as $key) $options[$key]=Db::query($db,'SELECT DISTINCT '.$key.' AS value FROM martyrs WHERE published=1 AND '.$key."<>'' ORDER BY ".$key)->fetchAll();
-                    view('gallery',compact('page','f','result','categories','options')); break;
+                    view('gallery',compact('db','page','f','result','categories','options','catalogFilters')); break;
                 case 'profile':
                     $m=$archive->find((int)($_GET['id']??0)); if(!$m)throw new HttpError(404,'پروفایل پیدا نشد.');
                     $title='شهید '.(($m['display_name']??'')?:trim($m['first_name'].' '.$m['last_name'])).' | نامیرا';
@@ -108,7 +109,7 @@ final class Web {
         redirect($page,$params);
     }
     private static function action(PDO $db,Archive $archive,Shop $shop): never {
-        $a=Security::text($_POST,'action',40);if(CommunityWeb::handles($a))CommunityWeb::action($db,$a);if(AdminPanel::handles($a))AdminPanel::action($db,$a);
+        $a=Security::text($_POST,'action',40);if(MartyrCatalogWeb::handles($a))MartyrCatalogWeb::action($db,$a);if(CommunityWeb::handles($a))CommunityWeb::action($db,$a);if(AdminPanel::handles($a))AdminPanel::action($db,$a);
         switch($a){
             case 'login':
                 Security::limit($db,'login',8); $email=Security::text($_POST,'email',190); $password=$_POST['password']??'';if(!is_string($password)||strlen($password)>1024)throw new HttpError(422,'ایمیل یا رمز معتبر نیست.');
@@ -118,9 +119,9 @@ final class Web {
                 session_regenerate_id(true); $_SESSION['user_id']=$u['id']; $_SESSION['csrf']=bin2hex(random_bytes(32));if(in_array($_POST['next_page']??'',['account','submit-art','contribute','call'],true))CommunityWeb::next($_POST);redirect('admin');
             case 'account-password':$actor=Security::user($db);if(!$actor)throw new HttpError(403,'ورود لازم است.');Accounts::password($db,$actor,$_POST);$_SESSION['flash']='رمز ورود تغییر کرد.';redirect('account');
             case 'logout': $_SESSION=[]; session_regenerate_id(true); redirect('home');
-            case 'protocol-save': case 'protocol-transition': case 'protocol-shared': case 'protocol-term': ProtocolController::action($db,$a);
+            case 'protocol-quick': case 'protocol-save': case 'protocol-transition': case 'protocol-shared': case 'protocol-term': ProtocolController::action($db,$a);
             case 'martyr-save': throw new HttpError(410,'از فرم هشت‌مرحله‌ای ثبت شهید استفاده کنید.'); Security::requireRole($db,'content'); $id=$archive->save($_POST,!empty($_POST['id'])?(int)$_POST['id']:null); $_SESSION['flash']='اطلاعات ذخیره شد.'; redirect('admin',['tab'=>'martyrs','edit'=>$id]);
-            case 'category': Security::requireRole($db,'content'); Db::insert($db,'categories',['name'=>Security::text($_POST,'name',150)]); Db::audit($db,'category.create',''); redirect('admin',['tab'=>'categories']);
+            case 'category': if(MartyrTaxonomySchema::ready($db))throw new HttpError(410,'از مدیریت مرکزی محورهای شهدا استفاده کنید.');Security::requireRole($db,'content'); Db::insert($db,'categories',['name'=>Security::text($_POST,'name',150)]); Db::audit($db,'category.create',''); redirect('admin',['tab'=>'categories']);
             case 'images':
                 if(PlatformSchema::ready($db))Permissions::require($db,'media.create');else Security::requireRole($db,'content'); $files=self::files('images'); if(!$files||count($files)>10) throw new HttpError(422,'از ۱ تا ۱۰ فایل در هر نوبت انتخاب کنید.'); $messages=[]; $failedUploads=0;
                  $previews=self::files('previews');if($previews&&count($previews)!==count($files))throw new HttpError(422,'تعداد پیش‌نمایش‌های همراه با فایل‌های اصلی یکسان نیست.');

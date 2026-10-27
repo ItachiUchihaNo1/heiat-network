@@ -1,0 +1,49 @@
+<?php
+declare(strict_types=1);
+namespace Namira;
+use PDO;
+final class MartyrCatalog {
+    public static function bindings():array {
+        $rows=[['nationality','تابعیت','multiple',1,'person','nationalities'],['occupation','شغل و حرفه','multiple',3,'person','occupations'],['education_status','وضعیت تحصیل','multiple',3,'person','education_status'],['education_level','مقطع تحصیلی','single',3,'education','level_id'],['education_field','رشته تحصیلی','single',3,'education','field_id'],['expertise','تخصص و مهارت','multiple',3,'person','expertise'],['social_role','نقش اجتماعی','multiple',3,'person','social_roles'],['organization','وابستگی سازمانی','single',4,'affiliation','organization'],['organization_position','مسئولیت سازمانی','single',4,'affiliation','position_id'],['rank','درجه نظامی','single',4,'military','rank_event'],['event_group','گروه رویداد','single',5,'event','group_id'],['event_type','نوع رویداد','multiple',5,'event','event_types'],['position','موقعیت و فعالیت هنگام واقعه','multiple',5,'person_event','positions'],['mechanism','عامل آسیب','multiple',5,'person_event','mechanisms'],['collection','مجموعه موضوعی','multiple',6,'person','collections']];$out=[];foreach($rows as $i=>$r)$out[$r[0]]=['title'=>$r[1],'mode'=>$r[2],'step'=>$r[3],'kind'=>$r[4],'field'=>$r[5],'order'=>$i];return $out;
+    }
+    public static function axes(PDO $db,bool $public=false):array {
+        if(!MartyrTaxonomySchema::ready($db))return [];
+        return Db::query($db,'SELECT a.*,s.description,s.selection_mode,s.form_section,s.form_order,s.filter_order,s.hierarchical,s.show_in_form,s.binding_kind,s.binding_key,s.revision FROM taxonomy_axes a JOIN martyr_axis_settings s ON s.axis_key=a.axis_key WHERE a.subject=?'.($public?' AND a.active=1 AND a.public_filter=1':'').' ORDER BY '.($public?'s.filter_order':'s.form_order').',a.axis_key',['martyr'])->fetchAll();
+    }
+    public static function definitions(PDO $db,int|string $part):array {
+        $defs=ProtocolSpec::fields($part);if(!MartyrTaxonomySchema::ready($db))return $defs;
+        foreach(self::axes($db) as $axis){$matches=is_int($part)?($axis['binding_kind']==='person'&&(int)$axis['form_section']===$part):$axis['binding_kind']===$part;if(!$matches)continue;$key=$axis['binding_key'];$existing=isset($defs[$key]);if(!$existing&&(!$axis['active']||!$axis['show_in_form']))continue;
+            if($existing&&(!$axis['show_in_form']||!$axis['active'])){unset($defs[$key]);continue;}
+            $defs[$key]=ProtocolSpec::field($axis['axis_key']==='occupation'?'شغل و حرفه (نقش اجتماعی جداست)':$axis['title'],$axis['selection_mode']==='single'?'term':'terms',['taxonomy'=>$axis['axis_key']]);
+        }
+        if($part==='military')$defs['position_id']=ProtocolSpec::field('مسئولیت سازمانی','term',['taxonomy'=>'organization_position']);
+        if($part===7){$defs['will_text']=ProtocolSpec::field('متن وصیت‌نامه','textarea');$defs['memories']=ProtocolSpec::field('خاطرات','textarea');}
+        return $defs;
+    }
+    public static function canonical(PDO $db,int $id):int {
+        if(!MartyrTaxonomySchema::ready($db))return $id;$seen=[];while($next=Db::query($db,'SELECT target_term_id FROM martyr_term_redirects WHERE source_term_id=? AND active=1',[$id])->fetchColumn()){if(isset($seen[$id]))throw new HttpError(409,'چرخه در ادغام مقادیر پیدا شد.');$seen[$id]=true;$id=(int)$next;}return $id;
+    }
+    public static function family(PDO $db,int $id):array {$target=self::canonical($db,$id);$ids=[$target];foreach(Db::query($db,'SELECT source_term_id FROM martyr_term_redirects WHERE active=1')->fetchAll(PDO::FETCH_COLUMN) as $source)if(self::canonical($db,(int)$source)===$target)$ids[]=(int)$source;return array_values(array_unique($ids));}
+    public static function indexSnapshot(PDO $db,int $person,array $snapshot,int $revision):void {
+        // Read only the caller's reviewed snapshot; never draft junctions or private core fields.
+        Db::query($db,'DELETE FROM martyr_public_terms WHERE martyr_id=?',[$person]);Db::query($db,'DELETE FROM martyr_public_facts WHERE martyr_id=?',[$person]);$axes=Db::query($db,'SELECT a.axis_key,s.* FROM taxonomy_axes a JOIN martyr_axis_settings s ON s.axis_key=a.axis_key WHERE a.subject=?',['martyr'])->fetchAll();$terms=[];
+        $add=function(string $axis,mixed $values)use(&$terms,$db){foreach((array)$values as $v){if(!is_int($v)&&!(is_string($v)&&ctype_digit($v)))continue;$id=(int)$v;if(Db::query($db,'SELECT id FROM protocol_terms WHERE id=? AND taxonomy=?',[$id,$axis])->fetchColumn())$terms[$axis.':'.$id]=[$axis,$id];}};
+        foreach($axes as $axis){$kind=$axis['binding_kind'];$field=$axis['binding_key'];if($kind==='person')$add($axis['axis_key'],$snapshot['sections'][(int)$axis['form_section']][$field]??[]);elseif($kind==='event'){foreach($snapshot['records']['person_event']??[] as $link){$event=$snapshot['events'][$link['data']['event_id']??0]['data']??[];$add($axis['axis_key'],$event[$field]??[]);}}else foreach($snapshot['records'][$kind]??[] as $record)$add($axis['axis_key'],$record['data'][$field]??[]);}
+        foreach($snapshot['records']['military']??[] as $r){foreach(['rank_event','rank_martyrdom','rank_posthumous'] as $field)$add('rank',$r['data'][$field]??[]);$add('organization_position',$r['data']['position_id']??[]);}
+        foreach($terms as [$axis,$term])Db::insert($db,'martyr_public_terms',['martyr_id'=>$person,'axis_key'=>$axis,'term_id'=>$term,'revision'=>$revision]);
+        $section=$snapshot['sections'][2]??[];foreach(['birth_place','residence_at_incident','martyrdom_place'] as $key)self::indexPlace($db,$person,$key,0,$section[$key]??[],$revision);
+        foreach($snapshot['records']['burial']??[] as $i=>$r)if(!empty($r['data']['is_current']))self::indexPlace($db,$person,'burial_place',(int)$i,$r['data']['place']??[],$revision);
+        foreach(['birth_date','martyrdom_date'] as $key){$d=$section[$key]??[];if(!empty($d['year']))Db::insert($db,'martyr_public_facts',['martyr_id'=>$person,'fact_key'=>$key,'ordinal'=>0,'calendar'=>$d['calendar'],'year'=>$d['year'],'month'=>$d['month']??null,'day'=>$d['day']??null,'date_precision'=>$d['precision'],'revision'=>$revision]);}
+    }
+    private static function indexPlace(PDO $db,int $person,string $key,int $ordinal,array $v,int $revision):void {
+        if(empty($v['country_id'])&&empty($v['province_or_state_id']))return;Db::insert($db,'martyr_public_facts',['martyr_id'=>$person,'fact_key'=>$key,'ordinal'=>$ordinal,'country_id'=>$v['country_id']??null,'province_id'=>$v['province_or_state_id']??null,'county_id'=>$v['county_id']??null,'city_id'=>$v['city_or_village_id']??null,'revision'=>$revision]);
+    }
+    public static function selectedCount(PDO $db,int $term):int {
+        $ids=self::family($db,$term);$marks=implode(',',array_fill(0,count($ids),'?'));$queries=["SELECT martyr_id AS person FROM protocol_person_terms WHERE term_id IN ($marks)","SELECT r.martyr_id AS person FROM protocol_record_terms t JOIN protocol_records r ON r.id=t.record_id WHERE t.term_id IN ($marks) AND r.archived=0","SELECT r.martyr_id AS person FROM protocol_event_terms t JOIN protocol_records r ON r.event_id=t.event_id WHERE t.term_id IN ($marks) AND r.archived=0","SELECT martyr_id AS person FROM martyr_public_terms WHERE term_id IN ($marks)"];$args=[...$ids,...$ids,...$ids,...$ids];$axis=Db::query($db,'SELECT taxonomy FROM protocol_terms WHERE id=?',[$term])->fetchColumn();
+        foreach(Db::query($db,'SELECT * FROM martyr_axis_settings WHERE axis_key=?',[$axis])->fetchAll() as $binding){if($binding['selection_mode']!=='single')continue;$field=$binding['binding_key'];if(!preg_match('/^[a-zA-Z0-9_]+$/D',$field))continue;$predicate="CAST(JSON_EXTRACT(payload,'$.".$field."') AS CHAR) IN ($marks)";if($binding['binding_kind']==='person'){$queries[]="SELECT martyr_id AS person FROM martyr_sections WHERE step=? AND $predicate";$args[]=(int)$binding['form_section'];$args=[...$args,...$ids];}elseif($binding['binding_kind']==='event'){$queries[]="SELECT r.martyr_id AS person FROM protocol_events e JOIN protocol_records r ON r.event_id=e.id WHERE r.archived=0 AND CAST(JSON_EXTRACT(e.payload,'$.".$field."') AS CHAR) IN ($marks)";$args=[...$args,...$ids];}else{$queries[]="SELECT martyr_id AS person FROM protocol_records WHERE kind=? AND archived=0 AND $predicate";$args[]=$binding['binding_kind'];$args=[...$args,...$ids];}}
+        if($axis==='rank'){foreach(['rank_martyrdom','rank_posthumous'] as $field){$queries[]="SELECT martyr_id AS person FROM protocol_records WHERE kind='military' AND archived=0 AND CAST(JSON_EXTRACT(payload,'$.".$field."') AS CHAR) IN ($marks)";$args=[...$args,...$ids];}}
+        if($axis==='organization_position'){$queries[]="SELECT martyr_id AS person FROM protocol_records WHERE kind='military' AND archived=0 AND CAST(JSON_EXTRACT(payload,'$.position_id') AS CHAR) IN ($marks)";$args=[...$args,...$ids];}
+        if(in_array($axis,['country','province','county','city'],true)){$column=['country'=>'country_id','province'=>'province_or_state_id','county'=>'county_id','city'=>'city_or_village_id'][$axis];foreach(['birth_place','residence_at_incident','martyrdom_place'] as $place){$queries[]="SELECT martyr_id AS person FROM martyr_sections WHERE step=2 AND CAST(JSON_EXTRACT(payload,'$.".$place.'.'.$column."') AS CHAR) IN ($marks)";$args=[...$args,...$ids];}$queries[]="SELECT martyr_id AS person FROM protocol_records WHERE archived=0 AND CAST(JSON_EXTRACT(payload,'$.place.".$column."') AS CHAR) IN ($marks)";$args=[...$args,...$ids];$factColumn=$axis.'_id';$queries[]="SELECT martyr_id AS person FROM martyr_public_facts WHERE $factColumn IN ($marks)";$args=[...$args,...$ids];}
+        return (int)Db::query($db,'SELECT COUNT(DISTINCT person) FROM ('.implode(' UNION ',$queries).') related',$args)->fetchColumn();
+    }
+}

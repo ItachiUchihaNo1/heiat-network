@@ -3,23 +3,26 @@ use Namira\{ProtocolSpec,Protocol};
 foreach($defs as $key=>$def):
 $v=$values[$key]??null;$n=$prefix.'['.$key.']';$fieldId='p_'.preg_replace('/[^a-zA-Z0-9_]/','_',$n);$errKey=str_replace(['][','[',']'],['.','.',''],$n);$err=$errors[$errKey]??'';$type=$def['type'];$label=$def['label'];
 ?>
+<?php $legacyText=($type==='text'&&((in_array($key,['field','level'],true)&&str_starts_with($prefix,'records[education]'))||($key==='position'&&(str_starts_with($prefix,'records[affiliation]')||str_starts_with($prefix,'records[military]')))));if($legacyText): ?><details class="protocol-optional"><summary>عنوان مطابق متن منبع قبلی — در صورت نبود گزینه</summary><?php endif ?>
 <div class="field <?= in_array($type,['date','place','textarea','rich','lines'],true)?'full':'' ?>" data-protocol-field>
+<input type="hidden" name="<?= e($prefix.'[_present]['.$key.']') ?>" value="1">
 <label for="<?= e($fieldId) ?>"><?= e($label) ?></label>
 <?php if($type==='date'): $v=is_array($v)?$v:[]; ?>
 <fieldset class="protocol-date"><legend class="sr-only"><?= e($label) ?></legend>
 <select name="<?= e($n) ?>[calendar]" id="<?= e($fieldId) ?>" aria-label="تقویم"><?php foreach(['jalali'=>'شمسی','gregorian'=>'میلادی','hijri'=>'قمری'] as $k=>$t): ?><option value="<?= $k ?>" <?= ($v['calendar']??'jalali')===$k?'selected':'' ?>><?= $t ?></option><?php endforeach ?></select>
 <select name="<?= e($n) ?>[precision]" aria-label="دقت تاریخ"><?php foreach(['unknown'=>'نامشخص یا فقط متن منبع','year'=>'فقط سال','month'=>'سال و ماه','day'=>'روز دقیق'] as $k=>$t): ?><option value="<?= $k ?>" <?= ($v['precision']??'unknown')===$k?'selected':'' ?>><?= $t ?></option><?php endforeach ?></select>
 <?php foreach(['year'=>'سال','month'=>'ماه','day'=>'روز'] as $k=>$t): ?><input inputmode="numeric" name="<?= e($n) ?>[<?= $k ?>]" value="<?= e($v[$k]??'') ?>" placeholder="<?= $t ?>" aria-label="<?= $t ?>"><?php endforeach ?>
-<label><input type="checkbox" name="<?= e($n) ?>[is_approximate]" value="1" <?= !empty($v['is_approximate'])?'checked':'' ?>> تقریبی</label>
+<input type="hidden" name="<?= e($n) ?>[is_approximate]" value="0"><label><input type="checkbox" name="<?= e($n) ?>[is_approximate]" value="1" <?= !empty($v['is_approximate'])?'checked':'' ?>> تقریبی</label>
 <input name="<?= e($n) ?>[original_text]" value="<?= e($v['original_text']??'') ?>" placeholder="عبارت اصلی منبع" aria-label="عبارت اصلی منبع">
 </fieldset><small class="hint">اجزای نامعلوم را خالی بگذارید؛ تاریخ بدون اجازه تبدیل نمی‌شود.</small>
 <?php elseif($type==='place'): $v=is_array($v)?$v:[]; ?>
 <fieldset class="protocol-place"><legend class="sr-only"><?= e($label) ?></legend><div class="fields">
 <?php foreach(['country_id'=>['country','کشور'],'province_or_state_id'=>['province','استان / ایالت'],'county_id'=>['county','شهرستان'],'city_or_village_id'=>['city','شهر / روستا']] as $k=>$spec): ?>
-<div class="field"><label for="<?= e($fieldId.'_'.$k) ?>"><?= $spec[1] ?></label><select data-geo-level="<?= $spec[0] ?>" id="<?= e($fieldId.'_'.$k) ?>" name="<?= e($n) ?>[<?= $k ?>]"><option value="">ثبت نشده</option><?php foreach($terms as $t): if($t['taxonomy']!==$spec[0])continue; ?><option data-parent="<?= e($t['parent_id']??'') ?>" value="<?= $t['id'] ?>" <?= (string)($v[$k]??'')===(string)$t['id']?'selected':'' ?>><?= e($t['title']) ?></option><?php endforeach ?></select></div>
+<div class="field"><label for="<?= e($fieldId.'_'.$k) ?>"><?= $spec[1] ?></label><input type="hidden" name="<?= e($n) ?>[<?= $k ?>]" value=""><select data-geo-level="<?= $spec[0] ?>" id="<?= e($fieldId.'_'.$k) ?>" name="<?= e($n) ?>[<?= $k ?>]"><option value="">ثبت نشده</option><?php foreach($terms as $t): if($t['taxonomy']!==$spec[0]||($spec[0]!=='country'&&(string)$t['id']!==(string)($v[$k]??'')))continue; ?><option data-parent="<?= e($t['parent_id']??'') ?>" value="<?= $t['id'] ?>" <?= (string)($v[$k]??'')===(string)$t['id']?'selected':'' ?>><?= e($t['title']) ?></option><?php endforeach ?></select></div>
+<?php if($legacyText): ?></details><?php endif ?>
 <?php endforeach ?>
 <?php foreach(['locality_text'=>'نام محل در منبع / مکان فاقد گزینه','historical_place_name'=>'نام تاریخی محل','address_text'=>'نشانی دقیق؛ خصوصی','latitude'=>'عرض جغرافیایی؛ خصوصی','longitude'=>'طول جغرافیایی؛ خصوصی'] as $k=>$t): ?><div class="field"><label for="<?= e($fieldId.'_'.$k) ?>"><?= $t ?></label><input id="<?= e($fieldId.'_'.$k) ?>" name="<?= e($n) ?>[<?= $k ?>]" value="<?= e($v[$k]??'') ?>"></div><?php endforeach ?>
-</div><label><input type="checkbox" name="<?= e($n) ?>[needs_matching]" value="1" <?= !empty($v['needs_matching'])?'checked':'' ?>> نیازمند تطبیق با فرهنگ جغرافیایی</label>
+</div><input type="hidden" name="<?= e($n) ?>[needs_matching]" value="0"><label><input type="checkbox" name="<?= e($n) ?>[needs_matching]" value="1" <?= !empty($v['needs_matching'])?'checked':'' ?>> نیازمند تطبیق با فرهنگ جغرافیایی</label>
 <p class="hint">اگر گزینه مکان موجود نیست، نام محل را مطابق منبع بنویسید؛ مدیر می‌تواند فرهنگ را تکمیل کند.</p></fieldset>
 <?php elseif(in_array($type,['textarea','rich','lines'],true)): ?>
 <textarea id="<?= e($fieldId) ?>" name="<?= e($n) ?>" rows="<?= $type==='rich'?7:3 ?>"><?= e(is_array($v)?implode("\n",$v):($v??'')) ?></textarea>
@@ -33,16 +36,17 @@ $v=$values[$key]??null;$n=$prefix.'['.$key.']';$fieldId='p_'.preg_replace('/[^a-
 <?php elseif(in_array($type,['terms','term','source','event','record','affiliation'],true)): ?>
 <?php $opts=[];if(in_array($type,['terms','term'],true)){foreach($terms as $t)if($t['taxonomy']===$def['options']['taxonomy']&&($t['active']||in_array($t['id'],(array)$v))&& !($key==='collections'&&(Protocol::decode($t['metadata'])['mode']??'')==='filter'))$opts[$t['id']]=$t['title'];}elseif(in_array($type,['source','event'],true)){foreach($type==='source'?$sources:$events as $t)$opts[$t['id']]='#'.$t['id'].' '.$t['title'];}elseif($type==='claim'){$opts=['identity'=>'معرفی / شناسایی هویت','identity.display_name'=>'نام نمایشی','birth_date'=>'تاریخ تولد','martyrdom_date'=>'تاریخ شهادت','birth_place'=>'محل تولد','martyrdom_place'=>'محل شهادت','occupation'=>'شغل / دانشمند','rank'=>'درجه','position'=>'سمت','event'=>'واقعه','collections'=>'مجموعه‌های موضوعی','official'=>'مستند رسمی'];}else{foreach($bundle['records']??[] as $kind=>$rows)foreach($rows as $row)if($type!=='affiliation'||$kind==='affiliation')$opts[$row['id']]='#'.$row['id'].' '.(ProtocolSpec::records(2)[$kind]??ProtocolSpec::records(3)[$kind]??ProtocolSpec::records(4)[$kind]??ProtocolSpec::records(5)[$kind]??$kind);}
 ?>
-<input type="search" data-select-search="<?= e($fieldId) ?>" aria-label="جست‌وجو در <?= e($label) ?>" placeholder="جست‌وجوی گزینه‌ها…">
-<select id="<?= e($fieldId) ?>" name="<?= e($n) ?><?= $type==='terms'?'[]':'' ?>" <?= $type==='terms'?'multiple size="6"':'' ?>><option value="" <?= $type==='terms'?'disabled':'' ?>>انتخاب نشده</option><?php foreach($opts as $k=>$t): ?><option value="<?= e($k) ?>" <?= in_array((string)$k,array_map('strval',(array)$v),true)?'selected':'' ?>><?= e($t) ?></option><?php endforeach ?></select>
+<?php if($type==='terms'): ?><div class="choice-picker" id="<?= e($fieldId) ?>" data-choice-picker><input type="search" data-choice-search placeholder="جست‌وجوی گزینه‌ها…" aria-label="جست‌وجو در <?= e($label) ?>"><div data-choice-tags class="choice-tags" aria-live="polite"></div><details><summary>انتخاب چند گزینه <span data-choice-count></span></summary><div data-choice-options class="choice-options"><?php foreach($opts as $k=>$t): ?><label><input type="checkbox" name="<?= e($n) ?>[]" value="<?= e($k) ?>" <?= in_array((string)$k,array_map('strval',(array)$v),true)?'checked':'' ?>><span><?= e($t) ?></span></label><?php endforeach ?></div></details></div>
+<?php else: ?><input type="search" data-select-search="<?= e($fieldId) ?>" aria-label="جست‌وجو در <?= e($label) ?>" placeholder="جست‌وجوی گزینه‌ها…"><select id="<?= e($fieldId) ?>" name="<?= e($n) ?>"><option value="">انتخاب نشده</option><?php foreach($opts as $k=>$t): ?><option value="<?= e($k) ?>" <?= in_array((string)$k,array_map('strval',(array)$v),true)?'selected':'' ?>><?= e($t) ?></option><?php endforeach ?></select><?php endif ?>
+<?php if(in_array($type,['terms','term'],true)&&isset($db,$actor)&&Namira\MartyrTaxonomySchema::ready($db)&&Namira\Permissions::allows($db,$actor,'taxonomy.manage')&&$def['options']['taxonomy']!=='rank'): ?><button type="button" class="outline catalog-inline-add" data-add-term="<?= e($def['options']['taxonomy']) ?>" data-target-field="<?= e($fieldId) ?>" data-target-name="<?= e($n) ?>" data-multiple="<?= $type==='terms'?'1':'0' ?>">+ افزودن گزینه به همین محور</button><?php endif ?>
 <?php if(in_array($type,['terms','term'],true)): ?><input name="<?= e($prefix.'['.$key.'_other]') ?>" value="<?= e($values[$key.'_other']??'') ?>" placeholder="توضیح گزینه سایر" aria-label="توضیح سایر <?= e($label) ?>"><?php endif ?>
-<?php if($type==='terms'): ?><small class="hint">چند گزینه مجاز است؛ در رایانه Ctrl را نگه دارید.</small><?php endif ?>
+
 <?php elseif($type==='integer'): ?>
 <input id="<?= e($fieldId) ?>" type="text" inputmode="numeric" name="<?= e($n) ?>" value="<?= e($v??'') ?>">
 <?php else: ?>
 <input id="<?= e($fieldId) ?>" name="<?= e($n) ?>" value="<?= e($v??'') ?>" <?= $type==='url'?'type="url" dir="ltr"':'' ?>>
 <?php endif ?>
 <?php if($err): ?><p class="protocol-error" role="alert"><?= e($err) ?></p><?php endif ?>
-<?php if(!in_array($type,['bool','enum'],true)): ?><label class="hint">وضعیت اطلاعات <select class="protocol-state" name="<?= e($prefix.'[states]['.$key.']') ?>"><?php foreach(['recorded'=>'مطابق مقدار ثبت‌شده','missing'=>'هنوز ثبت نشده','unknown'=>'نامشخص پس از بررسی','not_applicable'=>'کاربرد ندارد'] as $k=>$t): ?><option value="<?= $k ?>" <?= ($values['states'][$key]??'recorded')===$k?'selected':'' ?>><?= $t ?></option><?php endforeach ?></select></label><?php endif ?>
+
 </div>
 <?php endforeach ?>

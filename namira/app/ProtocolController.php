@@ -13,6 +13,7 @@ final class ProtocolController {
         $id=(int)($_POST['id']??0);$step=max(1,min(8,(int)($_POST['step']??1)));$panel=Security::text($_POST,'panel',20,false);
         try{
             switch($action){
+                case 'protocol-quick':$id=$p->quick($_POST);$step=1;break;
                 case 'protocol-save':$id=$p->save($id,$step,$_POST);break;
                 case 'protocol-transition':$p->transition($id,Security::text($_POST,'status',30),$_POST);$step=8;break;
                 case 'protocol-shared':$p->shared($panel,$_POST,!empty($_POST['shared_id'])?(int)$_POST['shared_id']:null);break;
@@ -21,20 +22,22 @@ final class ProtocolController {
             }
             unset($_SESSION['protocol_feedback']);$_SESSION['flash']='اطلاعات ذخیره شد. شناسه پرونده ثابت می‌ماند.';
         }catch(ProtocolErrors|HttpError $e){
-            $_SESSION['protocol_feedback']=['input'=>$_POST,'errors'=>$e instanceof ProtocolErrors?$e->errors:['form'=>$e->getMessage()],'id'=>$id,'step'=>$step,'panel'=>$panel];
+            $_SESSION['protocol_feedback']=['input'=>$_POST,'errors'=>$e instanceof ProtocolErrors?$e->errors:['form'=>$e->getMessage()],'id'=>$id,'step'=>max(1,min(8,(int)($_POST['return_step']??$step))),'panel'=>$panel];
         }
-        $args=['tab'=>'martyrs','edit'=>$id,'step'=>$step];if($panel)$args['panel']=$panel;redirect('admin',$args);
+        $returnStep=(int)($_POST['return_step']??$step);if($returnStep<1||$returnStep>8)$returnStep=$step;$args=['tab'=>'martyrs','edit'=>$id,'step'=>$returnStep];if($panel)$args['panel']=$panel;redirect('admin',$args);
     }
     public static function show(PDO $db,array $actor):void {
         self::ensure($db,$actor);$p=new Protocol($db,$actor);$id=(int)($_GET['edit']??0);$step=max(1,min(8,(int)($_GET['step']??1)));$panel=Security::text($_GET,'panel',20,false);
         $bundle=$id?$p->get($id):null;$feedback=$_SESSION['protocol_feedback']??null;unset($_SESSION['protocol_feedback']);
         if($feedback&&($feedback['id']!==$id||$feedback['step']!==$step||$feedback['panel']!==$panel))$feedback=null;
+        $fieldDefinitions=[];foreach([1,2,3,4,5,6,7,'source','event','event_location','education','affiliation','military','residence','burial','person_event','evidence'] as $part)$fieldDefinitions[$part]=$p->definitions($part);
         $terms=$p->terms();$sources=$p->sources();$events=$p->events();$errors=$feedback['errors']??[];$old=$feedback['input']??null;
         $martyrs=Db::query($db,"SELECT m.id,m.code,m.first_name,m.last_name,m.published,p.display_name,p.status FROM martyrs m LEFT JOIN martyr_protocols p ON p.martyr_id=m.id ORDER BY m.id DESC LIMIT 100")->fetchAll();
         $warnings=$bundle?$p->warnings($bundle):[];$similar=$bundle?$p->similar($bundle):[];$preview=$bundle?$p->publicSnapshot($bundle,[]):[];
-        view('protocol',compact('db','actor','id','step','panel','bundle','terms','sources','events','errors','old','martyrs','warnings','similar','preview'));
+        view('protocol',compact('db','actor','id','step','panel','bundle','terms','sources','events','errors','old','martyrs','warnings','similar','preview','fieldDefinitions'));
     }
     public static function term(PDO $db,array $actor,array $in):int {
+        if(MartyrTaxonomySchema::ready($db))return (new MartyrCatalogManager($db,$actor))->term($in);
         if($actor['role']!=='superadmin')throw new HttpError(403,'ویرایش فرهنگ‌ها فقط برای مدیر مجاز است.');
         $tax=Security::text($in,'taxonomy',40);if(!isset(ProtocolSpec::taxonomies()[$tax]))throw new HttpError(422,'فرهنگ معتبر نیست.');
         $title=Security::text($in,'title',200);$slug=Security::text($in,'slug',100);if(!preg_match('/^[a-z0-9_-]+$/D',$slug))throw new HttpError(422,'نامک لاتین معتبر لازم است.');
