@@ -21,8 +21,18 @@ final class GalleryFacets {
         foreach(self::LEVELS as $level){$col=$level.'_id';$sql='SELECT DISTINCT t.id,t.title,t.parent_id,t.sort_order '.$from.' JOIN martyr_public_facts gf ON gf.martyr_id=m.id JOIN protocol_terms t ON t.id=gf.'.$col.' WHERE '.$where.' AND gf.fact_key=? AND t.taxonomy=? AND t.active=1';if($parents)$sql.=' AND '.implode(' AND ',$parents);$out[$level]=Db::query($db,$sql.' ORDER BY t.sort_order,t.title,t.id',[...$args,$role,$level,...$parentArgs])->fetchAll();if(($f['geo_'.$level]??'')!==''){$parents[]='gf.'.$col.'=?';$parentArgs[]=(int)$f['geo_'.$level];}}
         return $out;
     }
+    /** Ordered visible chip descriptors; selected empty facets remain editable. */
+    public static function chips(array $options,array $f):array {
+        $chips=[];$selected=fn($key)=>array_filter((array)($f['axis'][$key]??[]),fn($v)=>$v!=='');
+        foreach($options['axes'] as $a)if($a['axis_key']==='collection'&&($a['options']||$selected('collection')))$chips[]=['key'=>'topic','title'=>'موضوعی'];
+        if($options['roles']||!empty($f['geo_role']))$chips[]=['key'=>'geo_role','title'=>'نوع محدوده جغرافیایی'];
+        foreach(['country'=>'کشور','province'=>'استان','county'=>'شهرستان','city'=>'شهر'] as $level=>$label)if($options['geo'][$level]||!empty($f['geo_'.$level]))$chips[]=['key'=>'geo_'.$level,'title'=>$label];
+        foreach($options['axes'] as $a)if($a['axis_key']!=='collection'&&($a['options']||$selected($a['axis_key'])))$chips[]=['key'=>'axis:'.$a['axis_key'],'title'=>$a['title']];
+        if(!empty($options['hasDates'])||!empty($f['year_from'])||!empty($f['year_to']))$chips[]=['key'=>'date','title'=>'تاریخ'];
+        return $chips;
+    }
     public static function options(PDO $db,array $f=[]):array {
-        if(!MartyrTaxonomySchema::ready($db)||!PlatformSchema::ready($db))return ['axes'=>[],'geo'=>array_fill_keys(self::LEVELS,[]),'roles'=>[],'geoDefaultRole'=>'residence_at_incident'];
+        if(!MartyrTaxonomySchema::ready($db)||!PlatformSchema::ready($db))return ['axes'=>[],'geo'=>array_fill_keys(self::LEVELS,[]),'roles'=>[],'geoDefaultRole'=>'residence_at_incident','hasDates'=>false,'chips'=>[]];
         // Validate the original request before dropping a facet's own restriction.
         MartyrFilters::conditions($db,$f);$axes=MartyrCatalog::axes($db,true);
         $terms=[];foreach(Db::query($db,'SELECT id,title,parent_id,active,taxonomy,sort_order FROM protocol_terms')->fetchAll() as $term)$terms[(int)$term['id']]=$term;
@@ -33,7 +43,7 @@ final class GalleryFacets {
             if($axis['hierarchical'])foreach(array_values($values) as $term){$parent=(int)$term['parent_id'];$seen=[];while($parent&&!isset($seen[$parent])){$seen[$parent]=true;$t=$terms[$parent]??null;if(!$t||$t['taxonomy']!==$axis['axis_key'])break;if($t['active'])$values[$parent]=$t;$parent=(int)$t['parent_id'];}}
             uasort($values,fn($a,$b)=>((int)$a['sort_order']<=>(int)$b['sort_order'])?:strcmp($a['title'],$b['title']));$axis['options']=array_values(array_map(fn($t)=>array_intersect_key($t,array_flip(['id','title','parent_id'])),$values));
             $axis=array_intersect_key($axis,array_flip(['axis_key','title','selection_mode','filter_group','options']));
-        }unset($axis);$roles=self::roles($db,$f);$role=$f['geo_role']??'';if($role===''&&array_filter(array_map(fn($l)=>$f['geo_'.$l]??'',self::LEVELS)))$role='residence_at_incident';if($role==='')$role=in_array('residence_at_incident',array_column($roles,'id'),true)?'residence_at_incident':($roles[0]['id']??'residence_at_incident');return ['axes'=>$axes,'geo'=>self::geo($db,$f,$role),'roles'=>$roles,'geoDefaultRole'=>$role];
+        }unset($axis);$roles=self::roles($db,$f);$role=$f['geo_role']??'';if($role===''&&array_filter(array_map(fn($l)=>$f['geo_'.$l]??'',self::LEVELS)))$role='residence_at_incident';if($role==='')$role=in_array('residence_at_incident',array_column($roles,'id'),true)?'residence_at_incident':($roles[0]['id']??'residence_at_incident');$dateContext=$f;foreach(['year_from','year_to','calendar','date_kind'] as $key)unset($dateContext[$key]);[$from,$where,$args]=self::base($db,$dateContext);$hasDates=(bool)Db::query($db,"SELECT 1 ".$from." JOIN martyr_public_facts df ON df.martyr_id=m.id WHERE ".$where." AND df.fact_key IN ('birth_date','martyrdom_date') AND df.year IS NOT NULL LIMIT 1",$args)->fetchColumn();$options=['axes'=>$axes,'geo'=>self::geo($db,$f,$role),'roles'=>$roles,'geoDefaultRole'=>$role,'hasDates'=>$hasDates];$options['chips']=self::chips($options,$f);return $options;
     }
     public static function snapshot(PDO $db,array $input,string $changed=''):array {
         $f=self::input($db,$input);unset($f['p']);MartyrFilters::conditions($db,$f);$cleared=[];$keys=['geo_role',...array_map(fn($l)=>'geo_'.$l,self::LEVELS)];
