@@ -1,6 +1,6 @@
 /* Namira public gallery filters. No browser storage; committed state lives in the URL. */
 (function(global){'use strict';
-const clone=x=>JSON.parse(JSON.stringify(x||{}));
+function clone(x){const out=JSON.parse(JSON.stringify(x&&!Array.isArray(x)?x:{}));if(Array.isArray(out.axis))out.axis={};return out;}
 const levels=['geo_country','geo_province','geo_county','geo_city'];
 const theme=a=>a.axis_key==='collection'||a.filter_group==='thematic';
 const axisValues=(f,k)=>(f.axis?.[k]||[]).filter(v=>v!=='').map(String);
