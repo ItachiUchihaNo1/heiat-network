@@ -29,3 +29,5 @@ Run php tests/martyr-catalog.php for the 72 dedicated checks, plus existing run.
 Dedicated checks cover quick creation, true rendered form serialization and reload, partial edits, explicit clears, nested dates/places, multiple records, permissions, migration counts/backup/restore, taxonomy creation/rename/merge/undo, frozen publication indexes, combined image filters, same-person matching and strict view rendering.
 
 Merging a term with children is blocked until its hierarchy is separately reviewed, so redirects cannot orphan descendants.
+
+Gallery filter groups use one column at mobile/tablet widths so an expanded group does not stretch adjacent groups or action buttons.
