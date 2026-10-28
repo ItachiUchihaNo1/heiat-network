@@ -30,7 +30,7 @@ final class StoreFiles {
  }
  if(!$allowed)throw new HttpError(404,'فایل در دسترس نیست.');if(!is_file(Upload::absolute($f['path'])))throw new HttpError(404,'فایل در دسترس نیست.');
  if($count&&$customer){$used=(int)Db::query($db,'SELECT COUNT(*) FROM store_download_events WHERE file_id=? AND user_id=? AND item_id=?',[$id,$actor['id'],$entitlement])->fetchColumn();$settings=StoreSettings::get($db);$limit=(int)($i?Protocol::decode($i['snapshot'])['download_limit']??0:0);if($limit&&$used>=$limit)throw new HttpError(403,'سقف دریافت این خرید تکمیل شده است.');$snap=Protocol::decode($i['snapshot']);if(($i['download_until']??0)&&$i['download_until']<time())throw new HttpError(403,'مهلت دریافت این خرید پایان یافته است.');Db::insert($db,'store_download_events',['file_id'=>$id,'user_id'=>$actor['id'],'item_id'=>$entitlement,'created_at'=>date(DATE_ATOM)]);Db::query($db,'UPDATE store_files SET downloads=downloads+1 WHERE id=?',[$id]);Db::query($db,"UPDATE store_item_details SET digital_state='downloaded' WHERE item_id=?",[$entitlement]);}
- return $f;
+ if($count&&$actor&&!$customer)StoreAccess::audit($db,$actor,'file.access','file',$id,[],['kind'=>$f['kind'],'item_id'=>$f['item_id']]);return $f;
  });
  }
 }
