@@ -4,7 +4,7 @@ namespace Namira;
 use PDO;
 final class ProtocolValidator {
     public array $errors=[];
-    public function __construct(private PDO $db,private array $actor,private ?int $personId=null){}
+    public function __construct(private PDO $db,private array $actor,private ?int $personId=null,private bool $simple=false){}
     public static function formValues(array $definitions,array $saved):array {
         foreach($definitions as $key=>$def){
             if(!array_key_exists($key,$saved))continue;
@@ -22,7 +22,7 @@ final class ProtocolValidator {
             $out[$key]=$this->value($key,$def,$raw,$old[$key]??null);if(in_array($def['type'],['terms','term'],true)){
             $ids=$def['type']==='term'?array_filter([$out[$key]]):$out[$key];$titles=[];foreach($ids as $id)$titles[]=Db::query($this->db,'SELECT title FROM protocol_terms WHERE id=?',[$id])->fetchColumn();
             if(count($ids)>1&&(in_array('نامشخص',$titles,true)||in_array('مشغول تحصیل نبوده',$titles,true)))throw new HttpError(422,'نامشخص یا مشغول تحصیل نبوده با گزینه‌های دیگر قابل انتخاب نیست.');
-            if(in_array('سایر',$titles,true)){$out[$key.'_other']=array_key_exists($key.'_other',$input)?Security::text($input,$key.'_other',1000):($old[$key.'_other']??'');if($out[$key.'_other']==='')throw new HttpError(422,'توضیح سایر لازم است.');}
+            if(in_array('سایر',$titles,true)){$out[$key.'_other']=array_key_exists($key.'_other',$input)?Security::text($input,$key.'_other',1000):($old[$key.'_other']??'');if(!$this->simple&&$out[$key.'_other']==='')throw new HttpError(422,'توضیح سایر لازم است.');}
         }}catch(HttpError $e){$this->errors[$prefix.$key]=$def['label'].' — '.$e->getMessage();}}
         $states=$input['states']??[];if(!is_array($states))$states=[];$out['states']=$old['states']??[];
         foreach($states as $key=>$state){if($state==='')continue;if(!isset($definitions[$key])||!in_array($state,['missing','unknown','not_applicable','recorded'],true)){$this->errors[$prefix.'states']='وضعیت فقدان اطلاعات معتبر نیست.';continue;}$out['states'][$key]=$state;}
@@ -58,7 +58,8 @@ final class ProtocolValidator {
         foreach(['country_id'=>'country','province_or_state_id'=>'province','county_id'=>'county','city_or_village_id'=>'city'] as $key=>$taxonomy){$id=$input[$key]??'';$out[$key]=null;if($id===''){continue;}if(!ctype_digit((string)$id))throw new HttpError(422,'شناسه مکان معتبر نیست.');$term=Db::query($this->db,'SELECT * FROM protocol_terms WHERE id=? AND taxonomy=?',[(int)$id,$taxonomy])->fetch();if(!$term||($taxonomy!=='country'&&(int)$term['parent_id']!==(int)$parent)||($taxonomy!=='country'&&$parent===null))throw new HttpError(422,'سطوح جغرافیایی با کشور و سطح بالاتر سازگار نیستند.');$out[$key]=(int)$id;$parent=(int)$id;}
         foreach(['locality_text','historical_place_name','address_text'] as $key)$out[$key]=Security::text($input,$key,2000,false);
         foreach(['latitude'=>90,'longitude'=>180] as $key=>$max){$n=$input[$key]??'';if($n==='')$out[$key]=null;else{if(!is_numeric(Security::normalize((string)$n))||abs((float)Security::normalize((string)$n))>$max)throw new HttpError(422,'مختصات مکانی معتبر نیست.');$out[$key]=(float)Security::normalize((string)$n);}}
-        $out['needs_matching']=!empty($input['needs_matching'])||($out['locality_text']!==''&&empty($out['city_or_village_id']));return $out;
+        $out['village_name']=Security::text($input,'village_name',200,false);
+        $out['needs_matching']=($out['village_name']!=='')||!empty($input['needs_matching'])||($out['locality_text']!==''&&empty($out['city_or_village_id']));return $out;
     }
     public static function safeHtml(string $html):string {
         if(!str_contains($html,'<'))return '<p>'.nl2br(e($html)).'</p>';
