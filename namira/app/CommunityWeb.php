@@ -82,7 +82,7 @@ final class CommunityWeb {
     public static function show(PDO $db,string $page,array|false $user):string {
         CommunitySchema::requireReady($db);$data=['db'=>$db,'user'=>$user,'errors'=>[],'old'=>null];
         if(MemberSchema::ready($db)&&$page==='account'){if(!$user)redirect('member-login',['next_page'=>'account']);MemberWeb::account($db,$user);return 'حساب کاربری | نامیرا';}
-        if(MemberSchema::ready($db)&&$page==='register')redirect('member-login',$_GET);
+        if(MemberSchema::ready($db)&&$page==='register')redirect('member-login',['mode'=>'register']+$_GET);
         if(MemberSchema::ready($db)&&in_array($page,['submit-art','contribute'],true)&&!MobileAuth::verified($db,$user))redirect('member-login',['next_page'=>$page,'call_id'=>(int)($_GET['call_id']??0),'martyr_id'=>(int)($_GET['martyr_id']??0)]);
         if($page==='register'){if($user)redirect('account');view('register',array_replace($data,self::feedback('register',[])));return 'ثبت حساب | نامیرا';}
         if(in_array($page,['submit-art','contribute','account'],true)&&!$user){$next=['next_page'=>$page];foreach(['call_id','martyr_id'] as $key)if(!empty($_GET[$key]))$next[$key]=(int)$_GET[$key];redirect('login',$next);}

@@ -1,5 +1,5 @@
 <?php use Namira\{Protocol,ProtocolSpec,ProtocolDates,Security,Db}; view('community-assets'); ?>
-<link rel="stylesheet" href="/assets/protocol.css?v=20261027-005"><script defer src="/assets/protocol.js?v=20261027-005"></script>
+<link rel="stylesheet" href="/assets/protocol.css?v=008"><script defer src="/assets/protocol.js?v=20261027-005"></script>
 <div class="heading"><h2><?= $id?'پرونده #'.fa($id):'ثبت و انتشار شهید' ?></h2><a class="outline" href="<?= e(url('admin',['tab'=>'martyrs','new'=>1])) ?>">پرونده جدید</a></div>
 <p class="hint">پرونده را تدریجی تکمیل کنید. فقط کد، نام و نام خانوادگی برای ثبت اولیه لازم است؛ بقیه اطلاعات اختیاری‌اند. ثبت اطلاعات در پنل مدیریت، آن‌ها را مستقیماً منتشر می‌کند.</p>
 <?php if($id||$panel): ?><nav class="adminnav" aria-label="بخش‌های پرونده"><?php $displayStep=0;foreach([1=>'مشخصات هویتی',2=>'زندگی و شهادت',3=>'شغل، تحصیل و نقش‌ها',4=>'سوابق و وابستگی‌ها',5=>'رویداد و شرایط',7=>'زندگی‌نامه و اسناد',6=>'مجموعه‌های تکمیلی',8=>'نمایش و تاریخچه'] as $k=>$label): ?><a class="pill <?= $step===$k&&!$panel?'active':'' ?>" <?= !$id&&$k!==1?'aria-disabled="true"':'' ?> href="<?= e(url('admin',['tab'=>'martyrs','edit'=>$id,'step'=>$id?$k:1])) ?>"><?= fa(++$displayStep).' ـ '.e($label) ?></a><?php endforeach ?></nav>

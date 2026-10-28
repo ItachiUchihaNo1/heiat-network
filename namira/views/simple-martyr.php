@@ -1,5 +1,5 @@
 <?php use Namira\{SimpleMartyrForm,Protocol,ProtocolDates,Security}; ?>
-<link rel="stylesheet" href="/assets/protocol.css?v=simple006-final1"><link rel="stylesheet" href="/assets/simple-martyr.css?v=006-final1"><script defer src="/assets/protocol.js?v=simple006-final1"></script><script defer src="/assets/simple-martyr.js?v=006-final1"></script>
+<link rel="stylesheet" href="/assets/protocol.css?v=008"><link rel="stylesheet" href="/assets/simple-martyr.css?v=008"><script defer src="/assets/protocol.js?v=simple006-final1"></script><script defer src="/assets/simple-martyr.js?v=006-final1"></script>
 <div class="heading"><h2>تکمیل پرونده شهید #<?= fa($id) ?></h2><a class="outline" href="<?= e(url('admin',['tab'=>'martyrs'])) ?>">بازگشت به بانک شهدا</a></div>
 <nav class="simple-steps" aria-label="بخش‌های تکمیل پرونده"><?php foreach(SimpleMartyrForm::STEPS as $number=>$label): ?><a class="<?= $number===$step?'active':'' ?>" <?= $number===$step?'aria-current="step"':'' ?> href="<?= e(url('admin',['tab'=>'martyrs','edit'=>$id,'step'=>$number])) ?>"><?= fa($number).' ـ '.e($label) ?></a><?php endforeach ?></nav>
 <div class="simple-reference-links"><a href="<?= e(url('admin',['tab'=>'categories'])) ?>">مدیریت محورها و مقادیر</a><a href="<?= e(url('admin',['tab'=>'martyrs','edit'=>$id,'step'=>$step,'panel'=>'event'])) ?>">وقایع مشترک</a></div>

@@ -1,0 +1,1 @@
+<?php if(!empty($artist['avatar_asset_id'])): ?><img class="artist-avatar" src="<?= e(url('asset',['id'=>$artist['avatar_asset_id']])) ?>" alt="" loading="lazy"><?php else: ?><span class="artist-avatar artist-placeholder" aria-hidden="true"><?= e(mb_substr($artist['display_name']??'ن',0,1)) ?></span><?php endif ?>

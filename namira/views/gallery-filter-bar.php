@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="/assets/gallery-filters.css?v=20261027-direct4"><script src="/assets/gallery-filters.js?v=20261027-direct4" defer></script>
+<link rel="stylesheet" href="/assets/gallery-filters.css?v=008"><script src="/assets/gallery-filters.js?v=20261027-direct4" defer></script>
 <section class="gallery-filter-tools" data-gallery-controller aria-label="فیلتر تصاویر">
 <div class="gallery-chip-row" role="group" aria-label="انتخاب فیلتر"><?php foreach($catalogFilters['chips'] as $chip): ?><button class="gallery-filter-chip" type="button" data-filter-chip="<?= e($chip['key']) ?>" aria-haspopup="dialog" aria-expanded="false"><span data-chip-title><?= e($chip['title']) ?></span><small data-chip-count></small><span aria-hidden="true">⌄</span></button><?php endforeach ?></div>
 <p class="gallery-feedback" role="status" aria-live="polite" data-gallery-status hidden></p><button type="button" class="outline gallery-retry" data-gallery-retry hidden>تلاش دوباره</button>

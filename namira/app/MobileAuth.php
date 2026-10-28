@@ -9,7 +9,7 @@ final class MobileAuth {
     public static function request(PDO $db,string $phone,string $purpose='login',?array $actor=null,?SmsGateway $gateway=null):string {
         if(!MemberSchema::ready($db))throw new HttpError(503,'ارتقای حساب‌ها هنوز انجام نشده است.');
         $mobile=Security::phone($phone);$secret=self::secret();
-        if(!in_array($purpose,['login','change'],true)||($purpose==='change'&&!$actor))throw new HttpError(422,'درخواست تأیید معتبر نیست.');
+        if(!in_array($purpose,['login','change','password'],true)||($purpose==='change'&&!$actor))throw new HttpError(422,'درخواست تأیید معتبر نیست.');
         if(!$gateway||Env::get('APP_ENV','production')==='production')throw new HttpError(503,'سرویس پیامک هنوز متصل نشده است.'); // Injected adapters are tests only.
         Security::limit($db,'otp-ip',10,3600);Security::limit($db,'otp-mobile-'.hash_hmac('sha256',$mobile,$secret),5,3600);
         $binding=hash_hmac('sha256',self::sessionKey(),$secret);$now=time();$id=bin2hex(random_bytes(24));$code=(string)random_int(100000,999999);
@@ -49,6 +49,7 @@ final class MobileAuth {
                 if($existing&&(int)$existing['user_id']!==(int)$actor['id'])throw new HttpError(409,'این شماره قابل اتصال نیست.');
                 $id=(int)$actor['id'];
             }elseif($existing){if(!$existing['active'])throw new HttpError(403,'حساب غیرفعال است.');return (int)$existing['user_id'];}
+            elseif($proof['purpose']==='password'){throw new HttpError(422,'بازیابی این حساب ممکن نیست؛ مسیر ثبت‌نام یا ورود قبلی را بررسی کنید.');}
             elseif($actor){$id=(int)$actor['id'];}
             else{
                 $legacy=Db::query($db,"SELECT user_id,phone FROM account_profiles WHERE phone<>''")->fetchAll();foreach($legacy as $p)if(Security::normalize($p['phone'])===$mobile)throw new HttpError(409,'برای حفظ سوابق، ابتدا با روش ورود قبلی وارد حساب شوید و موبایل را تأیید کنید.');

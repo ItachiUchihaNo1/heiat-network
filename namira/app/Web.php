@@ -28,6 +28,7 @@ final class Web {
                 if(strlen($_SERVER['QUERY_STRING']??'')>16000)throw new HttpError(422,'تعداد فیلترها بیش از حد است.');
                 echo json_encode(['ok'=>true]+GalleryFacets::response($db,$_GET,Security::text($_GET,'changed',30,false),($_GET['mode']??'')==='results'),JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);return;
             }
+            if($page==='account-geography'){if(!ProtocolSchema::ready($db))throw new HttpError(503,'فرهنگ جغرافیا هنوز فعال نیست.');header('Content-Type: application/json; charset=utf-8');header('Cache-Control: public, max-age=300');echo json_encode(AccountUi::counties($db,(int)($_GET['province']??0)),JSON_UNESCAPED_UNICODE);return;}
             if($page==='catalog-geography')MartyrCatalogWeb::options($db);
             if($page==='public-lookup')CommunityWeb::lookup($db);
             if($page==='community-file')CommunityWeb::file($db);
@@ -69,13 +70,13 @@ final class Web {
                     $title='شهید '.(($m['display_name']??'')?:trim($m['first_name'].' '.$m['last_name'])).' | نامیرا';
                     $selectedType=max(0,(int)($_GET['media_type']??0));$personTypes=$archive->personTypes((int)$m['id']);$profileResult=$archive->forPerson((int)$m['id'],max(1,(int)($_GET['p']??1)),$selectedType);$images=$profileResult['items'];
                     view('profile',compact('m','images','profileResult','personTypes','selectedType')); break;
-                case 'image': $im=$archive->image((int)($_GET['id']??0)); if(!$im)throw new HttpError(404,'تصویر پیدا نشد.'); $title=$im['title'].' | نامیرا'; $creators=$archive->creators((int)$im['id']);$people=$archive->relatedPeople((int)$im['id']);view('image',compact('im','creators','people')); break;
+                case 'image': $im=$archive->image((int)($_GET['id']??0)); if(!$im)throw new HttpError(404,'تصویر پیدا نشد.'); $title=PublicPresentation::imageTitle($im).' | نامیرا'; $creators=$archive->creators((int)$im['id']);$people=$archive->relatedPeople((int)$im['id']);view('image',compact('im','creators','people')); break;
 
                 case 'artists':
                     $title='هنرمندان و پدیدآورندگان | نامیرا';$result=PlatformSchema::ready($db)?(new Artists($db,[]))->listing($_GET,true):['items'=>[],'count'=>0,'page'=>1,'per'=>24];$specialties=PlatformSchema::ready($db)?Db::query($db,"SELECT id,title FROM protocol_terms WHERE taxonomy='art_specialty' AND active=1 ORDER BY title")->fetchAll():[];view('artists',compact('result','specialties'));break;
                 case 'artist':
                     if(!PlatformSchema::ready($db))throw new HttpError(404,'پروفایل پیدا نشد.');$artist=(new Artists($db,[]))->get((int)($_GET['id']??0),true);if(!$artist)throw new HttpError(404,'پروفایل هنرمند پیدا نشد.');$title=$artist['display_name'].' | هنرمندان نامیرا';$result=$archive->images(['artist_id'=>$artist['id']],max(1,(int)($_GET['p']??1)));$specialties=Db::query($db,"SELECT id,title FROM protocol_terms WHERE taxonomy='art_specialty'")->fetchAll();view('artist',compact('artist','result','specialties'));break;
-                case 'request': if(MemberSchema::ready($db)&&!MobileAuth::verified($db,$user))redirect('member-login',['next_page'=>'request']);view('request'); break;
+                case 'request': if(!$user)redirect('member-login',['next_page'=>'request']);if(MemberSchema::ready($db)&&!MobileAuth::verified($db,$user))redirect('member-login',['next_page'=>'request']);view('request',compact('db','user')); break;
 
                 case 'request-track':
                     $token=Security::text($_GET,'token',64,false); $request=$token?Db::query($db,'SELECT tracking,status,created_at FROM design_requests WHERE tracking=?',[$token])->fetch():false;
@@ -140,7 +141,7 @@ final class Web {
             case 'image-publish': if(PlatformSchema::ready($db))throw new HttpError(410,'از ثبت و انتشار مستقیم رسانه استفاده کنید.'); Security::requireRole($db,'content'); Db::query($db,'UPDATE images SET published=? WHERE id=?',[(int)!empty($_POST['published']),(int)$_POST['id']]); Db::audit($db,'image.publish',(string)(int)$_POST['id']); redirect('admin',['tab'=>'images']);
             case 'import-preview': Security::requireRole($db,'content'); $files=self::files('excel'); if(count($files)!==1) throw new HttpError(422,'یک فایل XLSX انتخاب کنید.'); $_SESSION['import_rows']=Xlsx::read(Upload::receive($files[0])); redirect('admin',['tab'=>'import']);
             case 'import-commit': $actor=Security::requireRole($db,'content');AdminPanel::boot($db,$actor);$result=Importer::commit($db,$_SESSION['import_rows']??[],$actor); unset($_SESSION['import_rows']); $_SESSION['import_result']=$result; $_SESSION['flash']='ورود انجام شد: '.$result['inserted'].' جدید، '.$result['skipped'].' بدون تغییر، '.count($result['errors']).' خطا.'; redirect('admin',['tab'=>'import']);
-            case 'request': Security::limit($db,'request',5,3600); $token=DesignRequests::create($db,$_POST,self::files('photos')); self::uploadResponse('request-track',['token'=>$token]);
+            case 'request': if(!Security::user($db))redirect('member-login',['next_page'=>'request']);Security::limit($db,'request',5,3600); $token=DesignRequests::create($db,$_POST,self::files('photos')); self::uploadResponse('request-track',['token'=>$token]);
             case 'request-status': if(PlatformSchema::ready($db))Permissions::require($db,'requests.edit');else Security::requireRole($db,'content'); $status=Security::text($_POST,'status',40); if(!in_array($status,['submitted','reviewing','accepted','completed','rejected'],true)) throw new HttpError(422,'وضعیت نامعتبر است.'); Db::query($db,'UPDATE design_requests SET status=? WHERE id=?',[$status,(int)$_POST['id']]); Db::audit($db,'request.status',(string)(int)$_POST['id']); redirect('admin',['tab'=>'requests']);
             case 'cart': $shop->setQuantity($shop->cartToken(),(int)($_POST['variant_id']??0),(int)($_POST['quantity']??1)); redirect('cart');
             case 'checkout': Security::limit($db,'checkout',20); $token=$shop->checkout($shop->cartToken(),$_POST); redirect('order',['token'=>$token]);

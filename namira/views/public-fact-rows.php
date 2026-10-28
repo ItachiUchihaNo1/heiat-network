@@ -1,0 +1,1 @@
+<?php if($rows): ?><dl class="public-facts"><?php foreach($rows as $row): ?><div class="public-fact <?= $row['long']?'is-long':'' ?>"><dt><?= e($row['label']) ?></dt><dd <?= $row['long']?'class="prose"':'' ?>><?= $row['html'] ?></dd></div><?php endforeach ?></dl><?php endif ?>

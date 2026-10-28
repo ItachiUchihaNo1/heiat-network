@@ -8,7 +8,7 @@ final class Artists {
     private function contacts(int $id):bool{return Permissions::allows($this->db,$this->actor,'artists.contacts')||ArtistAccounts::owns($this->db,$this->actor,$id);}
     public static function definitions():array {
         $f=fn($l,$t='text',$o=[])=>ProtocolSpec::field($l,$t,$o);
-        return ['first_name'=>$f('نام'),'last_name'=>$f('نام خانوادگی'),'art_name'=>$f('نام هنری'),'province'=>$f('استان'),'city'=>$f('شهر'),'summary'=>$f('معرفی کوتاه','textarea'),'biography'=>$f('زندگی‌نامه هنری','rich'),'awards'=>$f('سوابق و افتخارات','textarea'),'website'=>$f('وب‌سایت','url'),'social_links'=>$f('نشانی شبکه‌های اجتماعی؛ هر نشانی یک خط','lines'),'private_email'=>$f('ایمیل؛ پیش‌فرض خصوصی'),'private_phone'=>$f('تلفن؛ پیش‌فرض خصوصی'),'specialties'=>$f('رشته‌ها و تخصص‌ها','terms',['taxonomy'=>'art_specialty'])];
+        return ['first_name'=>$f('نام'),'last_name'=>$f('نام خانوادگی'),'art_name'=>$f('نام هنری'),'province'=>$f('استان'),'county'=>$f('شهرستان'),'city'=>$f('شهر'),'summary'=>$f('معرفی کوتاه','textarea'),'biography'=>$f('زندگی‌نامه هنری','rich'),'awards'=>$f('سوابق و افتخارات','textarea'),'website'=>$f('وب‌سایت','url'),'social_links'=>$f('نشانی شبکه‌های اجتماعی؛ هر نشانی یک خط','lines'),'private_email'=>$f('ایمیل؛ پیش‌فرض خصوصی'),'private_phone'=>$f('تلفن؛ پیش‌فرض خصوصی'),'specialties'=>$f('رشته‌ها و تخصص‌ها','terms',['taxonomy'=>'art_specialty'])];
     }
     public function get(int $id,bool $public=false,bool $internal=false):array|false {
         if(!$public&&!$internal)$this->permit('artists.view',$id);$a=Db::query($this->db,'SELECT * FROM artists WHERE id=?'.($public?" AND public_visible=1 AND archived=0":''),[$id])->fetch();if(!$a)return false;

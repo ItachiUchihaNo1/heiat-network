@@ -1,0 +1,1 @@
+<div class="profile-actions"><?php if(!empty($images[0]['download_allowed'])): ?><a class="primary" href="<?= e(url('download',['id'=>$images[0]['id']])) ?>">↓ دانلود فایل اصلی</a><?php endif ?><a class="outline" href="<?= e(url('contribute',['martyr_id'=>$profileId])) ?>">ارسال اطلاعات و مدارک</a></div>
