@@ -25,10 +25,10 @@ final class SimpleMartyrForm {
     public static function values(array $bundle,int $step,?PDO $db=null):array {
         $s=$bundle['sections'];$v=$s[self::STORAGE[$step]??0]??[];
         if($step===4)foreach(['occupations','employment_state'] as $k)$v[$k]=$s[3][$k]??[];
-        if($step===4&&$db&&empty($v['employment_state'])&&!array_key_exists('employment_state',$s[3]??[])&&in_array($s[3]['employment_status']??'',['employed','retired','unknown','other'],true)){$legacy=(int)Db::query($db,'SELECT id FROM protocol_terms WHERE taxonomy=? AND slug=?',['employment_state',$s[3]['employment_status']])->fetchColumn();if($legacy)$v['employment_state']=[$legacy];}
+        if($step===4&&$db&&empty($v['employment_state'])&&!array_key_exists('employment_state',$s[3]??[])&&empty($s[3]['_simple_present']['employment_state'])&&in_array($s[3]['employment_status']??'',['employed','retired','unknown','other'],true)){$legacy=(int)Db::query($db,'SELECT id FROM protocol_terms WHERE taxonomy=? AND slug=?',['employment_state',$s[3]['employment_status']])->fetchColumn();if($legacy)$v['employment_state']=[$legacy];}
         if($step===5)$v['biography']=$s[1]['biography']??$bundle['core']['biography']??'';
         $fallback=function(string $kind,string $field)use($bundle){$vals=[];foreach($bundle['records'][$kind]??[] as $row){$value=$row['data'][$field]??null;if($value!==null&&$value!==''&&$value!==[])$vals[Protocol::encode($value)]=$value;}return count($vals)===1?array_values($vals)[0]:null;};
-        if($step===3&&!array_key_exists('education_degree',$v)&&($degree=$fallback('education','level_id'))!==null)$v['education_degree']=(array)$degree;
+        if($step===3&&!array_key_exists('education_degree',$v)&&empty($s[3]['_simple_present']['education_degree'])&&($degree=$fallback('education','level_id'))!==null)$v['education_degree']=(array)$degree;
         if($step===2&&!array_key_exists('burial_place',$v)){$current=array_filter($bundle['records']['burial']??[],fn($r)=>!empty($r['data']['is_current']));if(count($current)===1)$v['burial_place']=array_values($current)[0]['data']['place']??[];}
         if($step===4)foreach(['service_organization'=>'organization','service_position'=>'position_id','service_place'=>'service_place'] as $key=>$field)if(!array_key_exists($key,$v)&&($old=$fallback('affiliation',$field))!==null)$v[$key]=$old;
         return $v;
@@ -40,10 +40,13 @@ final class SimpleMartyrForm {
         if($step===1&&($input['marital_status']??'')!=='married'){unset($input['spouse_name'],$input['_present']['spouse_name']);}
         if($step===4){$values=array_replace(self::values($bundle,4,$db),$input);$org=(int)($values['service_organization']??0);$sub=(int)($values['service_subunit']??0);if($sub&&!Db::query($db,'SELECT id FROM protocol_terms WHERE id=? AND taxonomy=? AND parent_id=?',[$sub,'organization_subunit',$org])->fetchColumn())throw new ProtocolErrors(['data.service_subunit'=>'زیربخش با سازمان انتخاب‌شده سازگار نیست؛ انتخاب قبلی خودکار حذف نشده است.']);}
         $storage=self::STORAGE[$step];$payload=$in;$payload['simple_form']='1';$payload['data']=$input;unset($payload['records']);
-        return Db::transaction($db,function()use($p,$id,$step,$storage,$payload,$input){
+        return Db::transaction($db,function()use($db,$p,$id,$step,$storage,$payload,$input){
             if($step===5){$first=$payload;$first['data']=array_intersect_key($input,['biography'=>1]);$p->save($id,1,$first);$payload['revision']=$p->get($id)['profile']['revision'];unset($payload['data']['biography'],$payload['data']['_present']['biography']);}
             if($step===4){$other=$payload;$other['data']=array_intersect_key($input,['occupations'=>1,'employment_state'=>1]);$other['data']['_present']=array_intersect_key($input['_present'],['occupations'=>1,'employment_state'=>1]);$p->save($id,3,$other);$payload['revision']=$p->get($id)['profile']['revision'];foreach(['occupations','employment_state'] as $key)unset($payload['data'][$key],$payload['data']['_present'][$key]);}
-            $p->save($id,$storage,$payload);return $id;
+            $p->save($id,$storage,$payload);
+            $marks=[];foreach($input as $field=>$value)if($field!=='_present')$marks[$step===4&&in_array($field,['occupations','employment_state'],true)?3:$storage][$field]=true;
+            foreach($marks as $part=>$fields){$row=Db::query($db,'SELECT payload FROM martyr_sections WHERE martyr_id=? AND step=?',[$id,$part])->fetchColumn();$data=Protocol::decode($row);$data['_simple_present']=array_replace($data['_simple_present']??[],$fields);Db::query($db,'UPDATE martyr_sections SET payload=? WHERE martyr_id=? AND step=?',[Protocol::encode($data),$id,$part]);}
+            return $id;
         });
     }
 }
