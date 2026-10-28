@@ -16,6 +16,8 @@ final class AdminPanel {
         'claims'=>['اتصال حساب هنرمند','فراخوان و مشارکت','artists.claims.review'],
         'requests'=>['درخواست طراحی','رسیدگی','requests.view'],
         'products'=>['محصولات و موجودی','فروشگاه','shop.manage'],
+        'store-categories'=>['دسته‌های فروشگاه','فروشگاه','shop.manage'],
+        'store-attributes'=>['ویژگی‌ها و مقادیر','فروشگاه','shop.manage'],
         'orders'=>['سفارش‌ها','فروشگاه','shop.manage'],
         'returns'=>['مرجوعی‌ها','فروشگاه','shop.manage'],
         'users'=>['کاربران و مجوزها','مدیریت','users.manage'],
@@ -23,9 +25,9 @@ final class AdminPanel {
         'settings'=>['تنظیمات و پشتیبان','مدیریت','settings.manage']
     ];}
     public static function boot(PDO $db,array $user):void {
-        if(PlatformSchema::ready($db)&&CommunitySchema::ready($db)&&MartyrTaxonomySchema::ready($db)&&MemberSchema::ready($db)&&AccountUi::ready($db))return;
+        if(PlatformSchema::ready($db)&&CommunitySchema::ready($db)&&MartyrTaxonomySchema::ready($db)&&MemberSchema::ready($db)&&AccountUi::ready($db)&&StoreSchema::ready($db))return;
         if($user['role']!=='superadmin')throw new HttpError(503,'مدیر اصلی باید یک بار پنل را باز کند تا پشتیبان و ارتقای ساختار اجرا شود.');
-        PlatformSchema::migrate($db);CommunitySchema::migrate($db);MartyrTaxonomySchema::migrate($db);MemberSchema::migrate($db);AccountUi::migrate($db);
+        PlatformSchema::migrate($db);CommunitySchema::migrate($db);MartyrTaxonomySchema::migrate($db);MemberSchema::migrate($db);AccountUi::migrate($db);StoreSchema::migrate($db);
     }
     public static function show(PDO $db,array|false $user):void {
         if(!$user)redirect('login',['legacy'=>1]);if(!Permissions::allows($db,$user,'dashboard.view'))redirect('account');
@@ -49,6 +51,7 @@ final class AdminPanel {
             case 'users':
                 $q=Security::text($_GET,'q',150,false);$where=$q!==''?'email LIKE ?':'1=1';$args=$q!==''?['%'.$q.'%']:[];$result=AdminQueries::paginate($db,'SELECT id,email,role,active','FROM users',$where,$args,['new'=>'id DESC'],$_GET);
                 view('admin-users',$data+['result'=>$result]);break;
+            case 'products':case 'store-categories':case 'store-attributes':StoreWeb::admin($db,$user,$tab,$data);break;
             case 'requests':if(MemberSchema::ready($db))view('member-admin-requests',$data);else view('admin-legacy',$data);break;
             case 'reports':view('admin-reports',$data);break;
             case 'settings':view('admin-settings',$data);break;

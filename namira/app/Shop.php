@@ -15,6 +15,7 @@ final class Shop {
     public function setQuantity(string $token,int $variant,int $quantity): void {
         if(MemberSchema::ready($this->db)&&!hash_equals($this->cartToken(),$token))throw new HttpError(403,'سبد متعلق به این حساب نیست.');
         if($quantity<0||$quantity>99) throw new HttpError(422,'تعداد نامعتبر است.');
+        if(StoreSchema::ready($this->db)&&$quantity>0){$pid=(int)Db::query($this->db,'SELECT product_id FROM variants WHERE id=?',[$variant])->fetchColumn();$catalog=(new StoreCatalog($this->db))->get($pid);$enabled=array_column($catalog['variants'],'id');if(!StoreCatalog::checkoutReady($catalog)||!in_array($variant,array_map('intval',$enabled),true))throw new HttpError(422,'مسیر خرید این نوع محصول هنوز فعال نشده است.');}
         $v=Db::query($this->db,'SELECT v.* FROM variants v JOIN products p ON p.id=v.product_id WHERE v.id=? AND p.published=1',[$variant])->fetch();
         if(!$v||$quantity>(int)$v['stock']) throw new HttpError(422,'موجودی کافی نیست.');
         Db::transaction($this->db,function()use($token,$variant,$quantity){
@@ -37,9 +38,10 @@ final class Shop {
             $items=$this->items($cart); if(!$items) throw new HttpError(422,'سبد خرید خالی است.');
             $subtotal=0;
             foreach($items as $item){
+                if(StoreSchema::ready($this->db)){$pid=(int)Db::query($this->db,'SELECT product_id FROM variants WHERE id=?',[$item['id']])->fetchColumn();$catalog=(new StoreCatalog($this->db))->get($pid);if(!StoreCatalog::checkoutReady($catalog)||!in_array((int)$item['id'],array_map('intval',array_column($catalog['variants'],'id')),true))throw new HttpError(422,'محصول تغییر کرده و فعلاً قابل خرید نیست.');}
                 $q=(int)$item['quantity']; $price=(int)($item['sale_price']??$item['price']);
                 $changed=Db::query($this->db,'UPDATE variants SET stock=stock-? WHERE id=? AND stock>=?',[$q,$item['id'],$q])->rowCount();
-                if(!$changed) throw new HttpError(409,'موجودی کالا تغییر کرده است.'); $subtotal+=$q*$price;
+                if(!$changed) throw new HttpError(409,'موجودی کالا تغییر کرده است.'); $subtotal+=$q*$price;if($subtotal>2000000000)throw new HttpError(422,'مبلغ سبد از سقف ایمن این نسخه بیشتر است.');
             }
             $discount=0;
             if($code!==''){
