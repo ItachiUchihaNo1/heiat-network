@@ -18,20 +18,21 @@ final class Contributions {
         return AdminQueries::paginate($this->db,'SELECT c.id,c.user_id,c.martyr_id,c.kind,c.status,c.revision,c.tracking,c.created_at,c.updated_at,u.email','FROM public_contributions c LEFT JOIN users u ON u.id=c.user_id',$where,$args,['new'=>'c.id DESC','updated'=>'c.updated_at DESC'],$f);
     }
     public function submit(array $in,array $files=[],int $id=0):int {
-        CommunitySchema::requireReady($this->db);$this->actor=CommunityHistory::requireActor($this->db,$this->actor);Security::limit($this->db,'contribution',8,3600);
+        if(MemberSchema::ready($this->db))MemberServices::requireMember($this->db,$this->actor);CommunitySchema::requireReady($this->db);$this->actor=CommunityHistory::requireActor($this->db,$this->actor);Security::limit($this->db,'contribution',8,3600);
         if(($in['consent']??'')!=='1')throw new HttpError(422,'رضایت برای بررسی و تماس درباره مشارکت لازم است.');
         $kind=Security::text($in,'kind',40);if(!isset(self::KINDS[$kind]))throw new HttpError(422,'نوع مشارکت معتبر نیست.');$person=(int)($in['martyr_id']??0);$name=Security::text($in,'martyr_name',255,false);$code=Security::normalize(Security::text($in,'martyr_code',80,false));
         if($person&&!Db::query($this->db,'SELECT id FROM martyrs WHERE id=? AND published=1',[$person])->fetchColumn())throw new HttpError(422,'پرونده عمومی شهید پیدا نشد.');if(!$person&&$name==='')throw new HttpError(422,'شهید مرتبط یا نام پیشنهادی را مشخص کنید.');
         $text=Security::text($in,'text',30000,false);if(count($files)>5)throw new HttpError(422,'در هر نوبت حداکثر ۵ فایل بفرستید.');
         $phone=Security::text($in,'phone',30,false);if($phone!=='')$phone=Security::phone($phone);
         $payload=['martyr_name'=>$name,'martyr_code'=>$code,'text'=>$text,'source_text'=>Security::text($in,'source_text',5000,false),'relation'=>Security::text($in,'relation',2000,false),'rights_text'=>Security::text($in,'rights_text',5000,false),'download_consent'=>($in['download_consent']??'')==='1','accepted_at'=>date(DATE_ATOM)];
+        if(MemberSchema::ready($this->db)){$payload=array_replace($payload,ParticipationForm::relation($this->db,$in),$kind==='correction'?ParticipationForm::proposal($in):[]);if($text===''&&!empty($payload['proposed_value']))$payload['text']=$payload['proposed_value'];}
         $contact=Protocol::encode(['email'=>$this->actor['email'],'phone'=>$phone]);$created=[];
         try{return Db::transaction($this->db,function()use($in,$files,$id,$kind,$person,$payload,$contact,&$created){
             $lock=$this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':'';$old=$id?Db::query($this->db,'SELECT * FROM public_contributions WHERE id=?'.$lock,[$id])->fetch():null;
             if($id&&(!$old||(int)$old['user_id']!==(int)$this->actor['id']))throw new HttpError(404,'مشارکت شما پیدا نشد.');
             if($old&&($old['status']!=='needs_changes'||(int)$old['revision']!==(int)($in['revision']??-1)))throw new HttpError(409,'فقط مشارکت درخواست‌شده برای اصلاح، با نسخه فعلی قابل ارسال مجدد است.');
             $count=$old?(int)Db::query($this->db,'SELECT COUNT(*) FROM contribution_files WHERE contribution_id=?',[$id])->fetchColumn():0;if(($payload['text']??'')===''&&!$files&&!$count)throw new HttpError(422,'توضیح یا فایل پیوست لازم است.');if($count+count($files)>15)throw new HttpError(422,'حداکثر ۱۵ پیوست در سابقه یک مشارکت نگهداری می‌شود.');
-            if(in_array($kind,['photo','grave','will','handwriting','document'],true)&&!$files&&!$count)throw new HttpError(422,'برای این نوع مشارکت یک تصویر پیوست کنید.');
+            if(in_array($kind,['photo','grave','handwriting','document'],true)&&!$files&&!$count)throw new HttpError(422,'برای این نوع مشارکت یک تصویر پیوست کنید.');
             $now=date('Y-m-d H:i:s');
             if($old)Db::query($this->db,"UPDATE public_contributions SET martyr_id=?,kind=?,payload=?,contact_private=?,status='submitted',review_note='',revision=revision+1,updated_at=? WHERE id=?",[$person?:null,$kind,Protocol::encode($payload),$contact,$now,$id]);
             else $id=Db::insert($this->db,'public_contributions',['user_id'=>$this->actor['id'],'martyr_id'=>$person?:null,'kind'=>$kind,'payload'=>Protocol::encode($payload),'contact_private'=>$contact,'tracking'=>bin2hex(random_bytes(24)),'review_note'=>'','created_at'=>$now,'updated_at'=>$now]);
@@ -50,6 +51,7 @@ final class Contributions {
         });
     }
     public function merge(int $id,array $in,array $verifiedPreviews=[],bool $direct=false):array {
+        if(MemberSchema::ready($this->db))$direct=false;
         $this->permit('contributions.merge');$this->permit('martyrs.edit');if(!$direct&&($in['merge_ack']??'')!=='1')throw new HttpError(422,'تطبیق اطلاعات و انتقال بخش انتخاب‌شده به پیش‌نویس را تأیید کنید.');
         $key=Security::text($in,'request_key',64);if(!preg_match('/^[a-f0-9]{32,64}$/D',$key))throw new HttpError(422,'شناسه عملیات معتبر نیست.');$reason=Security::text($in,'reason',5000,!$direct);if($direct)AdminPublishing::guard($this->db,$this->actor,'martyr');$created=[];
         try{return Db::transaction($this->db,function()use($id,$in,$key,$reason,$verifiedPreviews,$direct,&$created){
@@ -63,12 +65,13 @@ final class Contributions {
                 if(Db::query($this->db,'SELECT m.id FROM martyrs m LEFT JOIN martyr_protocols p ON p.martyr_id=m.id WHERE p.display_name=? OR '.$concat.'=? LIMIT 1',[$name,$name])->fetchColumn()&&($in['duplicate_ack']??'')!=='1')throw new HttpError(409,'نام مشابه در بانک وجود دارد؛ ابتدا تطبیق را بررسی و در صورت تفاوت، ساخت رکورد مستقل را تأیید کنید.');
                 $person=$protocol->save(0,1,['form_complete'=>'1','reason'=>$reason,'data'=>['display_name'=>$name,'first_name'=>Security::text($in,'new_first_name',150,false),'last_name'=>Security::text($in,'new_last_name',150,false),'archive_code'=>Security::text($in,'new_code',80,false),'identity_status'=>Security::text($in,'new_identity_status',40,false)?:'unknown']]);$new=true;
             }
-            $bundle=$protocol->get($person);$destination=Security::text($in,'destination',30,false)?:'none';if(!in_array($destination,['none','short_bio','biography'],true))throw new HttpError(422,'محل انتقال متن معتبر نیست.');
-            $excerpt=Security::text($in,'accepted_text',30000,false);$before=[];$after=[];
+            $bundle=$protocol->get($person);$destination=Security::text($in,'destination',30,false)?:'none';if(!in_array($destination,['none','short_bio','biography',...(MemberSchema::ready($this->db)?['proposed']:[])],true))throw new HttpError(422,'محل انتقال متن معتبر نیست.');
+            $excerpt=Security::text($in,'accepted_text',30000,false);$proposal=Protocol::decode($row['payload']);if($destination==='proposed'&&str_ends_with($proposal['proposed_field']??'','_date'))$excerpt=Protocol::encode(ProtocolDates::read($in['accepted_date']??[]));$before=[];$after=[];
             if($destination!=='none'){
                 if($excerpt==='')throw new HttpError(422,'متن انتخاب‌شده برای پذیرش را وارد کنید.');if(!$new&&((int)($in['compared_person_id']??0)!==$person||(int)($in['person_revision']??-1)!==(int)$bundle['profile']['revision']))throw new HttpError(409,'پرونده شهید هم‌زمان تغییر کرده است؛ مقایسه را تازه کنید.');
+                if($destination==='proposed'){[$before,$after]=ParticipationForm::accept($this->db,$this->actor,$person,$bundle,Protocol::decode($row['payload']),$excerpt);}else{
                 $data=ProtocolValidator::formValues(ProtocolSpec::fields(1),$bundle['sections'][1]);$before[$destination]=$data[$destination]??'';$data[$destination]=($in['replace_text']??'')==='1'?$excerpt:trim($before[$destination]."\n\n".$excerpt);
-                $protocol->save($person,1,['form_complete'=>'1','revision'=>$bundle['profile']['revision'],'reason'=>'مشارکت '.$id.'؛ '.$reason,'data'=>$data]);$after[$destination]=$protocol->get($person)['sections'][1][$destination]??'';
+                $protocol->save($person,1,['form_complete'=>'1','revision'=>$bundle['profile']['revision'],'reason'=>'مشارکت '.$id.'؛ '.$reason,'data'=>$data]);$after[$destination]=$protocol->get($person)['sections'][1][$destination]??'';}
             }
             $selected=array_values(array_unique(array_map('intval',(array)($in['files']??[]))));if(count($selected)>5)throw new HttpError(422,'در هر انتقال حداکثر ۵ فایل انتخاب کنید.');$mediaIds=[];$payload=Protocol::decode($row['payload']);
             foreach($selected as $fid){

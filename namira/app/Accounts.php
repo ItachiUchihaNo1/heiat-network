@@ -4,7 +4,7 @@ namespace Namira;
 use PDO;
 final class Accounts {
     public static function register(PDO $db,array $in):int {
-        CommunitySchema::requireReady($db);Security::limit($db,'registration',5,3600);
+        if(MemberSchema::ready($db))throw new HttpError(410,'ثبت‌نام عمومی فقط پس از تأیید موبایل انجام می‌شود.');CommunitySchema::requireReady($db);Security::limit($db,'registration',5,3600);
         $email=strtolower(Security::text($in,'email',190));if(!filter_var($email,FILTER_VALIDATE_EMAIL))throw new HttpError(422,'ایمیل ورود معتبر لازم است.');
         $name=Security::normalize(Security::text($in,'display_name',255));$phone=Security::text($in,'phone',30,false);if($phone!=='')$phone=Security::phone($phone);
         $password=$in['password']??null;$confirm=$in['password_confirm']??null;
@@ -19,7 +19,7 @@ final class Accounts {
         });}catch(\PDOException $e){if(in_array((int)($e->errorInfo[1]??0),[19,1062],true))throw new HttpError(409,'این ایمیل قبلاً ثبت شده است.');throw $e;}
     }
     public static function profile(PDO $db,array $actor,array $in):void {
-        CommunitySchema::requireReady($db);$actor=CommunityHistory::requireActor($db,$actor);$name=Security::normalize(Security::text($in,'display_name',255));$phone=Security::text($in,'phone',30,false);if($phone!=='')$phone=Security::phone($phone);$now=date('Y-m-d H:i:s');
+        if(MemberSchema::ready($db))throw new HttpError(410,'از ویرایش حساب مشترک استفاده کنید.');CommunitySchema::requireReady($db);$actor=CommunityHistory::requireActor($db,$actor);$name=Security::normalize(Security::text($in,'display_name',255));$phone=Security::text($in,'phone',30,false);if($phone!=='')$phone=Security::phone($phone);$now=date('Y-m-d H:i:s');
         if(Db::query($db,'SELECT user_id FROM account_profiles WHERE user_id=?',[$actor['id']])->fetchColumn())Db::query($db,'UPDATE account_profiles SET display_name=?,phone=?,updated_at=? WHERE user_id=?',[$name,$phone,$now,$actor['id']]);else Db::insert($db,'account_profiles',['user_id'=>$actor['id'],'display_name'=>$name,'phone'=>$phone,'created_at'=>$now,'updated_at'=>$now]);
     }
     public static function save(PDO $db,array $actor,array $in):int {

@@ -5,6 +5,7 @@ use PDO;
 final class Shop {
     public function __construct(private PDO $db) {}
     public function cartToken(): string {
+        if(MemberSchema::ready($this->db)){ $actor=MemberServices::requireMember($this->db);return MemberServices::cart($this->db,$actor);}
         $token=$_SESSION['cart']??null;
         if(!is_string($token)||!Db::query($this->db,'SELECT token FROM carts WHERE token=?',[$token])->fetchColumn()){
             $token=bin2hex(random_bytes(32)); Db::insert($this->db,'carts',['token'=>$token,'created_at'=>date('Y-m-d H:i:s')]); $_SESSION['cart']=$token;
@@ -12,6 +13,7 @@ final class Shop {
     }
     public function items(string $token): array { return Db::query($this->db,'SELECT ci.quantity,v.*,p.title FROM cart_items ci JOIN variants v ON v.id=ci.variant_id JOIN products p ON p.id=v.product_id WHERE ci.cart_token=? AND p.published=1 ORDER BY v.id',[$token])->fetchAll(); }
     public function setQuantity(string $token,int $variant,int $quantity): void {
+        if(MemberSchema::ready($this->db)&&!hash_equals($this->cartToken(),$token))throw new HttpError(403,'سبد متعلق به این حساب نیست.');
         if($quantity<0||$quantity>99) throw new HttpError(422,'تعداد نامعتبر است.');
         $v=Db::query($this->db,'SELECT v.* FROM variants v JOIN products p ON p.id=v.product_id WHERE v.id=? AND p.published=1',[$variant])->fetch();
         if(!$v||$quantity>(int)$v['stock']) throw new HttpError(422,'موجودی کافی نیست.');
@@ -21,11 +23,13 @@ final class Shop {
         });
     }
     public function checkout(string $cart,array $in): string {
+        if(MemberSchema::ready($this->db)&&!hash_equals($this->cartToken(),$cart))throw new HttpError(403,'سبد متعلق به این حساب نیست.');
         $gateway=new TestGateway(); // Real gateway intentionally unavailable until credentials and provider are supplied.
         $key=Security::text($in,'checkout_key',64);
         if(!preg_match('/^[a-f0-9]{64}$/D',$key)||!hash_equals($_SESSION['checkout_key']??'',$key)) throw new HttpError(422,'شناسه تسویه معتبر نیست.');
         $existing=Db::query($this->db,'SELECT token,cart_token FROM orders WHERE checkout_key=?',[$key])->fetch();
         if($existing){ if(!hash_equals($existing['cart_token'],$cart)) throw new HttpError(403,'اجازه دسترسی ندارید.'); return $existing['token']; }
+        if(MemberSchema::ready($this->db)&&!empty($in['address_id'])){ $actor=MemberServices::requireMember($this->db);$saved=Db::query($this->db,'SELECT * FROM account_addresses WHERE id=? AND user_id=?',[(int)$in['address_id'],$actor['id']])->fetch();if(!$saved)throw new HttpError(422,'آدرس متعلق به این حساب نیست.');foreach(['phone','postal_code','address'] as $field)$in[$field]=$saved[$field];$in['customer']=$saved['recipient'];}
         $phone=Security::phone(Security::text($in,'phone',20)); $postal=Security::normalize(Security::text($in,'postal_code',10));
         if(!preg_match('/^[0-9]{10}$/D',$postal)) throw new HttpError(422,'کدپستی باید ۱۰ رقم باشد.');
         $customer=Security::text($in,'customer',150); $address=Security::text($in,'address',2000); $code=Security::text($in,'discount_code',80,false);
@@ -46,6 +50,7 @@ final class Shop {
             }
             $shipping=max(0,(int)Env::get('SHIPPING_TOMAN','50000')); $token=bin2hex(random_bytes(32));
             $id=Db::insert($this->db,'orders',['token'=>$token,'checkout_key'=>$key,'cart_token'=>$cart,'customer'=>$customer,'phone'=>$phone,'address'=>$address,'postal_code'=>$postal,'subtotal'=>$subtotal,'discount'=>$discount,'shipping'=>$shipping,'total'=>$subtotal-$discount+$shipping,'discount_code'=>$code?:null,'status'=>'pending','created_at'=>date('Y-m-d H:i:s')]);
+            if(MemberSchema::ready($this->db)){ $actor=MemberServices::requireMember($this->db);Db::insert($this->db,'account_order_owners',['order_id'=>$id,'user_id'=>$actor['id'],'linked_at'=>date(DATE_ATOM)]);}
             foreach($items as $item) Db::insert($this->db,'order_items',['order_id'=>$id,'variant_id'=>$item['id'],'title'=>$item['title'],'attributes'=>$item['attributes'],'price'=>$item['sale_price']??$item['price'],'quantity'=>$item['quantity']]);
             Db::insert($this->db,'payments',['order_id'=>$id,'driver'=>$gateway->name(),'reference'=>bin2hex(random_bytes(24)),'status'=>'pending','amount'=>$subtotal-$discount+$shipping]);
             $this->history($id,'pending'); Db::query($this->db,'DELETE FROM cart_items WHERE cart_token=?',[$cart]); return $token;

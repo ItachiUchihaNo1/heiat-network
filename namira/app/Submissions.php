@@ -34,7 +34,7 @@ final class Submissions {
         return compact('title','payload','verified','person','criteria');
     }
     public function submit(array $in,?string $source,?string $preview=null,int $id=0):int {
-        CommunitySchema::requireReady($this->db);$this->actor=CommunityHistory::requireActor($this->db,$this->actor);Security::limit($this->db,'art-submission',10,3600);
+        if(MemberSchema::ready($this->db))MemberServices::requireMember($this->db,$this->actor);CommunitySchema::requireReady($this->db);$this->actor=CommunityHistory::requireActor($this->db,$this->actor);Security::limit($this->db,'art-submission',10,3600);
         $created=[];try{return Db::transaction($this->db,function()use($in,$source,$preview,$id,&$created){
             $lock=$this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':'';$old=$id?Db::query($this->db,'SELECT * FROM art_submissions WHERE id=?'.$lock,[$id])->fetch():null;
             if($id&&(!$old||(int)$old['user_id']!==(int)$this->actor['id']))throw new HttpError(404,'ارسال شما پیدا نشد.');
@@ -64,6 +64,7 @@ final class Submissions {
         });
     }
     public function publish(int $id,array $in,?string $verifiedPreview=null,bool $direct=false):int {
+        if(MemberSchema::ready($this->db))$direct=false;
         $this->permit('submissions.publish');if(!$direct)$this->permit('media.publish');if(!$direct&&$verifiedPreview&&($in['verified_visual_ack']??'')!=='1')throw new HttpError(422,'پیش‌نمایش بازتولیدشده از اصل فایل را پیش از انتشار بررسی کنید.');if(!$direct&&($in['publication_ack']??'')!=='1')throw new HttpError(422,'انتشار اثر و حقوق و انتساب آن را صریحاً تأیید کنید.');if($direct)AdminPublishing::guard($this->db,$this->actor,'media');
         $created=[];try{return Db::transaction($this->db,function()use($id,$in,$verifiedPreview,$direct,&$created){
             $lock=$this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':'';$row=Db::query($this->db,'SELECT * FROM art_submissions WHERE id=?'.$lock,[$id])->fetch();if(!$row)throw new HttpError(404,'اثر پیدا نشد.');if($row['status']==='published'&&$row['image_id'])return (int)$row['image_id'];

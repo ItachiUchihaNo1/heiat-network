@@ -4,15 +4,17 @@ namespace Namira;
 use PDO;
 final class ArtistAccounts {
     public static function owns(PDO $db,array $actor,int $artist):bool {
+        if(MemberSchema::ready($db))return false;
         if(!$artist||empty($actor['id'])||!CommunitySchema::ready($db))return false;
         return (bool)Db::query($db,'SELECT a.artist_id FROM artist_accounts a LEFT JOIN artist_account_states s ON s.artist_id=a.artist_id AND s.user_id=a.user_id WHERE a.artist_id=? AND a.user_id=? AND COALESCE(s.active,1)=1',[$artist,$actor['id']])->fetchColumn();
     }
     public static function owned(PDO $db,array $actor):array {
+        if(MemberSchema::ready($db))return [];
         if(!CommunitySchema::ready($db))return [];
         return Db::query($db,'SELECT a.id,a.display_name,a.status FROM artists a JOIN artist_accounts x ON x.artist_id=a.id LEFT JOIN artist_account_states s ON s.artist_id=x.artist_id AND s.user_id=x.user_id WHERE x.user_id=? AND COALESCE(s.active,1)=1 AND a.archived=0 ORDER BY a.display_name',[$actor['id']])->fetchAll();
     }
     public static function claim(PDO $db,array $actor,array $in):int {
-        CommunitySchema::requireReady($db);$actor=CommunityHistory::requireActor($db,$actor);Security::limit($db,'artist-claim',10,3600);$artist=(int)($in['artist_id']??0);$evidence=Security::text($in,'evidence',5000);
+        if(MemberSchema::ready($db))throw new HttpError(410,'اتصال حساب عمومی به مجوز ویرایش هنرمند غیرفعال شده است.');CommunitySchema::requireReady($db);$actor=CommunityHistory::requireActor($db,$actor);Security::limit($db,'artist-claim',10,3600);$artist=(int)($in['artist_id']??0);$evidence=Security::text($in,'evidence',5000);
         return Db::transaction($db,function()use($db,$actor,$artist,$evidence){
             $lock=$db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':'';
             if(!Db::query($db,'SELECT id FROM artists WHERE id=? AND public_visible=1 AND archived=0'.$lock,[$artist])->fetchColumn())throw new HttpError(404,'پروفایل عمومی هنرمند پیدا نشد.');

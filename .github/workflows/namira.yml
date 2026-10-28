@@ -58,6 +58,11 @@ jobs:
           node namira/tests/gallery-filter-state.cjs
       - name: Simple eight-section form on SQLite
         run: php namira/tests/simple-martyr.php
+      - name: Shared members and storefront tests on SQLite
+        run: |
+          php namira/tests/members.php
+          node --check namira/public/assets/participation.js
+          node --check namira/public/assets/storefront.js
       - name: Browser installer tests on SQLite
         run: php namira/tests/installer.php
       - name: MySQL behavior tests
@@ -141,6 +146,15 @@ jobs:
         run: |
           php -r '$db=new PDO(getenv("TEST_DB_DSN"),getenv("TEST_DB_USER"),getenv("TEST_DB_PASSWORD"));$db->exec("CREATE DATABASE namira_test_simple CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");'
           php namira/tests/simple-martyr.php
+      - name: Shared members and storefront tests on MySQL
+        env:
+          TEST_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test;charset=utf8mb4'
+          TEST_MEMBERS_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test_members;charset=utf8mb4'
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: test-only-password
+        run: |
+          php -r '$db=new PDO(getenv("TEST_DB_DSN"),getenv("TEST_DB_USER"),getenv("TEST_DB_PASSWORD"));$db->exec("CREATE DATABASE namira_test_members CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");'
+          php namira/tests/members.php
       - name: Validate deployment script
         run: python3 -m py_compile namira/deploy/ftps.py
   deploy:

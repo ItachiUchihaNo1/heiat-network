@@ -71,7 +71,8 @@ final class Archive {
         $count=(int)Db::query($this->db,'SELECT COUNT(*) '.$this->mediaFrom().' WHERE '.$where,$args)->fetchColumn();
         $offset=(max(1,$page)-1)*$perPage;
         $items=Db::query($this->db,'SELECT i.*,m.id AS martyr_id,m.first_name,m.last_name,m.code,m.province,m.city'.(PlatformSchema::ready($this->db)?',mp.download_allowed':',1 AS download_allowed').$this->nameSelect().' '.$this->mediaFrom().' WHERE '.$where.' ORDER BY '.$sort.' LIMIT '.(int)$perPage.' OFFSET '.$offset,$args)->fetchAll();
-        return compact('items','count');
+        if($items&&PlatformSchema::ready($this->db)&&array_filter(MartyrFilters::galleryInput($f))){[$pw,$pa]=$this->conditions($f);$ids=array_map(fn($row)=>(int)$row['id'],$items);$marks=implode(',',array_fill(0,count($ids),'?'));$people=Db::query($this->db,'SELECT r.image_id,m.id AS martyr_id,m.first_name,m.last_name,m.code,m.province,m.city'.$this->nameSelect().' FROM media_public_martyrs r JOIN martyrs m ON m.id=r.martyr_id WHERE r.image_id IN ('.$marks.') AND '.$pw.' ORDER BY m.id',[...$ids,...$pa])->fetchAll();$chosen=[];foreach($people as $person)if(!isset($chosen[$person['image_id']]))$chosen[$person['image_id']]=$person;foreach($items as &$item)if(isset($chosen[$item['id']])){$person=$chosen[$item['id']];unset($person['image_id']);$item=array_replace($item,$person);}unset($item);}
+        $items=Storefront::cards($this->db,$items);return compact('items','count');
     }
     public function image(int $id):array|false {
         $extra=PlatformSchema::ready($this->db)?',mp.download_allowed,mp.payload AS publication_payload':',1 AS download_allowed';

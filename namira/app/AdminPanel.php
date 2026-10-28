@@ -23,13 +23,13 @@ final class AdminPanel {
         'settings'=>['تنظیمات و پشتیبان','مدیریت','settings.manage']
     ];}
     public static function boot(PDO $db,array $user):void {
-        if(PlatformSchema::ready($db)&&CommunitySchema::ready($db)&&MartyrTaxonomySchema::ready($db))return;
+        if(PlatformSchema::ready($db)&&CommunitySchema::ready($db)&&MartyrTaxonomySchema::ready($db)&&MemberSchema::ready($db))return;
         if($user['role']!=='superadmin')throw new HttpError(503,'مدیر اصلی باید یک بار پنل را باز کند تا پشتیبان و ارتقای ساختار اجرا شود.');
-        PlatformSchema::migrate($db);CommunitySchema::migrate($db);MartyrTaxonomySchema::migrate($db);
+        PlatformSchema::migrate($db);CommunitySchema::migrate($db);MartyrTaxonomySchema::migrate($db);MemberSchema::migrate($db);
     }
     public static function show(PDO $db,array|false $user):void {
-        if(!$user)redirect('login');if(!Permissions::allows($db,$user,'dashboard.view'))redirect('account');
-        self::boot($db,$user);$tab=Security::text($_GET,'tab',30,false)?:'dashboard';$nav=self::navigation();if(!isset($nav[$tab]))throw new HttpError(404,'بخش مدیریت پیدا نشد.');
+        if(!$user)redirect('login',['legacy'=>1]);if(!Permissions::allows($db,$user,'dashboard.view'))redirect('account');
+        self::boot($db,$user);$tab=Security::text($_GET,'tab',30,false)?:'dashboard';$nav=self::navigation();if(MemberSchema::ready($db))$nav['claims'][0]='سوابق اتصال قدیمی';if(!isset($nav[$tab]))throw new HttpError(404,'بخش مدیریت پیدا نشد.');
         Permissions::require($db,$nav[$tab][2]);$label=$nav[$tab][0];$data=['db'=>$db,'user'=>$user,'tab'=>$tab,'actor'=>$user];
         $old=$_SESSION['panel_feedback']['input']??null;$errors=$_SESSION['panel_feedback']['errors']??[];unset($_SESSION['panel_feedback']);$data+=compact('old','errors');
         ob_start();
@@ -49,13 +49,14 @@ final class AdminPanel {
             case 'users':
                 $q=Security::text($_GET,'q',150,false);$where=$q!==''?'email LIKE ?':'1=1';$args=$q!==''?['%'.$q.'%']:[];$result=AdminQueries::paginate($db,'SELECT id,email,role,active','FROM users',$where,$args,['new'=>'id DESC'],$_GET);
                 view('admin-users',$data+['result'=>$result]);break;
+            case 'requests':if(MemberSchema::ready($db))view('member-admin-requests',$data);else view('admin-legacy',$data);break;
             case 'reports':view('admin-reports',$data);break;
             case 'settings':view('admin-settings',$data);break;
             default:view('admin-legacy',$data);
         }
         $body=ob_get_clean();view('admin-shell',compact('body','db','user','tab','nav','label','errors'));
     }
-    public static function handles(string $action):bool{return in_array($action,['artist-save','artist-transition','media-save','media-transition','backup-create','user-save'],true);}
+    public static function handles(string $action):bool{return in_array($action,['artist-save','artist-transition','media-save','media-transition','backup-create','user-save','storefront-save','participation-settings'],true);}
     public static function action(PDO $db,string $action):never {
         $user=Security::user($db);if(!$user)throw new HttpError(403,'ورود لازم است.');self::boot($db,$user);$id=(int)($_POST['id']??0);$tab=$action==='user-save'?'users':(str_starts_with($action,'artist')?'artists':(str_starts_with($action,'media')?'images':'settings'));
         try{
@@ -65,6 +66,8 @@ final class AdminPanel {
                 case 'media-save':AdminPublishing::save($db,$user,'media',function()use($db,$user,$id){(new Media($db,$user))->save($id,$_POST);return $id;});break;
                 case 'media-transition':AdminPublishing::visibility($db,$user,'media',$id,Security::text($_POST,'status',30),(int)($_POST['revision']??-1));break;
                 case 'user-save':$id=Accounts::save($db,$user,$_POST);break;
+                case 'participation-settings':ParticipationForm::saveRelations($db,$user,$_POST);break;
+                case 'storefront-save':Storefront::save($db,$user,$_POST);break;
                 case 'backup-create':Permissions::require($db,'settings.manage');$backup=DataBackup::create($db);Db::audit($db,'backup.create',$backup['name']);break;
             }
             $_SESSION['flash']='تغییرات ثبت شد. محتوای ذخیره‌شده مستقیماً منتشر می‌شود.';

@@ -4,7 +4,8 @@ namespace Namira;
 use PDO;
 final class CommunityWeb {
     public static function handles(string $action):bool{return in_array($action,['account-register','account-profile','claim-create','claim-review','call-save','call-state','submission-save','submission-review','submission-publish','contribution-save','contribution-review','contribution-merge','owned-artist-save','owned-artist-submit'],true);}
-    public static function next(array $in):never {
+    public static function next(array $in,?PDO $db=null):never {
+        if(MemberSchema::ready($db??Db::connect())){[$next,$params]=MemberServices::route($in);redirect($next,$params);}
         $next=Security::text($in,'next_page',30,false);if(!in_array($next,['account','submit-art','contribute','call'],true))$next='account';
         $params=[];foreach(['call_id','martyr_id'] as $key)if(!empty($in[$key]))$params[$key]=(int)$in[$key];if($next==='call')$params=['id'=>(int)($in['call_id']??0)];redirect($next,$params);
     }
@@ -27,8 +28,9 @@ final class CommunityWeb {
     }
     public static function action(PDO $db,string $action):never {
         CommunitySchema::requireReady($db);$actor=Security::user($db);$id=(int)($_POST['id']??0);$back='account';$params=[];
+        if(MemberSchema::ready($db)&&in_array($action,['account-register','account-profile','claim-create','owned-artist-save','owned-artist-submit'],true))throw new HttpError(410,'از حساب مشترک استفاده کنید؛ مدیریت پروفایل هنرمندان فقط در پنل انجام می‌شود.');
         if($action==='account-register'){
-            try{$id=Accounts::register($db,$_POST);session_regenerate_id(true);$_SESSION['user_id']=$id;$_SESSION['csrf']=bin2hex(random_bytes(32));self::next($_POST);}catch(HttpError|ProtocolErrors $e){self::fail($e,'register',[]);}
+            try{$id=Accounts::register($db,$_POST);session_regenerate_id(true);$_SESSION['user_id']=$id;$_SESSION['csrf']=bin2hex(random_bytes(32));self::next($_POST,$db);}catch(HttpError|ProtocolErrors $e){self::fail($e,'register',[]);}
         }
         if(!$actor)throw new HttpError(403,'ابتدا وارد حساب شوید.');
         try{
@@ -41,15 +43,15 @@ final class CommunityWeb {
                 case 'submission-save':
                     $back='submit-art';$params=$id?['id'=>$id]:['call_id'=>(int)($_POST['call_id']??0)];$files=self::sources('artwork',1);
                     $id=(new Submissions($db,$actor))->submit($_POST,$files[0]['source']??null,$files[0]['preview']??null,$id);Web::uploadResponse('account',['section'=>'submissions','id'=>$id]);
-                case 'submission-review':$back='admin';$params=['tab'=>'submissions','edit'=>$id];throw new HttpError(410,'مراحل بررسی حذف شده‌اند؛ از ثبت و انتشار مستقیم اثر استفاده کنید.');
+                case 'submission-review':$back='admin';$params=['tab'=>'submissions','edit'=>$id];if(MemberSchema::ready($db)){(new Submissions($db,$actor))->review($id,$_POST);break;}throw new HttpError(410,'مراحل بررسی حذف شده‌اند؛ از ثبت و انتشار مستقیم اثر استفاده کنید.');
                 case 'submission-publish':
                     $back='admin';$params=['tab'=>'submissions','edit'=>$id];$previews=self::verified();$row=(new Submissions($db,$actor))->get($id);$current=null;foreach($row['assets']??[] as $asset)if($asset['is_current'])$current=$asset['id'];
-                    (new Submissions($db,$actor))->publish($id,$_POST,$previews[$current]??null,true);$_SESSION['flash']='اثر مستقیماً منتشر شد.';Web::uploadResponse('admin',$params);
+                    (new Submissions($db,$actor))->publish($id,$_POST,$previews[$current]??null,!MemberSchema::ready($db));$_SESSION['flash']='اثر مستقیماً منتشر شد.';Web::uploadResponse('admin',$params);
                 case 'contribution-save':
                     $back='contribute';$params=$id?['id'=>$id]:['martyr_id'=>(int)($_POST['martyr_id']??0)];$files=self::sources('photos',5);$id=(new Contributions($db,$actor))->submit($_POST,$files,$id);Web::uploadResponse('account',['section'=>'contributions','id'=>$id]);
-                case 'contribution-review':$back='admin';$params=['tab'=>'contributions','edit'=>$id];throw new HttpError(410,'مراحل بررسی حذف شده‌اند؛ از ثبت و انتشار مستقیم بخش انتخاب‌شده استفاده کنید.');
+                case 'contribution-review':$back='admin';$params=['tab'=>'contributions','edit'=>$id];if(MemberSchema::ready($db)){(new Contributions($db,$actor))->review($id,$_POST);break;}throw new HttpError(410,'مراحل بررسی حذف شده‌اند؛ از ثبت و انتشار مستقیم بخش انتخاب‌شده استفاده کنید.');
                 case 'contribution-merge':
-                    $back='admin';$params=['tab'=>'contributions','edit'=>$id];(new Contributions($db,$actor))->merge($id,$_POST,self::verified(),true);$_SESSION['flash']='بخش‌های انتخاب‌شده ثبت و مستقیماً منتشر شدند.';Web::uploadResponse('admin',$params);
+                    $back='admin';$params=['tab'=>'contributions','edit'=>$id];(new Contributions($db,$actor))->merge($id,$_POST,self::verified(),!MemberSchema::ready($db));$_SESSION['flash']=MemberSchema::ready($db)?'بخش‌های پذیرفته‌شده به پیش‌نویس منتقل شدند؛ انتشار از پرونده شهید انجام می‌شود.':'بخش‌های انتخاب‌شده ثبت و مستقیماً منتشر شدند.';Web::uploadResponse('admin',$params);
                 case 'owned-artist-save':
                     $params=['section'=>'artists','id'=>$id];if(!ArtistAccounts::owns($db,$actor,$id))throw new HttpError(403,'این پروفایل به حساب شما متصل نیست.');$files=Web::files('avatar');if(count($files)>1)throw new HttpError(422,'یک تصویر انتخاب کنید.');(new Artists($db,$actor))->save($_POST,$id,$files?Upload::receive($files[0]):null);break;
                 case 'owned-artist-submit':
@@ -79,6 +81,9 @@ final class CommunityWeb {
     }
     public static function show(PDO $db,string $page,array|false $user):string {
         CommunitySchema::requireReady($db);$data=['db'=>$db,'user'=>$user,'errors'=>[],'old'=>null];
+        if(MemberSchema::ready($db)&&$page==='account'){if(!$user)redirect('member-login',['next_page'=>'account']);MemberWeb::account($db,$user);return 'حساب کاربری | نامیرا';}
+        if(MemberSchema::ready($db)&&$page==='register')redirect('member-login',$_GET);
+        if(MemberSchema::ready($db)&&in_array($page,['submit-art','contribute'],true)&&!MobileAuth::verified($db,$user))redirect('member-login',['next_page'=>$page,'call_id'=>(int)($_GET['call_id']??0),'martyr_id'=>(int)($_GET['martyr_id']??0)]);
         if($page==='register'){if($user)redirect('account');view('register',array_replace($data,self::feedback('register',[])));return 'ثبت حساب | نامیرا';}
         if(in_array($page,['submit-art','contribute','account'],true)&&!$user){$next=['next_page'=>$page];foreach(['call_id','martyr_id'] as $key)if(!empty($_GET[$key]))$next[$key]=(int)$_GET[$key];redirect('login',$next);}
         if($page==='calls'){view('calls',$data+['result'=>(new Calls($db,[]))->listing($_GET,true)]);return 'فراخوان‌های هنری | نامیرا';}
@@ -97,12 +102,12 @@ final class CommunityWeb {
         $call=null;$callId=(int)($entry['call_id']??$_GET['call_id']??0);if($page==='submit-art'&&$callId){if($entry){$call=Db::query($db,"SELECT * FROM art_calls WHERE id=? AND status IN ('published','paused')",[$callId])->fetch();if($call)$call['criteria']=Protocol::decode($call['criteria']);}else $call=Calls::accepting($db,$callId);if(!$call)throw new HttpError(422,'فراخوان پذیرش ندارد.');}
         if(!$id)$routeParams=$page==='submit-art'?['call_id'=>$callId]:['martyr_id'=>(int)($_GET['martyr_id']??0)];
         $data=array_replace($data,self::feedback($page,$routeParams));$data+=['entry'=>$entry,'call'=>$call,'profile'=>Db::query($db,'SELECT * FROM account_profiles WHERE user_id=?',[$user['id']])->fetch(),'owned'=>ArtistAccounts::owned($db,$user),'terms'=>Db::query($db,"SELECT * FROM protocol_terms WHERE taxonomy IN ('art_specialty','media_type') AND active=1 ORDER BY title")->fetchAll()];
-        view($page==='submit-art'?'submission-form':'contribution-form',$data);return ($page==='submit-art'?'ارسال اثر هنری':'مشارکت در تکمیل اطلاعات').' | نامیرا';
+        view($page==='submit-art'?'submission-form':(MemberSchema::ready($db)?'participation-form':'contribution-form'),$data);return ($page==='submit-art'?'ارسال اثر هنری':'مشارکت در تکمیل اطلاعات').' | نامیرا';
     }
     public static function admin(PDO $db,array $user,string $tab,array $data):void {
         $id=(int)($_GET['edit']??0);$params=['tab'=>$tab]+($id?['edit'=>$id]:(isset($_GET['new'])?['new'=>1]:[]));$data=array_replace($data,self::feedback('admin',$params));
         if($tab==='calls'){$service=new Calls($db,$user);$data+=['editing'=>$id?$service->get($id):null,'result'=>$service->listing($_GET),'terms'=>Db::query($db,"SELECT * FROM protocol_terms WHERE taxonomy IN ('media_type','art_specialty') AND active=1 ORDER BY title")->fetchAll()];view('admin-calls',$data);return;}
-        if($tab==='claims'){$where='1=1';$args=[];if(!empty($_GET['status'])){$where='c.status=?';$args[]=$_GET['status'];}$data+=['result'=>AdminQueries::paginate($db,'SELECT c.*,a.display_name,u.email','FROM artist_account_claims c JOIN artists a ON a.id=c.artist_id JOIN users u ON u.id=c.user_id',$where,$args,['new'=>'c.id DESC'],$_GET),'editing'=>$id?Db::query($db,'SELECT c.*,a.display_name,u.email FROM artist_account_claims c JOIN artists a ON a.id=c.artist_id JOIN users u ON u.id=c.user_id WHERE c.id=?',[$id])->fetch():null];view('admin-claims',$data);return;}
+        if($tab==='claims'){$where='1=1';$args=[];if(!empty($_GET['status'])){$where='c.status=?';$args[]=$_GET['status'];}$data+=['result'=>AdminQueries::paginate($db,'SELECT c.*,a.display_name,u.email','FROM artist_account_claims c JOIN artists a ON a.id=c.artist_id JOIN users u ON u.id=c.user_id',$where,$args,['new'=>'c.id DESC'],$_GET),'editing'=>$id?Db::query($db,'SELECT c.*,a.display_name,u.email FROM artist_account_claims c JOIN artists a ON a.id=c.artist_id JOIN users u ON u.id=c.user_id WHERE c.id=?',[$id])->fetch():null];view(MemberSchema::ready($db)?'legacy-artist-links':'admin-claims',$data);return;}
         $service=$tab==='submissions'?new Submissions($db,$user):new Contributions($db,$user);$editing=$id?$service->get($id):null;if($id&&!$editing)throw new HttpError(404,'مورد پیدا نشد.');$data+=['editing'=>$editing,'result'=>$service->listing($_GET),'terms'=>Db::query($db,"SELECT * FROM protocol_terms WHERE taxonomy IN ('media_type','art_specialty') ORDER BY title")->fetchAll()];
         if($tab==='contributions'&&$editing&&($data['old']['martyr_id']??$editing['martyr_id'])&&Permissions::allows($db,$user,'martyrs.edit'))$data['bundle']=(new Protocol($db,$user))->get((int)($data['old']['martyr_id']??$editing['martyr_id']));
         view($tab==='submissions'?'admin-submissions':'admin-contributions',$data);

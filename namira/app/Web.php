@@ -20,6 +20,9 @@ final class Web {
                 Security::verify($_POST); self::action($db,$archive,$shop);
             }
 
+            if($page==='home-data'){
+                $home=Storefront::home($db,$_GET);ob_start();view('cards',['images'=>$home['result']['items']]);$html=ob_get_clean();header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');echo json_encode(['ok'=>true,'html'=>$html,'count'=>$home['result']['count'],'topic'=>$home['topic'],'galleryUrl'=>url('gallery',$home['f'])],JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);return;
+            }
             if($page==='gallery-data'){
                 header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');session_write_close();
                 if(strlen($_SERVER['QUERY_STRING']??'')>16000)throw new HttpError(422,'تعداد فیلترها بیش از حد است.');
@@ -45,8 +48,8 @@ final class Web {
             if($page==='backup-download'){Permissions::require($db,'settings.manage');$name=Security::text($_GET,'name',80);if(!preg_match('/^db-[0-9]{8}-[0-9]{6}-[a-f0-9]{16}$/D',$name))throw new HttpError(404,'پشتیبان پیدا نشد.');self::sendFile(Upload::absolute('backups/'.$name.'.sql'),'application/sql','attachment',$name.'.sql');return;}
             if($page==='media'||$page==='download') { self::media($db,$archive,$page); return; }
             if($page==='request-file') {
-                if(PlatformSchema::ready($db))Permissions::require($db,'requests.view');else Security::requireRole($db,'content'); $f=Db::query($db,'SELECT * FROM request_files WHERE id=?',[(int)($_GET['id']??0)])->fetch();
-                if(!$f) throw new HttpError(404,'فایل پیدا نشد.'); self::sendFile(Upload::absolute($f['path']),$f['mime'],'attachment','request-image'); return;
+                if(!MemberSchema::ready($db)){if(PlatformSchema::ready($db))Permissions::require($db,'requests.view');else Security::requireRole($db,'content');} $f=Db::query($db,'SELECT * FROM request_files WHERE id=?',[(int)($_GET['id']??0)])->fetch();
+                if(!$f) throw new HttpError(404,'فایل پیدا نشد.');if(MemberSchema::ready($db)){ $requestActor=Security::user($db);if(!$requestActor)throw new HttpError(404,'فایل پیدا نشد.');MemberServices::request($db,(int)$f['request_id'],$requestActor);} self::sendFile(Upload::absolute($f['path']),$f['mime'],'attachment','request-image'); return;
             }
             if($page==='export') {
                 if(PlatformSchema::ready($db))Permissions::require($db,'reports.archive');else Security::requireRole($db,'content'); $tmp=tempnam(Env::storage(),'export-');
@@ -56,7 +59,9 @@ final class Web {
             header('Cache-Control: private, no-store');
             ob_start();
             switch($page){
-                case 'home': case 'gallery':
+                case 'home':
+                    $home=Storefront::home($db,$_GET);$f=$home['f'];$result=$home['result'];view('gallery',compact('db','page','f','result','home'));break;
+                case 'gallery':
                     $f=$page==='gallery'?GalleryFacets::input($db,$_GET):$_GET; $catalogFilters=$page==='gallery'?MartyrFilters::options($db,$f):[]; $result=$archive->images($f,max(1,(int)($_GET['p']??1))); $categories=[]; $options=[];
                     view('gallery',compact('db','page','f','result','categories','options','catalogFilters')); break;
                 case 'profile':
@@ -70,7 +75,7 @@ final class Web {
                     $title='هنرمندان و پدیدآورندگان | نامیرا';$result=PlatformSchema::ready($db)?(new Artists($db,[]))->listing($_GET,true):['items'=>[],'count'=>0,'page'=>1,'per'=>24];$specialties=PlatformSchema::ready($db)?Db::query($db,"SELECT id,title FROM protocol_terms WHERE taxonomy='art_specialty' AND active=1 ORDER BY title")->fetchAll():[];view('artists',compact('result','specialties'));break;
                 case 'artist':
                     if(!PlatformSchema::ready($db))throw new HttpError(404,'پروفایل پیدا نشد.');$artist=(new Artists($db,[]))->get((int)($_GET['id']??0),true);if(!$artist)throw new HttpError(404,'پروفایل هنرمند پیدا نشد.');$title=$artist['display_name'].' | هنرمندان نامیرا';$result=$archive->images(['artist_id'=>$artist['id']],max(1,(int)($_GET['p']??1)));$specialties=Db::query($db,"SELECT id,title FROM protocol_terms WHERE taxonomy='art_specialty'")->fetchAll();view('artist',compact('artist','result','specialties'));break;
-                case 'request': view('request'); break;
+                case 'request': if(MemberSchema::ready($db)&&!MobileAuth::verified($db,$user))redirect('member-login',['next_page'=>'request']);view('request'); break;
 
                 case 'request-track':
                     $token=Security::text($_GET,'token',64,false); $request=$token?Db::query($db,'SELECT tracking,status,created_at FROM design_requests WHERE tracking=?',[$token])->fetch():false;
@@ -85,12 +90,13 @@ final class Web {
                 case 'product':
                     $product=Db::query($db,'SELECT * FROM products WHERE id=? AND published=1',[(int)($_GET['id']??0)])->fetch(); if(!$product)throw new HttpError(404,'محصول پیدا نشد.');
                     $variants=Db::query($db,'SELECT * FROM variants WHERE product_id=?',[$product['id']])->fetchAll(); view('product',compact('product','variants')); break;
-                case 'cart': $items=$shop->items($shop->cartToken()); if(!isset($_SESSION['checkout_key'])||($items&&Db::query($db,'SELECT id FROM orders WHERE checkout_key=?',[$_SESSION['checkout_key']])->fetchColumn())) $_SESSION['checkout_key']=bin2hex(random_bytes(32)); view('cart',compact('items')); break;
+                case 'cart': if(MemberSchema::ready($db)&&!MobileAuth::verified($db,$user))redirect('member-login',['next_page'=>'cart']);$items=$shop->items($shop->cartToken()); if(!isset($_SESSION['checkout_key'])||($items&&Db::query($db,'SELECT id FROM orders WHERE checkout_key=?',[$_SESSION['checkout_key']])->fetchColumn())) $_SESSION['checkout_key']=bin2hex(random_bytes(32)); view('cart',compact('items')); break;
                 case 'order':
-                    $token=Security::text($_GET,'token',64); $order=Db::query($db,'SELECT * FROM orders WHERE token=?',[$token])->fetch(); if(!$order)throw new HttpError(404,'سفارش پیدا نشد.');
+                    $token=Security::text($_GET,'token',64); $order=MemberSchema::ready($db)?($user?MemberServices::order($db,$token,$user,true):false):Db::query($db,'SELECT * FROM orders WHERE token=?',[$token])->fetch(); if(!$order)throw new HttpError(404,'سفارش پیدا نشد.');
                     $items=Db::query($db,'SELECT * FROM order_items WHERE order_id=?',[$order['id']])->fetchAll(); $payment=Db::query($db,'SELECT * FROM payments WHERE order_id=?',[$order['id']])->fetch(); view('order',compact('order','items','payment')); break;
                 case 'register':case 'calls':case 'call':case 'submit-art':case 'contribute':case 'account':$title=CommunityWeb::show($db,$page,$user);break;
-                case 'login': view('login'); break;
+                case 'member-login':MemberWeb::login($db);break;
+                case 'login': if(MemberSchema::ready($db)&&empty($_GET['legacy']))MemberWeb::login($db);else view('login'); break;
                 case 'admin': self::admin($db,$user); break;
                 case 'about': view('about'); break;
                 default: throw new HttpError(404,'صفحه پیدا نشد.');
@@ -113,14 +119,14 @@ final class Web {
         redirect($page,$params);
     }
     private static function action(PDO $db,Archive $archive,Shop $shop): never {
-        $a=Security::text($_POST,'action',40);if(MartyrCatalogWeb::handles($a))MartyrCatalogWeb::action($db,$a);if(CommunityWeb::handles($a))CommunityWeb::action($db,$a);if(AdminPanel::handles($a))AdminPanel::action($db,$a);
+        $a=Security::text($_POST,'action',40);if(MemberWeb::handles($a))MemberWeb::action($db,$a);if(MartyrCatalogWeb::handles($a))MartyrCatalogWeb::action($db,$a);if(CommunityWeb::handles($a))CommunityWeb::action($db,$a);if(AdminPanel::handles($a))AdminPanel::action($db,$a);
         switch($a){
             case 'login':
                 Security::limit($db,'login',8); $email=Security::text($_POST,'email',190); $password=$_POST['password']??'';if(!is_string($password)||strlen($password)>1024)throw new HttpError(422,'ایمیل یا رمز معتبر نیست.');
                 $u=Db::query($db,'SELECT * FROM users WHERE email=? AND active=1',[$email])->fetch();
                 $dummy='$2y$10$wHVV71XhPT3QCKoRV4pxXej0zu1ZokgOphJ9BSkS0HAsRkUPdMQpK';
                 if(!password_verify($password,$u['password_hash']??$dummy)||!$u) throw new HttpError(422,'ایمیل یا رمز معتبر نیست.');
-                session_regenerate_id(true); $_SESSION['user_id']=$u['id']; $_SESSION['csrf']=bin2hex(random_bytes(32));if(in_array($_POST['next_page']??'',['account','submit-art','contribute','call'],true))CommunityWeb::next($_POST);redirect('admin');
+                session_regenerate_id(true); $_SESSION['user_id']=$u['id']; $_SESSION['csrf']=bin2hex(random_bytes(32));if(in_array($_POST['next_page']??'',['account','submit-art','contribute','call','request','cart','product'],true))CommunityWeb::next($_POST,$db);if(MemberSchema::ready($db)&&!Permissions::allows($db,$u,'dashboard.view'))redirect('account');redirect('admin');
             case 'account-password':$actor=Security::user($db);if(!$actor)throw new HttpError(403,'ورود لازم است.');Accounts::password($db,$actor,$_POST);$_SESSION['flash']='رمز ورود تغییر کرد.';redirect('account');
             case 'logout': $_SESSION=[]; session_regenerate_id(true); redirect('home');
             case 'protocol-quick': case 'protocol-save': case 'protocol-transition': case 'protocol-shared': case 'protocol-term': ProtocolController::action($db,$a);
@@ -138,9 +144,10 @@ final class Web {
             case 'request-status': if(PlatformSchema::ready($db))Permissions::require($db,'requests.edit');else Security::requireRole($db,'content'); $status=Security::text($_POST,'status',40); if(!in_array($status,['submitted','reviewing','accepted','completed','rejected'],true)) throw new HttpError(422,'وضعیت نامعتبر است.'); Db::query($db,'UPDATE design_requests SET status=? WHERE id=?',[$status,(int)$_POST['id']]); Db::audit($db,'request.status',(string)(int)$_POST['id']); redirect('admin',['tab'=>'requests']);
             case 'cart': $shop->setQuantity($shop->cartToken(),(int)($_POST['variant_id']??0),(int)($_POST['quantity']??1)); redirect('cart');
             case 'checkout': Security::limit($db,'checkout',20); $token=$shop->checkout($shop->cartToken(),$_POST); redirect('order',['token'=>$token]);
-            case 'test-pay': $token=Security::text($_POST,'token',64); $shop->pay($token,$_POST); redirect('order',['token'=>$token]);
+            case 'test-pay': $token=Security::text($_POST,'token',64); if(MemberSchema::ready($db)){ $actor=Security::user($db);if(!$actor)throw new HttpError(403,'ورود لازم است.');MemberServices::order($db,$token,$actor);}$shop->pay($token,$_POST); redirect('order',['token'=>$token]);
             case 'order-status': Security::requireRole($db,'shop'); $shop->transition((int)$_POST['id'],Security::text($_POST,'status',40),Security::text($_POST,'tracking',100,false)); redirect('admin',['tab'=>'orders']);
             case 'return':
+                if(MemberSchema::ready($db)){ $actor=Security::user($db);if(!$actor)throw new HttpError(403,'ورود لازم است.');MemberServices::order($db,Security::text($_POST,'token',64),$actor);}
                 Security::limit($db,'return',5); $token=Security::text($_POST,'token',64); $o=Db::query($db,"SELECT id FROM orders WHERE token=? AND status='delivered'",[$token])->fetchColumn(); if(!$o)throw new HttpError(422,'سفارش قابل مرجوعی نیست.');
                 Db::insert($db,'return_requests',['order_id'=>$o,'reason'=>Security::text($_POST,'reason',3000),'created_at'=>date('Y-m-d H:i:s')]); $_SESSION['flash']='درخواست مرجوعی ثبت شد.'; redirect('order',['token'=>$token]);
             case 'product':

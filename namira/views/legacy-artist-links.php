@@ -1,0 +1,1 @@
+<section class="panel"><h2>سوابق اتصال حساب به هنرمند</h2><p>این سوابق صرفاً برای پیگیری حفظ شده‌اند. هیچ اتصال قبلی یا جدیدی مجوز ویرایش عمومی پروفایل هنرمند ایجاد نمی‌کند.</p><?php foreach($result["items"] as $row): ?><p><?= e($row["display_name"]." · ".$row["email"]." · ".$row["status"]) ?></p><?php endforeach ?></section>
