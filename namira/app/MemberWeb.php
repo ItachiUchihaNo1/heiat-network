@@ -33,6 +33,7 @@ final class MemberWeb {
         if($section==='orders'){$data['items']=Db::query($db,'SELECT o.* FROM orders o JOIN account_order_owners x ON x.order_id=o.id WHERE x.user_id=? ORDER BY o.id DESC LIMIT 100',[$user['id']])->fetchAll();}
         if($section==='addresses')$data['items']=Db::query($db,'SELECT * FROM account_addresses WHERE user_id=? ORDER BY id DESC',[$user['id']])->fetchAll();
         if(in_array($section,['overview','messages'],true)){$data['activity']=Db::query($db,"SELECT h.entity_type,h.entity_id,h.to_status,h.created_at FROM submission_history h WHERE EXISTS(SELECT 1 FROM public_contributions c WHERE h.entity_type='contribution' AND c.id=h.entity_id AND c.user_id=?) OR EXISTS(SELECT 1 FROM art_submissions s WHERE h.entity_type='art_submission' AND s.id=h.entity_id AND s.user_id=?) ORDER BY h.id DESC LIMIT 20",[$user['id'],$user['id']])->fetchAll();$data['requestMessages']=Db::query($db,'SELECT m.request_id,m.kind,m.message,m.created_at FROM design_request_messages m JOIN account_request_owners x ON x.request_id=m.request_id WHERE x.user_id=? ORDER BY m.id DESC LIMIT 20',[$user['id']])->fetchAll();}
+        if($section==='overview'){$data['activity']=array_slice($data['activity'],0,5);$data['requestMessages']=array_slice($data['requestMessages'],0,3);}
         view('member-account',$data);
     }
 }
