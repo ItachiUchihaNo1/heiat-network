@@ -1,0 +1,16 @@
+<?php
+declare(strict_types=1);
+namespace Namira;
+use PDO;
+final class StoreReturns {
+ public const STATES=['requested'=>'درخواست‌شده','approved'=>'پذیرفته‌شده','rejected'=>'ردشده','received'=>'دریافت مرجوعی','closed'=>'بسته‌شده'];
+ public static function open(PDO $db,array $actor,int $order,?int $item,int $message,string $reason):int{
+  if(!StoreAccess::owner($db,$order,$actor)&&!StoreAccess::allows($db,$actor,'orders'))throw new HttpError(404,'سفارش پیدا نشد.');$quantity=0;if($item){$i=StoreAccess::item($db,$item,$actor);if((int)$i['order_id']!==$order)throw new HttpError(404,'قلم متعلق به سفارش نیست.');$quantity=(int)$i['quantity'];}
+  return Db::insert($db,'store_return_cases',['order_id'=>$order,'item_id'=>$item,'message_id'=>$message,'quantity'=>$quantity,'reason'=>$reason,'review_note'=>'','created_by'=>$actor['id'],'created_at'=>date('Y-m-d H:i:s'),'updated_at'=>date('Y-m-d H:i:s')]);
+ }
+ public static function review(PDO $db,array $actor,int $id,array $in):void{
+  StoreAccess::require($db,$actor,'orders');Db::transaction($db,function()use($db,$actor,$id,$in){$case=Db::query($db,'SELECT * FROM store_return_cases WHERE id=?'.StoreAccess::lock($db),[$id])->fetch();if(!$case)throw new HttpError(404,'درخواست مرجوعی پیدا نشد.');if((int)($in['revision']??-1)!==(int)$case['revision'])throw new HttpError(409,'درخواست قبلاً تغییر کرده است.');$state=Security::text($in,'state',30);$allowed=['requested'=>['approved','rejected'],'approved'=>['received','closed'],'received'=>['closed']];if(!in_array($state,$allowed[$case['state']]??[],true))throw new HttpError(422,'تغییر وضعیت مرجوعی مجاز نیست.');$note=Security::text($in,'review_note',3000);$restock=!empty($in['restock']);if($restock&&($state!=='received'||!$case['item_id']||$case['restocked']))throw new HttpError(422,'بازگشت موجودی فقط یک‌بار و پس از دریافت قلم ممکن است.');if($restock){$i=StoreAccess::item($db,(int)$case['item_id'],$actor);if($i['delivery']==='digital'||!in_array($i['status'],['shipped','completed','returned'],true))throw new HttpError(422,'قلم ارسال‌شدهٔ فیزیکی برای بازگشت موجودی لازم است.');$previous=(int)Db::query($db,'SELECT COALESCE(SUM(quantity),0) FROM store_return_cases WHERE item_id=? AND restocked=1',[$case['item_id']])->fetchColumn();$qty=StoreCatalog::integer($in['quantity']??$case['quantity'],1,(int)$i['quantity']);if($previous+$qty>(int)$i['quantity'])throw new HttpError(422,'تعداد برگشتی از سفارش بیشتر است.');if(empty(Protocol::decode($i['snapshot'])['unlimited']))StoreCheckout::stock($db,(int)$i['variant_id'],$qty,$actor,'دریافت مرجوعی #'.$id);Db::query($db,'UPDATE store_return_cases SET quantity=? WHERE id=?',[$qty,$id]);Db::query($db,"UPDATE store_item_details SET status='returned',digital_state='revoked',revision=revision+1 WHERE item_id=?",[$case['item_id']]);}
+   Db::query($db,'UPDATE store_return_cases SET state=?,review_note=?,restocked=?,revision=revision+1,updated_at=? WHERE id=?',[$state,$note,$restock?1:$case['restocked'],date('Y-m-d H:i:s'),$id]);StoreAccess::audit($db,$actor,'return.'.$state,'return',$id,$case,['state'=>$state,'restock'=>$restock],$note);StoreOps::notify($db,StoreOps::owner($db,(int)$case['order_id']),(int)$case['order_id'],'return-'.$id.'-'.($case['revision']+1),'نتیجه درخواست مرجوعی: '.self::STATES[$state]);
+  });
+ }
+}

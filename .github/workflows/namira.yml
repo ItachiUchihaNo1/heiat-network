@@ -3,6 +3,9 @@ on:
   push:
     branches: [main]
     paths: ['namira/**', '.github/workflows/namira.yml']
+  pull_request:
+    branches: [main]
+    paths: ['namira/**', '.github/workflows/namira.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -168,10 +171,65 @@ jobs:
         run: |
           php -r '$db=new PDO(getenv("TEST_DB_DSN"),getenv("TEST_DB_USER"),getenv("TEST_DB_PASSWORD"));$db->exec("CREATE DATABASE namira_test_ui CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");'
           php namira/tests/public-ui.php
+      - name: Store catalog on SQLite
+        run: php namira/tests/store-catalog.php
+      - name: Store catalog on MySQL
+        env:
+          TEST_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test;charset=utf8mb4'
+          STORE_TEST_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test_store;charset=utf8mb4'
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: test-only-password
+        run: |
+          php -r '$db=new PDO(getenv("TEST_DB_DSN"),getenv("TEST_DB_USER"),getenv("TEST_DB_PASSWORD"));$db->exec("CREATE DATABASE namira_test_store CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");'
+          php namira/tests/store-catalog.php
+      - name: Complete store orders on SQLite
+        env:
+          STORE_UI_MANIFEST: storage/store-ui-fixture.json
+        working-directory: namira
+        run: php tests/store-orders.php
+      - name: Complete store orders on MySQL
+        env:
+          TEST_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test;charset=utf8mb4'
+          STORE_ORDERS_TEST_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test_store_orders;charset=utf8mb4'
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: test-only-password
+        run: |
+          php -r '$db=new PDO(getenv("TEST_DB_DSN"),getenv("TEST_DB_USER"),getenv("TEST_DB_PASSWORD"));$db->exec("CREATE DATABASE namira_test_store_orders CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");'
+          php namira/tests/store-orders.php
       - name: Validate deployment script
         run: python3 -m py_compile namira/deploy/ftps.py
+  store-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Isolated PHP browser fixture
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-sqlite3 php-gd php-xml php-mbstring php-zip
+          cd namira
+          STORE_UI_MANIFEST=storage/store-ui-fixture.json php tests/store-orders.php
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned browser test tools only in runner temporary directory
+        run: |
+          npm install --prefix "$RUNNER_TEMP/namira-browser" --no-package-lock --ignore-scripts playwright@1.56.1
+          node "$RUNNER_TEMP/namira-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Mobile and desktop store end-to-end checks
+        working-directory: namira
+        env:
+          NAMIRA_UI_MANIFEST: storage/store-ui-fixture.json
+          STORE_UI_ARTIFACTS: storage/store-ui-artifacts
+        run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/namira-browser/node_modules/playwright" node tests/store-ui.cjs
+      - name: Save test screenshots and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: namira-store-browser
+          path: namira/storage/store-ui-artifacts
+          retention-days: 7
   deploy:
-    if: ${{ vars.NAMIRA_ENABLE_DIRECT_FTPS == 'true' }}
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.NAMIRA_ENABLE_DIRECT_FTPS == 'true' }}
     needs: test
     runs-on: ubuntu-latest
     steps:

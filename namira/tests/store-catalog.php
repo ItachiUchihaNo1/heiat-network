@@ -1,0 +1,53 @@
+<?php
+ declare(strict_types=1);
+ require dirname(__DIR__).'/app/bootstrap.php';
+ use Namira\{Db,Env,StoreSchema,StoreCatalog,StoreManager,StoreMedia,HttpError,Shop,Security};
+ $dir=BASE_PATH.'/storage/store-test-'.bin2hex(random_bytes(6));mkdir($dir,0700,true);putenv('STORAGE_PATH='.$dir);putenv('APP_ENV=testing');putenv('PAYMENT_DRIVER=test');
+ $dsn=getenv('STORE_TEST_DSN')?:'sqlite:'.$dir.'/store.sqlite';if(!str_starts_with($dsn,'sqlite:'.$dir.'/')&&!preg_match('/^mysql:.*dbname=namira_test_store(?:;|$)/D',$dsn))throw new RuntimeException('Isolated store test database required');
+ putenv('DB_DSN='.$dsn);putenv('DB_USER='.(getenv('TEST_DB_USER')?:''));putenv('DB_PASSWORD='.(getenv('TEST_DB_PASSWORD')?:''));$db=Db::connect();$_SESSION=[];$checks=0;
+ function ok(bool $b,string $message):void{global $checks;if(!$b)throw new RuntimeException('FAIL '.$message);$checks++;echo 'PASS '.$message.PHP_EOL;}
+ function no(callable $fn,int $status,string $message):void{try{$fn();}catch(HttpError $e){ok($e->status===$status,$message.' ('.$e->status.')');return;}throw new RuntimeException('FAIL expected error '.$message);}
+ function html(string $name,array $data):string{ob_start();view($name,$data);return ob_get_clean();}
+ set_error_handler(static function($n,$s,$f,$l){throw new ErrorException($s,0,$n,$f,$l);});
+ try{
+ $m=require BASE_PATH.'/database/migrate.php';$m($db);
+ $uid=Db::insert($db,'users',['email'=>'store@example.test','password_hash'=>password_hash('only-fixture-long-password',PASSWORD_DEFAULT),'role'=>'superadmin']);$actor=['id'=>$uid,'role'=>'superadmin','email'=>'store@example.test'];$_SESSION['user_id']=$uid;
+ $old=Db::insert($db,'products',['title'=>'محصول قدیمی','category'=>'قاب','description'=>'بدون تغییر']);$ov=Db::insert($db,'variants',['product_id'=>$old,'sku'=>'OLD','attributes'=>'قدیمی','price'=>200,'stock'=>4]);$before=Db::query($db,'SELECT * FROM products WHERE id=?',[$old])->fetch();
+ $counts=Namira\DataBackup::counts($db);StoreSchema::migrate($db);StoreSchema::migrate($db);
+ ok(StoreSchema::ready($db),'009 migration idempotent');ok($before===Db::query($db,'SELECT * FROM products WHERE id=?',[$old])->fetch(),'legacy product bytes unchanged');foreach($counts as $table=>$n)ok((int)$db->query('SELECT COUNT(*) FROM '.Namira\DataBackup::identifier($db,$table))->fetchColumn()>=$n,'count preserved: '.$table);
+ $reports=glob($dir.'/backups/migration-009-*.json');ok(count($reports)===1,'single private count report');$report=json_decode(file_get_contents($reports[0]),true);ok(is_file($dir.'/backups/'.$report['backup']['name'].'.sql'),'SQL backup before DDL');ok($report['existing_rows_rewritten']===0,'no heuristic legacy migration');
+ no(fn()=>new StoreManager($db,['id'=>$uid,'role'=>'member']),403,'member cannot manage catalog');
+ $s=new StoreManager($db,$actor);$c=new StoreCatalog($db);ok($c->get($old)['delivery']==='physical','legacy defaults preserve physical meaning');
+ $parent=$s->category(['title'=>'محصول فرهنگی','slug'=>'cultural','active'=>'1']);$child=$s->category(['title'=>'تابلو','slug'=>'frame','active'=>'1','parent_id'=>$parent]);
+ no(fn()=>$s->category(['title'=>'محصول فرهنگی','slug'=>'cultural','active'=>'1','parent_id'=>$child],$parent),422,'category cycle rejected');
+ $a=$s->attribute(['title'=>'اندازه','attribute_key'=>'size','active'=>'1','filterable'=>'1']);$b=$s->attribute(['title'=>'جنس','attribute_key'=>'material','active'=>'1','filterable'=>'1']);
+ $a1=$s->value($a,['title'=>'کوچک','value_key'=>'small','active'=>'1']);$a2=$s->value($a,['title'=>'بزرگ','value_key'=>'large','active'=>'1']);$b1=$s->value($b,['title'=>'کاغذ','value_key'=>'paper','active'=>'1']);$b2=$s->value($b,['title'=>'پارچه','value_key'=>'fabric','active'=>'1']);
+ $input=['title'=>'کتیبه یاد شهید','slug'=>'katibe','description'=>'ساخت فرهنگی','summary'=>'خلاصه','delivery'=>'physical','production'=>'ready','pricing'=>'variable','published'=>'1','categories_present'=>'1','categories'=>[$child],'sales_terms'=>'صرفاً سیاست آزمایشی'];$p=$s->product($input);
+ ok($c->listing([],true)['count']===2,'admin sees new draft without variants');ok($c->listing([])['count']===1,'public requires active variant');
+ $v1=$s->variant($p,['sku'=>'K-1','attributes'=>'کوچک کاغذ','price'=>500,'sale_price'=>400,'stock'=>3,'active'=>'1','values_present'=>'1','values'=>[$a1,$b1]]);
+ $v2=$s->variant($p,['sku'=>'K-2','attributes'=>'بزرگ پارچه','price'=>800,'stock'=>1,'active'=>'1','values_present'=>'1','values'=>[$a2,$b2]]);
+ ok(count($c->listing([])['items'])===2,'one public card per product despite variants');ok($c->listing(['category'=>$parent])['count']===1,'parent category includes descendant');
+ ok($c->listing(['q'=>'كتيبه'])['count']===1,'Arabic kaf and yeh normalized');ok($c->listing(['q'=>'K-2'])['count']===1,'SKU searchable');ok($c->listing(['q'=>'تابلو'])['count']===1,'category searchable');
+ ok($c->listing(['min_price'=>450,'max_price'=>900,'in_stock'=>1])['count']===1,'price and stock filter same variant');ok($c->listing(['discounted'=>1])['count']===1,'discounted products');
+ ok($c->listing(['attribute'=>[$a=>[$a1],$b=>[$b2]]])['count']===0,'attribute intersection cannot span unrelated variants');ok($c->listing(['attribute'=>[$a=>[$a1,$a2],$b=>[$b2]]])['count']===1,'OR within attribute AND across attributes');
+ no(fn()=>$s->variant($p,['sku'=>'bad','attributes'=>'bad','price'=>3,'stock'=>1,'active'=>1,'values_present'=>1,'values'=>[$a1,$a2]]),422,'two values of single variant attribute rejected');ok(!Db::query($db,"SELECT id FROM variants WHERE sku='bad'")->fetchColumn(),'invalid variant transaction rolled back');
+ $saved=$c->get($p,true);$revision=$saved['revision'];$in=$input+['revision'=>$revision];$in['title']='عنوان جدید';$s->product($in,$p);no(fn()=>$s->product($in,$p),409,'stale product revision rejected');
+ $saved=$c->get($p,true);ok($saved['meta']['summary']==='خلاصه','metadata preserved on edit');ok(count($saved['categories'])===1&&count($saved['values'])===4,'categories and selections recovered');
+ $change=['sku'=>'K-1','attributes'=>'کوچک کاغذ','price'=>500,'stock'=>5,'expected_stock'=>3,'active'=>1,'reason'=>'رسید آزمایشی'];$s->variant($p,$change,$v1);ok((int)Db::query($db,'SELECT stock FROM variants WHERE id=?',[$v1])->fetchColumn()===5,'stock adjustment persisted');no(fn()=>$s->variant($p,array_replace($change,['stock'=>7]),$v1),409,'stale stock rejected');
+ $moves=Db::query($db,'SELECT * FROM store_inventory_movements WHERE variant_id=? ORDER BY id DESC',[$v1])->fetchAll();ok((int)$moves[0]['delta']===2&&$moves[0]['reason']==='رسید آزمایشی','inventory before after reason audited');
+ no(fn()=>$s->variant($p,['sku'=>'K-2','attributes'=>'x','price'=>1,'stock'=>0]),422,'duplicate SKU rejected');no(fn()=>$s->variant($p,['sku'=>'OLD','attributes'=>'x','price'=>1,'stock'=>0],$ov),404,'cross product variant rejected');
+ $draft=$s->copy($p);$copy=$c->get($draft,true);ok(!$copy['published']&&count($copy['variants'])===2,'copy is draft with variants');ok(array_sum(array_column($copy['variants'],'stock'))===0,'copy does not duplicate inventory');no(fn()=>$c->get($draft),404,'draft hidden from public');
+ $f=$dir.'/photo.jpg';$im=imagecreatetruecolor(80,100);imagejpeg($im,$f);unset($im);$mid=StoreMedia::put($db,$actor,$p,$f,'نمونه محصول');$media=StoreMedia::get($db,$mid,false);ok(hash_file('sha256',$f)===hash_file('sha256',Namira\Upload::absolute($media['path'])),'catalog original bytes preserved');ok(getimagesize(Namira\Upload::absolute($media['preview_path']))['mime']==='image/webp','catalog preview independent WebP');
+ $s->media($p,$mid,['alt'=>'متن جایگزین تازه','sort_order'=>7]);ok(StoreMedia::get($db,$mid,false)['alt']==='متن جایگزین تازه','media title ordering editable without original replacement');no(fn()=>$s->media($draft,$mid,['alt'=>'bad']),404,'cross product media edit rejected');
+ $private=StoreMedia::put($db,$actor,$draft,$f,'private');no(fn()=>StoreMedia::get($db,$private,false),404,'draft media private');ok(StoreMedia::get($db,$private,$actor)['id']===$private,'manager may preview draft media');
+ file_put_contents($dir.'/bad.jpg','<?php echo 1;');no(fn()=>StoreMedia::put($db,$actor,$p,$dir.'/bad.jpg','bad'),422,'disguised script upload rejected');no(fn()=>StoreMedia::put($db,['id'=>$uid,'role'=>'member'],$p,$f,'bad'),403,'media permission enforced');
+ $page=html('store-catalog',Namira\StoreWeb::catalog($db,[])+['db'=>$db,'user'=>$actor]);ok(str_contains($page,'عنوان جدید')&&str_contains($page,'store-grid'),'public catalog real records rendered');
+ $detail=html('store-product',['product'=>$c->get($p),'db'=>$db,'user'=>false,'preview'=>false]);ok(str_contains($detail,'افزودن به سبد خرید')&&!str_contains($detail,'martyr_id'),'physical detail no mandatory martyr bank');
+ foreach(['products','store-categories','store-attributes'] as $tab){$h=html('store-admin',['db'=>$db,'user'=>$actor,'tab'=>$tab,'editing'=>null,'catalog'=>$c,'categories'=>$c->categories(false),'attributes'=>$c->attributes(false),'feedback'=>null]);ok(str_contains($h,'store-admin'),'admin renders '.$tab);}
+ $h=html('store-admin',['db'=>$db,'user'=>$actor,'tab'=>'products','editing'=>$c->get($p,true),'catalog'=>$c,'categories'=>$c->categories(false),'attributes'=>$c->attributes(false),'feedback'=>null]);ok(str_contains($h,'K-1')&&str_contains($h,'store-media'),'editor restores variants and photos');
+ $s->product(array_replace($input,['revision'=>$c->get($p,true)['revision'],'delivery'=>'digital']),$p);$shop=new Shop($db);$cart=$shop->cartToken();no(fn()=>$shop->setQuantity($cart,$v1,1),422,'unfinished digital checkout cannot use physical fallback');
+ no(fn()=>$c->listing(['attribute'=>'bad']),422,'malformed facet rejected');no(fn()=>$c->listing(['sort'=>[]]),422,'malformed sort rejected');no(fn()=>$s->product($input+['revision'=>0,'slug'=>'katibe']),422,'duplicate product slug rejected');
+ $beforeArchive=$c->get($p,true);$s->product(array_replace($input,['revision'=>$beforeArchive['revision'],'archived'=>1]),$p);no(fn()=>$c->get($p),404,'archived product hidden');no(fn()=>StoreMedia::get($db,$mid,false),404,'archived product media hidden');ok(count($c->get($p,true)['variants'])===2,'archive keeps variants');
+ ok((int)$db->query('SELECT COUNT(*) FROM martyrs')->fetchColumn()===0&&(int)$db->query('SELECT COUNT(*) FROM images')->fetchColumn()===0,'store never creates archive records');ok((int)$db->query('SELECT COUNT(*) FROM store_audit')->fetchColumn()>10,'sensitive catalog writes audited');
+ echo "\n$checks store catalog checks passed on ".$db->getAttribute(PDO::ATTR_DRIVER_NAME)."\n";
+ }catch(Throwable $e){fwrite(STDERR,$e->getMessage()."\n".$e->getTraceAsString()."\n");exit(1);}

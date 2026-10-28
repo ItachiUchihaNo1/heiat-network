@@ -37,6 +37,11 @@ final class Web {
                 if(mb_strlen($q)>=2){$rows=$kind==='artists'?Db::query($db,'SELECT id,display_name AS label FROM artists WHERE archived=0 AND display_name LIKE ? ORDER BY display_name LIMIT 20',['%'.$q.'%'])->fetchAll():Db::query($db,"SELECT m.id,m.code,m.first_name,m.last_name FROM martyrs m WHERE m.code LIKE ? OR m.first_name LIKE ? OR m.last_name LIKE ? ORDER BY m.id DESC LIMIT 20",array_fill(0,3,'%'.$q.'%'))->fetchAll();foreach($rows as $row)$items[]=['id'=>(int)$row['id'],'label'=>$row['label']??($row['code'].' · '.$row['first_name'].' '.$row['last_name'])];}
                 header('Content-Type: application/json; charset=utf-8');header('Cache-Control: private, no-store');echo json_encode($items,JSON_UNESCAPED_UNICODE);return;
             }
+            if(StoreOrderSchema::ready($db)&&$page==='store-sitemap'){header('Content-Type: application/xml; charset=utf-8');echo StoreSeo::sitemap($db);return;}
+            if(StoreOrderSchema::ready($db)&&$page==='store-file')StoreHttp::file($db,Security::user($db));
+            if(StoreOrderSchema::ready($db)&&$page==='store-export'){$actor=Security::user($db);if(!$actor)throw new HttpError(403,'ورود لازم است.');$kind=Security::text($_GET,'kind',30,false)?:'orders';$rows=StoreFinance::reports($db,$actor,$_GET,$kind);$tmp=tempnam(Env::storage(),'store-export-');try{Xlsx::write([$kind=>$rows],$tmp,['quantity','price','stock','reorder_point','subtotal','discount','shipping','tax','total','actual_cost','amount','duration_seconds','orders','delta','before_stock','after_stock']);self::sendFile($tmp,'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','attachment','namira-store.xlsx');}finally{unlink($tmp);}return;}
+            if($page==='store-category-media'){if(!StoreOrderSchema::ready($db))throw new HttpError(404,'دسته پیدا نشد.');$file=StoreCategoryMedia::get($db,(int)($_GET['id']??0),Security::user($db));self::sendFile(Upload::absolute($file['path']),$file['mime'],'inline','category.webp');return;}
+            if($page==='store-media'){if(!StoreSchema::ready($db))throw new HttpError(404,'تصویر پیدا نشد.');$media=StoreMedia::get($db,(int)($_GET['id']??0),Security::user($db));self::sendFile(Upload::absolute($media['preview_path']),'image/webp','inline','product.webp');return;}
             if($page==='asset'){
                 if(!PlatformSchema::ready($db))throw new HttpError(404,'تصویر پیدا نشد.');$id=(int)($_GET['id']??0);$asset=Db::query($db,'SELECT * FROM file_assets WHERE id=?',[$id])->fetch();if(!$asset)throw new HttpError(404,'تصویر پیدا نشد.');
                 $public=Db::query($db,"SELECT id FROM artists WHERE public_avatar_asset_id=? AND public_visible=1 AND archived=0",[$id])->fetchColumn();$actor=Security::user($db);
@@ -82,6 +87,7 @@ final class Web {
                     $token=Security::text($_GET,'token',64,false); $request=$token?Db::query($db,'SELECT tracking,status,created_at FROM design_requests WHERE tracking=?',[$token])->fetch():false;
                     view('request-track',compact('request')); break;
                 case 'shop':
+                    if(StoreSchema::ready($db)){view('store-catalog',StoreWeb::catalog($db,$_GET)+compact('db','user'));break;}
                     $args=[]; $w=['p.published=1']; $q=Security::text($_GET,'q',150,false); if($q!==''){ $w[]='p.title LIKE ?'; $args[]='%'.$q.'%'; }
                     $cat=Security::text($_GET,'category',100,false); if($cat!==''){$w[]='p.category=?';$args[]=$cat;}
                     if(is_numeric($_GET['max_price']??null)){ $w[]='COALESCE(v.sale_price,v.price)<=?';$args[]=max(0,(int)$_GET['max_price']); }
@@ -89,20 +95,22 @@ final class Web {
                     $products=Db::query($db,'SELECT p.*,v.id AS variant_id,v.attributes,v.price,v.sale_price,v.stock FROM products p JOIN variants v ON v.product_id=p.id WHERE '.implode(' AND ',$w).' ORDER BY '.$sort.' LIMIT 100',$args)->fetchAll();
                     view('shop',compact('products')); break;
                 case 'product':
+                    if(StoreSchema::ready($db)){$preview=!empty($_GET['preview'])&&Permissions::allows($db,$user,'shop.manage');$product=(new StoreCatalog($db))->get((int)($_GET['id']??0),$preview);$title=$product['title'].' | فروشگاه نامیرا';view('store-product',compact('product','db','user','preview'));break;}
                     $product=Db::query($db,'SELECT * FROM products WHERE id=? AND published=1',[(int)($_GET['id']??0)])->fetch(); if(!$product)throw new HttpError(404,'محصول پیدا نشد.');
                     $variants=Db::query($db,'SELECT * FROM variants WHERE product_id=?',[$product['id']])->fetchAll(); view('product',compact('product','variants')); break;
-                case 'cart': if(MemberSchema::ready($db)&&!MobileAuth::verified($db,$user))redirect('member-login',['next_page'=>'cart']);$items=$shop->items($shop->cartToken()); if(!isset($_SESSION['checkout_key'])||($items&&Db::query($db,'SELECT id FROM orders WHERE checkout_key=?',[$_SESSION['checkout_key']])->fetchColumn())) $_SESSION['checkout_key']=bin2hex(random_bytes(32)); view('cart',compact('items')); break;
+                case 'cart': if(StoreOrderSchema::ready($db)){StoreCheckout::expire($db);view('store-cart',compact('db','user'));break;}if(MemberSchema::ready($db)&&!MobileAuth::verified($db,$user))redirect('member-login',['next_page'=>'cart']);$items=$shop->items($shop->cartToken()); if(!isset($_SESSION['checkout_key'])||($items&&Db::query($db,'SELECT id FROM orders WHERE checkout_key=?',[$_SESSION['checkout_key']])->fetchColumn())) $_SESSION['checkout_key']=bin2hex(random_bytes(32)); view('cart',compact('items')); break;
                 case 'order':
                     $token=Security::text($_GET,'token',64); $order=MemberSchema::ready($db)?($user?MemberServices::order($db,$token,$user,true):false):Db::query($db,'SELECT * FROM orders WHERE token=?',[$token])->fetch(); if(!$order)throw new HttpError(404,'سفارش پیدا نشد.');
-                    $items=Db::query($db,'SELECT * FROM order_items WHERE order_id=?',[$order['id']])->fetchAll(); $payment=Db::query($db,'SELECT * FROM payments WHERE order_id=?',[$order['id']])->fetch(); view('order',compact('order','items','payment')); break;
+                    if(StoreOrderSchema::ready($db)&&Db::query($db,'SELECT order_id FROM store_order_details WHERE order_id=?',[$order['id']])->fetchColumn())redirect('store-order',['id'=>$order['id']]);$items=Db::query($db,'SELECT * FROM order_items WHERE order_id=?',[$order['id']])->fetchAll(); $payment=Db::query($db,'SELECT * FROM payments WHERE order_id=?',[$order['id']])->fetch(); view('order',compact('order','items','payment')); break;
                 case 'register':case 'calls':case 'call':case 'submit-art':case 'contribute':case 'account':$title=CommunityWeb::show($db,$page,$user);break;
+                case 'store-account':case 'store-order':case 'store-info':if(!StoreOrderSchema::ready($db))throw new HttpError(503,'فروشگاه هنوز ارتقا نیافته است.');StoreHttp::page($db,$page,$user);break;
                 case 'member-login':MemberWeb::login($db);break;
                 case 'login': if(MemberSchema::ready($db)&&empty($_GET['legacy']))MemberWeb::login($db);else view('login'); break;
                 case 'admin': self::admin($db,$user); break;
                 case 'about': view('about'); break;
                 default: throw new HttpError(404,'صفحه پیدا نشد.');
             }
-            $content=ob_get_clean(); view('layout',compact('content','page','title','user','db'));
+            $content=ob_get_clean();$seo=StoreSeo::tags($page,$title,$page==='product'&&StoreSchema::ready($db)?($product??null):null,!empty($preview));if($seo['private'])header('X-Robots-Tag: noindex, nofollow');view('layout',compact('content','page','title','user','db','seo'));
         } catch(\Throwable $ex){
             while(ob_get_level()) ob_end_clean(); $status=$ex instanceof HttpError?$ex->status:503; http_response_code($status);
             $message=$ex instanceof HttpError?$ex->getMessage():'سرویس موقتاً در دسترس نیست؛ تنظیم پایگاه داده یا گزارش خطا را بررسی کنید.';
@@ -120,7 +128,7 @@ final class Web {
         redirect($page,$params);
     }
     private static function action(PDO $db,Archive $archive,Shop $shop): never {
-        $a=Security::text($_POST,'action',40);if(MemberWeb::handles($a))MemberWeb::action($db,$a);if(MartyrCatalogWeb::handles($a))MartyrCatalogWeb::action($db,$a);if(CommunityWeb::handles($a))CommunityWeb::action($db,$a);if(AdminPanel::handles($a))AdminPanel::action($db,$a);
+        $a=Security::text($_POST,'action',40);if(StoreHttp::handles($a))StoreHttp::action($db,$a);if(StoreOrderSchema::ready($db)&&in_array($a,['cart','checkout'],true))throw new HttpError(410,'از مسیر جدید فروشگاه استفاده کنید.');if(StoreOrderSchema::ready($db)&&in_array($a,['test-pay','order-status'],true)){ $newOrder=$a==='test-pay'?Db::query($db,'SELECT d.order_id FROM store_order_details d JOIN orders o ON o.id=d.order_id WHERE o.token=?',[(string)($_POST['token']??'')])->fetchColumn():Db::query($db,'SELECT order_id FROM store_order_details WHERE order_id=?',[(int)($_POST['id']??0)])->fetchColumn();if($newOrder)throw new HttpError(410,'از عملیات جدید سفارش استفاده کنید.');}if(StoreWeb::handles($a))StoreWeb::action($db,$a);if(MemberWeb::handles($a))MemberWeb::action($db,$a);if(MartyrCatalogWeb::handles($a))MartyrCatalogWeb::action($db,$a);if(CommunityWeb::handles($a))CommunityWeb::action($db,$a);if(AdminPanel::handles($a))AdminPanel::action($db,$a);
         switch($a){
             case 'login':
                 Security::limit($db,'login',8); $email=Security::text($_POST,'email',190); $password=$_POST['password']??'';if(!is_string($password)||strlen($password)>1024)throw new HttpError(422,'ایمیل یا رمز معتبر نیست.');
@@ -152,13 +160,14 @@ final class Web {
                 Security::limit($db,'return',5); $token=Security::text($_POST,'token',64); $o=Db::query($db,"SELECT id FROM orders WHERE token=? AND status='delivered'",[$token])->fetchColumn(); if(!$o)throw new HttpError(422,'سفارش قابل مرجوعی نیست.');
                 Db::insert($db,'return_requests',['order_id'=>$o,'reason'=>Security::text($_POST,'reason',3000),'created_at'=>date('Y-m-d H:i:s')]); $_SESSION['flash']='درخواست مرجوعی ثبت شد.'; redirect('order',['token'=>$token]);
             case 'product':
+                if(StoreSchema::ready($db))throw new HttpError(410,'از فرم جدید مدیریت محصول استفاده کنید.');
                 Security::requireRole($db,'shop'); $price=filter_var($_POST['price']??null,FILTER_VALIDATE_INT); $stock=filter_var($_POST['stock']??null,FILTER_VALIDATE_INT);
                 if($price===false||$price<1||$price>1000000000||$stock===false||$stock<0||$stock>1000000)throw new HttpError(422,'قیمت یا موجودی معتبر نیست.');
                 Db::transaction($db,function()use($db,$price,$stock){
                     $id=Db::insert($db,'products',['title'=>Security::text($_POST,'title'),'category'=>Security::text($_POST,'category',100),'description'=>Security::text($_POST,'description',10000,false),'image_id'=>!empty($_POST['image_id'])?(int)$_POST['image_id']:null]);
                     Db::insert($db,'variants',['product_id'=>$id,'sku'=>Security::text($_POST,'sku',100),'attributes'=>Security::text($_POST,'attributes',255),'price'=>$price,'stock'=>$stock]); Db::audit($db,'product.create',(string)$id);
                 }); redirect('admin',['tab'=>'products']);
-            case 'stock': Security::requireRole($db,'shop'); $n=filter_var($_POST['stock']??null,FILTER_VALIDATE_INT); if($n===false||$n<0||$n>1000000)throw new HttpError(422,'موجودی معتبر نیست.'); Db::query($db,'UPDATE variants SET stock=? WHERE id=?',[$n,(int)$_POST['id']]); Db::audit($db,'stock.set',(string)(int)$_POST['id']); redirect('admin',['tab'=>'products']);
+            case 'stock': if(StoreSchema::ready($db))throw new HttpError(410,'اصلاح موجودی از فرم گونه همراه علت انجام شود.');Security::requireRole($db,'shop'); $n=filter_var($_POST['stock']??null,FILTER_VALIDATE_INT); if($n===false||$n<0||$n>1000000)throw new HttpError(422,'موجودی معتبر نیست.'); Db::query($db,'UPDATE variants SET stock=? WHERE id=?',[$n,(int)$_POST['id']]); Db::audit($db,'stock.set',(string)(int)$_POST['id']); redirect('admin',['tab'=>'products']);
             default: throw new HttpError(404,'عملیات پیدا نشد.');
         }
     }

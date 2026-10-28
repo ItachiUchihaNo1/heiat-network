@@ -1,0 +1,6 @@
+<?php
+declare(strict_types=1);
+require dirname(__DIR__).'/app/bootstrap.php';
+use Namira\{Db,Env,Security,StoreCheckout,HttpError};
+$dsn=Env::get('DB_DSN');$store=realpath(Env::storage());if(!(str_starts_with($dsn,'sqlite:')&&str_contains(str_replace('\\','/',$dsn),'/storage/store-orders-test-'))&&!preg_match('/dbname=namira_test_store_orders(?:;|$)/',$dsn))throw new RuntimeException('Only isolated store test database');$db=Db::connect();$id=(int)($argv[1]??0);$actor=Namira\Db::query($db,'SELECT id,email,role FROM users WHERE id=?',[$id])->fetch();$_SESSION=['user_id'=>$id,'checkout_key'=>hash('sha256','worker-'.$id)];$barrier=Env::storage().'/concurrency.start';$deadline=microtime(true)+15;while(!is_file($barrier)&&microtime(true)<$deadline)usleep(10000);
+try{$token=StoreCheckout::create($db,$actor,['checkout_key'=>$_SESSION['checkout_key'],'customer'=>'خریدار موازی','phone'=>'09121111111','province'=>'استان آزمون','city'=>'شهر آزمون','address'=>'نشانی آزمایشی','postal_code'=>'1234567890','shipping_method'=>'test-post','accept_price_changes'=>1]);echo json_encode(['status'=>200,'token'=>$token]);}catch(HttpError $e){echo json_encode(['status'=>$e->status]);}catch(Throwable $e){fwrite(STDERR,get_class($e).': '.$e->getMessage());exit(1);}

@@ -6,7 +6,7 @@ if(PHP_SAPI!=='cli') { http_response_code(404); exit; }
 try {
     $command=$argv[1]??'help'; $db=Db::connect();
     switch($command){
-        case 'migrate': (require BASE_PATH.'/database/migrate.php')($db); \Namira\ProtocolSchema::migrate($db); \Namira\PlatformSchema::migrate($db); \Namira\CommunitySchema::migrate($db); \Namira\MartyrTaxonomySchema::migrate($db); echo "Migrations applied.\n"; break;
+        case 'migrate': (require BASE_PATH.'/database/migrate.php')($db); \Namira\ProtocolSchema::migrate($db); \Namira\PlatformSchema::migrate($db); \Namira\CommunitySchema::migrate($db); \Namira\MartyrTaxonomySchema::migrate($db); \Namira\MemberSchema::migrate($db); \Namira\AccountUi::migrate($db); \Namira\StoreSchema::migrate($db); \Namira\StoreOrderSchema::migrate($db); \Namira\StoreOperationsSchema::migrate($db); echo "Migrations applied.\n"; break;
         case 'admin':
             $email=$argv[2]??''; $role=$argv[3]??'superadmin';
             if(!filter_var($email,FILTER_VALIDATE_EMAIL)||!in_array($role,['superadmin','content','shop'],true)) throw new RuntimeException('Usage: php bin/console.php admin email@example.com superadmin|content|shop');
@@ -36,7 +36,8 @@ try {
                 Db::insert($db,'variants',['product_id'=>$pid,'sku'=>'TEST-A4-WOOD','attributes'=>'A4 · قاب چوبی','price'=>180000,'stock'=>3]);
             }
             echo "Test seed ready.\n"; break;
-        case 'expire-orders': echo (new Shop($db))->expire()." expired orders released.\n"; break;
+        case 'store-notifications': echo \Namira\StoreDelivery::dispatch($db)." delivery records processed.\n";break;
+        case 'expire-orders': echo (\Namira\StoreOrderSchema::ready($db)?\Namira\StoreCheckout::expire($db):(new Shop($db))->expire())." expired orders released.\n"; break;
         case 'import': $rows=Xlsx::read($argv[2]??''); echo json_encode(Namira\Importer::commit($db,$rows),JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT)."\n"; break;
         default: echo "Commands: migrate, admin EMAIL ROLE, disable-user EMAIL, seed, expire-orders, import FILE.xlsx\n";
     }
