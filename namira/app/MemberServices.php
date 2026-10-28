@@ -34,6 +34,19 @@ final class MemberServices {
         $postal=Security::normalize(Security::text($in,'postal_code',10));if(!preg_match('/^[0-9]{10}$/D',$postal))throw new HttpError(422,'کدپستی باید ۱۰ رقم باشد.');
         Db::insert($db,'account_addresses',['user_id'=>$actor['id'],'title'=>Security::text($in,'title',100),'recipient'=>Security::text($in,'recipient',150),'phone'=>Security::phone(Security::text($in,'phone',20)),'postal_code'=>$postal,'address'=>Security::text($in,'address',2000),'created_at'=>date(DATE_ATOM)]);
     }
+    public static function assign(PDO $db,array $actor,array $in):void {
+        if(!Permissions::allows($db,$actor,'users.manage'))throw new HttpError(403,'تطبیق مالکیت فقط برای مدیر کاربران مجاز است.');
+        $kind=Security::text($in,'service_kind',20);if(!in_array($kind,['request','order'],true)||!Permissions::allows($db,$actor,$kind==='request'?'requests.edit':'shop.manage'))throw new HttpError(403,'مجوز مدیریت خدمت لازم است.');
+        if(($in['ownership_ack']??'')!=='1')throw new HttpError(422,'تطبیق هویت و مالکیت را صریحاً تأیید کنید.');$reason=Security::text($in,'reason',2000);$record=(int)($in['service_id']??0);$user=(int)($in['user_id']??0);
+        if(!Db::query($db,'SELECT id FROM users WHERE id=? AND active=1',[$user])->fetchColumn())throw new HttpError(422,'حساب فعال معتبر انتخاب کنید.');
+        $table=$kind==='request'?'account_request_owners':'account_order_owners';$base=$kind==='request'?'design_requests':'orders';$column=$kind==='request'?'request_id':'order_id';
+        Db::transaction($db,function()use($db,$actor,$kind,$reason,$record,$user,$table,$base,$column){
+            if(!Db::query($db,'SELECT id FROM '.$base.' WHERE id=?'.($db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':''),[$record])->fetchColumn())throw new HttpError(404,'سابقه خدمت پیدا نشد.');
+            $existing=Db::query($db,'SELECT user_id FROM '.$table.' WHERE '.$column.'=?',[$record])->fetchColumn();if($existing){if((int)$existing!==$user)throw new HttpError(409,'این سابقه به حساب دیگری متصل است؛ انتقال مالکیت مجاز نیست.');return;}
+            Db::insert($db,$table,[$column=>$record,'user_id'=>$user,'linked_at'=>date(DATE_ATOM)]);
+            CommunityHistory::add($db,'ownership_'.$kind,$record,$actor,'unassigned','assigned',Protocol::encode(['user_id'=>$user,'reason'=>$reason]));
+        });
+    }
     public static function message(PDO $db,array $actor,int $id,array $in,array $files=[]):void {
         self::request($db,$id,$actor);$staff=Permissions::allows($db,$actor,'requests.edit');if(!$staff)self::requireMember($db,$actor);
         $kind=Security::text($in,'kind',30,false)?:'reply';if(!in_array($kind,$staff?['reply','needs_changes','delivery']:['reply'],true))throw new HttpError(403,'نوع پیام مجاز نیست.');
