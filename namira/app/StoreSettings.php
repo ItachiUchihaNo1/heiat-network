@@ -1,0 +1,19 @@
+<?php
+declare(strict_types=1);
+namespace Namira;
+use PDO;
+final class StoreSettings {
+ public const DEFAULTS=['notify_sms'=>false,'notify_email'=>false,'currency'=>'TOMAN','tax_bps'=>0,'sales_terms'=>'','privacy'=>'','cancellation'=>'','digital_rights'=>'','shipping_policy'=>'','contact'=>'','faq'=>'','purchase_guide'=>'','shipping'=>[],'upload_mb'=>20,'upload_count'=>10,'reservation_minutes'=>30,'download_limit'=>0,'download_days'=>0,'hero_title'=>'فروشگاه نامیرا','hero_text'=>'','banners'=>[],'notification_templates'=>[],'enable_sales'=>false];
+ public static function get(PDO $db):array {if(!PlatformSchema::ready($db))return self::DEFAULTS;$json=Db::query($db,"SELECT value FROM app_settings WHERE setting_key='store_v21'")->fetchColumn();return $json?array_replace(self::DEFAULTS,Protocol::decode($json)):self::DEFAULTS;}
+ public static function save(PDO $db,array $actor,array $in):void {
+ if(!Permissions::allows($db,$actor,'settings.manage'))throw new HttpError(403,'تنظیمات حساس فقط برای مدیر کل مجاز است.');$old=self::get($db);$v=$old;
+ foreach(['sales_terms','privacy','cancellation','digital_rights','shipping_policy','contact','faq','purchase_guide','hero_title','hero_text'] as $k)if(array_key_exists($k,$in))$v[$k]=Security::text($in,$k,20000,false);
+ foreach(['tax_bps'=>[0,10000],'upload_mb'=>[1,100],'upload_count'=>[1,20],'reservation_minutes'=>[5,1440],'download_limit'=>[0,1000000],'download_days'=>[0,36500]] as $k=>[$min,$max])if(array_key_exists($k,$in))$v[$k]=StoreCatalog::integer($in[$k],$min,$max);
+ foreach(['notify_sms','notify_email'] as $channel)if(array_key_exists($channel,$in))$v[$channel]=(bool)$in[$channel];$v['currency']='TOMAN';if(array_key_exists('enable_sales',$in))$v['enable_sales']=(bool)$in['enable_sales'];
+ foreach(['shipping','banners','notification_templates'] as $k)if(array_key_exists($k,$in)){if(!is_array($in[$k])||count($in[$k])>50)throw new HttpError(422,'تنظیمات '.$k.' معتبر نیست.');$v[$k]=$in[$k];}
+ $seen=[];foreach($v['shipping'] as &$s){$s['id']=Security::text($s,'id',40);if(!preg_match('/^[a-zA-Z0-9_-]+$/D',$s['id'])||isset($seen[$s['id']]))throw new HttpError(422,'شناسه روش ارسال معتبر و یکتا باشد.');$seen[$s['id']]=true;$s['title']=Security::text($s,'title',150);foreach(['base','per_kg','free_above'] as $k)$s[$k]=StoreCatalog::integer($s[$k]??0,0,1000000000);foreach(['provinces','cities'] as $k){$s[$k]??=[];if(!is_array($s[$k])||count($s[$k])>500)throw new HttpError(422,'محدوده ارسال معتبر نیست.');foreach($s[$k] as $x)if(!is_string($x)||mb_strlen($x)>150)throw new HttpError(422,'محدوده ارسال معتبر نیست.');}}unset($s);
+ foreach($v['banners'] as $b){Security::text($b,'title',150);$url=Security::text($b,'url',1000);if(!str_starts_with($url,'/index.php?')||str_contains($url,"\r")||str_contains($url,"\n"))throw new HttpError(422,'پیوند بنر باید داخلی باشد.');}
+ Db::transaction($db,function()use($db,$actor,$v,$old){$data=Protocol::encode($v);if(Db::query($db,"SELECT setting_key FROM app_settings WHERE setting_key='store_v21'")->fetchColumn())Db::query($db,"UPDATE app_settings SET value=?,updated_by=?,updated_at=? WHERE setting_key='store_v21'",[$data,$actor['id'],date(DATE_ATOM)]);else Db::insert($db,'app_settings',['setting_key'=>'store_v21','value'=>$data,'updated_by'=>$actor['id'],'updated_at'=>date(DATE_ATOM)]);StoreAccess::audit($db,$actor,'settings.save','store',0,$old,$v);});
+ }
+ public static function shipping(array $settings,string $method,array $address,int $subtotal,int $grams):int {foreach($settings['shipping'] as $s)if($s['id']===$method){foreach(['provinces'=>'province','cities'=>'city'] as $scope=>$field)if(($s[$scope]??[])&&!in_array($address[$field]??'',$s[$scope],true))throw new HttpError(422,'روش ارسال این نشانی را پوشش نمی‌دهد.');return ($s['free_above']??0)>0&&$subtotal>=$s['free_above']?0:StoreAccess::money((int)$s['base']+(int)ceil($grams/1000)*(int)$s['per_kg']);}throw new HttpError(422,'روش ارسال معتبر انتخاب کنید.');}
+}

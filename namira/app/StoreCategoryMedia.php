@@ -1,0 +1,11 @@
+<?php
+declare(strict_types=1);
+namespace Namira;
+use PDO;
+final class StoreCategoryMedia {
+ public static function all(PDO $db):array{if(!PlatformSchema::ready($db))return [];$out=[];foreach(Db::query($db,"SELECT setting_key,value FROM app_settings WHERE setting_key LIKE 'store_category_%'")->fetchAll() as $r)$out[(int)substr($r['setting_key'],15)]=Protocol::decode($r['value']);return $out;}
+ public static function save(PDO $db,array $actor,int $id,array $in,?string $source=null):void{
+  if(!Permissions::allows($db,$actor,'shop.manage'))throw new HttpError(403,'مدیریت دسته مجاز نیست.');if(!Db::query($db,'SELECT id FROM store_categories WHERE id=?',[$id])->fetchColumn())throw new HttpError(404,'دسته پیدا نشد.');$key='store_category_'.$id;$raw=Db::query($db,'SELECT value FROM app_settings WHERE setting_key=?',[$key])->fetchColumn();$old=$raw?Protocol::decode($raw):[];$value=['icon'=>Security::text($in,'icon',20,false),'asset_id'=>!empty($in['remove_image'])?null:($old['asset_id']??null)];if($source)$value['asset_id']=Assets::put($db,$source,(int)$actor['id'],500)['id'];Db::transaction($db,function()use($db,$actor,$id,$key,$old,$value){if(Db::query($db,'SELECT setting_key FROM app_settings WHERE setting_key=?',[$key])->fetchColumn())Db::query($db,'UPDATE app_settings SET value=?,updated_by=?,updated_at=? WHERE setting_key=?',[Protocol::encode($value),$actor['id'],date(DATE_ATOM),$key]);else Db::insert($db,'app_settings',['setting_key'=>$key,'value'=>Protocol::encode($value),'updated_by'=>$actor['id'],'updated_at'=>date(DATE_ATOM)]);StoreAccess::audit($db,$actor,'category.appearance','category',$id,$old,$value);});
+ }
+ public static function get(PDO $db,int $id,array|false $actor):array{$category=Db::query($db,'SELECT active FROM store_categories WHERE id=?',[$id])->fetch();if(!$category||(!$category['active']&&!Permissions::allows($db,$actor,'shop.manage')))throw new HttpError(404,'تصویر دسته پیدا نشد.');$row=Db::query($db,'SELECT value FROM app_settings WHERE setting_key=?',['store_category_'.$id])->fetchColumn();$meta=$row?Protocol::decode($row):[];$file=Db::query($db,'SELECT path,mime FROM file_assets WHERE id=?',[(int)($meta['asset_id']??0)])->fetch();if(!$file)throw new HttpError(404,'تصویر دسته پیدا نشد.');return $file;}
+}

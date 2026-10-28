@@ -6,7 +6,12 @@ final class Permissions {
     public static function defaults():array{return [
         'superadmin'=>['*'],
         'content'=>['dashboard.view','martyrs.view','martyrs.edit','media.view','media.create','media.edit','artists.view','artists.edit','taxonomy.view','reports.archive','requests.view','requests.edit'],
-        'shop'=>['dashboard.view','shop.*','reports.shop'],
+        'shop'=>['dashboard.view','shop.*','reports.shop','store.portal','store.finance','store.reports','store.returns'],
+        'store_operator'=>['dashboard.view','store.portal','store.orders','store.messages','store.returns'],
+        'store_designer'=>['dashboard.view','store.portal','store.design'],
+        'store_production'=>['dashboard.view','store.portal','store.production'],
+        'store_shipping'=>['dashboard.view','store.portal','store.shipping'],
+        'store_finance'=>['dashboard.view','store.portal','store.finance','store.reports'],
         'media_manager'=>['dashboard.view','media.*','artists.view','martyrs.view','taxonomy.view','reports.archive'],
         'reviewer'=>['dashboard.view','media.create','media.edit','martyrs.view','media.view','media.review','media.publish','submissions.*','artists.view','artists.review','artists.publish','artists.claims.review'],
         'call_manager'=>['dashboard.view','calls.*','submissions.*','artists.view','martyrs.view'],

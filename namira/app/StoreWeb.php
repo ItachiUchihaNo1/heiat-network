@@ -4,7 +4,7 @@
  use PDO;
  final class StoreWeb {
  public static function handles(string $a):bool {return str_starts_with($a,'store-');}
- public static function catalog(PDO $db,array $f):array {$c=new StoreCatalog($db);return ['result'=>$c->listing($f),'categories'=>$c->categories(),'attributes'=>$c->attributes(),'f'=>$f];}
+ public static function catalog(PDO $db,array $f):array {$c=new StoreCatalog($db);return ['result'=>$c->listing($f),'categoryMedia'=>StoreCategoryMedia::all($db),'categories'=>$c->categories(),'attributes'=>$c->attributes(),'f'=>$f];}
  public static function admin(PDO $db,array $user,string $tab,array $data):void {
  $catalog=new StoreCatalog($db);$editing=!empty($_GET['edit'])&&$tab==='products'?$catalog->get(StoreCatalog::integer($_GET['edit'],1),true):null;
  $feedback=$_SESSION['store_feedback']??null;unset($_SESSION['store_feedback']);view('store-admin',$data+['editing'=>$editing,'catalog'=>$catalog,'categories'=>$catalog->categories(false),'attributes'=>$catalog->attributes(false),'feedback'=>$feedback]);

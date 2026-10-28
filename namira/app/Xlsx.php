@@ -37,7 +37,7 @@ final class Xlsx {
             return array_map(fn($r)=>['code'=>$r['A']??'','first_name'=>$r['B']??'','last_name'=>$r['C']??''],$rows);
         } finally { $z->close(); }
     }
-    public static function write(array $sheets,string $path): void {
+    public static function write(array $sheets,string $path,array $numericColumns=[]): void {
         $z=new \ZipArchive(); if($z->open($path,\ZipArchive::CREATE|\ZipArchive::OVERWRITE)!==true) throw new \RuntimeException('Cannot write XLSX');
         $types='<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>';
         $workbook='<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>';
@@ -49,9 +49,9 @@ final class Xlsx {
             $xml='<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0" rightToLeft="1"/></sheetViews><sheetData>';
             $n=0; if($rows) array_unshift($rows,array_keys($rows[0]));
             foreach($rows as $row){ $n++; $xml.='<row r="'.$n.'">'; $col=0;
-                foreach(array_values($row) as $v){ $col++; $a=''; $c=$col; while($c>0){ $c--; $a=chr(65+$c%26).$a; $c=intdiv($c,26); }
+                foreach($row as $columnKey=>$v){ $col++; $a=''; $c=$col; while($c>0){ $c--; $a=chr(65+$c%26).$a; $c=intdiv($c,26); }
                     // All values are inline strings: zero-prefixed codes and formula-looking text remain literal.
-                    $xml.='<c r="'.$a.$n.'" t="inlineStr"><is><t xml:space="preserve">'.self::escape((string)($v??'')).'</t></is></c>';
+                    $xml.=is_string($columnKey)&&in_array($columnKey,$numericColumns,true)&&is_numeric($v)?'<c r="'.$a.$n.'"><v>'.self::escape((string)$v).'</v></c>':'<c r="'.$a.$n.'" t="inlineStr"><is><t xml:space="preserve">'.self::escape((string)($v??'')).'</t></is></c>';
                 } $xml.='</row>';
             }
             $z->addFromString('xl/worksheets/sheet'.$i.'.xml',$xml.'</sheetData></worksheet>');
