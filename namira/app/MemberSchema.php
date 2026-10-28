@@ -4,11 +4,15 @@ namespace Namira;
 use PDO;
 final class MemberSchema {
     public static function ready(PDO $db):bool {try{return (bool)Db::query($db,'SELECT version FROM migrations WHERE version=?',['007_members'])->fetchColumn();}catch(\PDOException){return false;}}
+    public static function relationships(PDO $db):array {
+        $pairs=[['account_profiles','user_id','users'],['artist_accounts','user_id','users'],['artist_accounts','artist_id','artists'],['art_submissions','user_id','users'],['public_contributions','user_id','users'],['public_contributions','martyr_id','martyrs'],['request_files','request_id','design_requests'],['design_request_details','request_id','design_requests'],['order_items','order_id','orders'],['payments','order_id','orders']];
+        $counts=[];foreach($pairs as [$table,$column,$target])$counts[$table.'.'.$column]=(int)Db::query($db,'SELECT COUNT(*) FROM '.$table.' s LEFT JOIN '.$target.' t ON t.id=s.'.$column.' WHERE s.'.$column.' IS NOT NULL AND t.id IS NULL')->fetchColumn();return $counts;
+    }
     public static function migrate(PDO $db,bool $backup=true):void {
         if(self::ready($db))return;CommunitySchema::requireReady($db);
         $lock=fopen(Env::storage().'/.members-upgrade.lock','c');if(!$lock)throw new HttpError(503,'قفل ارتقا در دسترس نیست.');if(!flock($lock,LOCK_EX|LOCK_NB)){fclose($lock);throw new HttpError(409,'ارتقای حساب‌ها در حال اجراست.');}
         try {
-            if(self::ready($db))return;$before=DataBackup::counts($db);$snapshot=$backup?DataBackup::create($db,'before-007-members'):null;
+            if(self::ready($db))return;$before=DataBackup::counts($db);$snapshot=$backup?DataBackup::create($db,'before-007-members'):null;$relations=self::relationships($db);if(array_sum($relations)>0)throw new HttpError(409,'روابط قدیمی نیازمند بررسی است؛ ارتقای حساب‌ها بدون تغییر داده متوقف شد.');
             $mysql=$db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql';$id=$mysql?'INTEGER PRIMARY KEY AUTO_INCREMENT':'INTEGER PRIMARY KEY AUTOINCREMENT';$tail=$mysql?' ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci':'';
             $tables=[
                 'account_identities'=>"user_id INTEGER PRIMARY KEY,first_name VARCHAR(150) NOT NULL,last_name VARCHAR(150) NOT NULL,mobile VARCHAR(20) UNIQUE,mobile_verified_at VARCHAR(30),revision INTEGER NOT NULL DEFAULT 0,created_at VARCHAR(30) NOT NULL,updated_at VARCHAR(30) NOT NULL,FOREIGN KEY(user_id) REFERENCES users(id)",
@@ -22,7 +26,7 @@ final class MemberSchema {
             foreach($tables as $table=>$cols)$db->exec("CREATE TABLE IF NOT EXISTS $table ($cols)$tail");
             foreach(['otp_mobile_created'=>'otp_challenges(mobile,created_at)','member_orders'=>'account_order_owners(user_id,order_id)','member_requests'=>'account_request_owners(user_id,request_id)','member_addresses'=>'account_addresses(user_id,id)'] as $name=>$cols)try{$db->exec("CREATE INDEX $name ON $cols");}catch(\PDOException $e){if(!str_contains($e->getMessage(),'already exists')&&(int)($e->errorInfo[1]??0)!==1061)throw $e;}
             DataBackup::verifyCounts($db,$before);$after=DataBackup::counts($db);
-            $report=['version'=>'007_members','created_at'=>date(DATE_ATOM),'backup'=>$snapshot,'before'=>$before,'after'=>$after,'legacy_accounts_auto_verified'=>0,'legacy_services_auto_claimed'=>0];
+            $report=['version'=>'007_members','created_at'=>date(DATE_ATOM),'backup'=>$snapshot,'before'=>$before,'after'=>$after,'orphan_relationships_before'=>$relations,'orphan_relationships_after'=>self::relationships($db),'legacy_accounts_auto_verified'=>0,'legacy_services_auto_claimed'=>0];
             $path=Env::storage().'/backups';if(!is_dir($path)&&!mkdir($path,0700,true))throw new HttpError(503,'گزارش ارتقا ذخیره نشد.');
             if(file_put_contents($path.'/migration-007-'.date('Ymd-His').'-'.bin2hex(random_bytes(4)).'.json',Protocol::encode($report),LOCK_EX)===false)throw new HttpError(503,'گزارش ارتقا ذخیره نشد.');
             Db::insert($db,'migrations',['version'=>'007_members','applied_at'=>date(DATE_ATOM)]);

@@ -117,5 +117,6 @@ $_GET=['section'=>'requests','id'=>$req];denied(function()use($db,$other){ob_sta
 $_GET=[];ob_start();MemberWeb::login($db);$html=ob_get_clean();ok(str_contains($html,'هنوز فراهم نشده')&&!str_contains($html,$sms->code),'disabled OTP UI never displays a code');
 $_GET=['martyr_id'=>$person];ob_start();CommunityWeb::show($db,'contribute',$owner);$html=ob_get_clean();ok(substr_count($html,'data-part-panel=')===4&&str_contains($html,'family'),'participation renders exact four clear stages and real martyr selection');
 ok(!str_contains($html,'type="password"'),'participation does not request redundant password');
+ok(array_sum(MemberSchema::relationships($db))===0,'all checked legacy service relationships remain valid after account operations');
 echo "\n$checks member and storefront checks passed on ".$db->getAttribute(PDO::ATTR_DRIVER_NAME).".\n";
 }finally{restore_error_handler();}
