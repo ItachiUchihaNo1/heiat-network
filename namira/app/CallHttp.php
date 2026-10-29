@@ -71,7 +71,7 @@ final class CallHttp {
   if($page==='calls'){view('calls-list-v2',$data+['result'=>CallCampaigns::listing($db,$_GET,true)]);return 'فراخوان‌های نامیرا';}
   if($page==='call'){$call=CallCampaigns::get($db,(int)($_GET['id']??0),true);view('call-detail-v2',array_replace($data+['call'=>$call],self::feedback('call',['id'=>$call['id']])));return $call['title'].' | نامیرا';}
   if(!$actor||!MobileAuth::verified($db,$actor))redirect('member-login',['next_page'=>'call','call_id'=>(int)($_GET['call_id']??0)]);
-  $batchId=(int)($_GET['batch']??0);$call=CallCampaigns::get($db,(int)($_GET['call_id']??0),true);
+  $batchId=(int)($_GET['batch']??0);$call=CallCampaigns::get($db,(int)($_GET['call_id']??0),!$batchId);
   if(!$batchId){view('call-detail-v2',$data+['call'=>$call]);return $call['title'];}
   $batch=CallEntries::batch($db,$batchId,$actor,true);if((int)$batch['call_id']!==(int)$call['id'])throw new HttpError(404,'ارسال پیدا نشد.');
   $step=max(1,min(3,(int)($_GET['step']??1)));$workRows=Db::query($db,"SELECT submission_id FROM call_work_details WHERE batch_id=? AND review_state<>'deleted' ORDER BY submission_id",[$batchId])->fetchAll(PDO::FETCH_COLUMN);$works=[];foreach($workRows as $id)$works[]=CallEntries::get($db,(int)$id,$actor,true);
