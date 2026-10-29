@@ -66,7 +66,7 @@ def deploy():
    if raw is not None and b'Namira\\Web::run' not in raw:raise DeploymentError('Foreign entry point in '+surface+'; not overwritten')
   source='Public_html/new/_namira'
   if r.maybe(source+'/config.local.json') is None:raise DeploymentError('Existing private source configuration not found')
-  r.ensure(PRIVATE);r.put(PRIVATE+'/.htaccess',b'Require all denied\n',True)
+  r.ensure(PRIVATE);r.put(PRIVATE+'/.htaccess',b'Require all denied\n',True);r.put(PRIVATE+'/.namira-shared-root',b'namira-private-shared-v1\n',True)
   configured=r.maybe(PRIVATE+'/config.local.json') is not None
   old_pointer=r.maybe(PRIVATE+'/current.php');backup=PRIVATE+'/backups/entry-'+release
   for surface,raw in old_indices.items():

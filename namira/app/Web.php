@@ -122,7 +122,7 @@ final class Web {
             $message=$ex instanceof HttpError?$ex->getMessage():'سرویس موقتاً در دسترس نیست؛ تنظیم پایگاه داده یا گزارش خطا را بررسی کنید.';
             if(!$ex instanceof HttpError) error_log('Namira: '.$ex->getMessage());
             if(self::jsonUpload()||$page==='gallery-data'){ header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); echo json_encode(['ok'=>false,'message'=>$message],JSON_UNESCAPED_UNICODE); return; }
-            $title='نامیرا | '.$status; $user=false; $content='<section class="request"><h1>'.e(fa($status)).'</h1><p role="alert">'.e($message).'</p><p><a class="outline" href="'.e(url('home')).'">صفحه اصلی</a></p></section>'; view('layout',compact('content','page','title','user','db'));
+            $title='نامیرا | '.$status; $user=false; $content='<section class="request"><h1>'.e(fa($status)).'</h1><p role="alert">'.e($message).'</p><p><a class="outline" href="'.e(url('home')).'">صفحه اصلی</a></p></section>'; view(DomainRouting::enabled()&&DomainRouting::surface()==='admin'?'admin-layout':'layout',compact('content','page','title','user','db'));
         }
     }
     private static function jsonUpload(): bool { return ($_SERVER['REQUEST_METHOD']??'')==='POST' && str_contains($_SERVER['HTTP_ACCEPT']??'','application/json'); }
