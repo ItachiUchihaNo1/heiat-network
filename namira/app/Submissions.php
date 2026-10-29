@@ -34,6 +34,7 @@ final class Submissions {
         return compact('title','payload','verified','person','criteria');
     }
     public function submit(array $in,?string $source,?string $preview=null,int $id=0):int {
+        if(CallSchema::ready($this->db)&&(($id&&Db::query($this->db,'SELECT submission_id FROM call_work_details WHERE submission_id=?',[$id])->fetchColumn())||CallHttp::modern($this->db,(int)($in['call_id']??0))))throw new HttpError(422,'از فرایند مرحله‌ای همین فراخوان استفاده کنید.');
         if(MemberSchema::ready($this->db))MemberServices::requireMember($this->db,$this->actor);CommunitySchema::requireReady($this->db);$this->actor=CommunityHistory::requireActor($this->db,$this->actor);Security::limit($this->db,'art-submission',10,3600);
         $created=[];try{return Db::transaction($this->db,function()use($in,$source,$preview,$id,&$created){
             $lock=$this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':'';$old=$id?Db::query($this->db,'SELECT * FROM art_submissions WHERE id=?'.$lock,[$id])->fetch():null;
@@ -52,6 +53,7 @@ final class Submissions {
         });}catch(\Throwable $e){IncomingAssets::discard($created);throw $e;}
     }
     public function review(int $id,array $in):void {
+        if(CallSchema::ready($this->db)&&Db::query($this->db,'SELECT submission_id FROM call_work_details WHERE submission_id=?',[$id])->fetchColumn())throw new HttpError(422,'از دبیرخانه نسخه جدید فراخوان استفاده کنید.');
         $this->permit('submissions.review');$to=Security::text($in,'status',30);$note=Security::text($in,'note',5000);
         Db::transaction($this->db,function()use($id,$in,$to,$note){
             $lock=$this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':'';$row=Db::query($this->db,'SELECT * FROM art_submissions WHERE id=?'.$lock,[$id])->fetch();if(!$row)throw new HttpError(404,'اثر پیدا نشد.');
@@ -64,6 +66,7 @@ final class Submissions {
         });
     }
     public function publish(int $id,array $in,?string $verifiedPreview=null,bool $direct=false):int {
+        if(CallSchema::ready($this->db)&&Db::query($this->db,'SELECT submission_id FROM call_work_details WHERE submission_id=?',[$id])->fetchColumn())throw new HttpError(422,'از انتشار نسخه تأییدشده فراخوان استفاده کنید.');
         if(MemberSchema::ready($this->db))$direct=false;
         $this->permit('submissions.publish');if(!$direct)$this->permit('media.publish');if(!$direct&&$verifiedPreview&&($in['verified_visual_ack']??'')!=='1')throw new HttpError(422,'پیش‌نمایش بازتولیدشده از اصل فایل را پیش از انتشار بررسی کنید.');if(!$direct&&($in['publication_ack']??'')!=='1')throw new HttpError(422,'انتشار اثر و حقوق و انتساب آن را صریحاً تأیید کنید.');if($direct)AdminPublishing::guard($this->db,$this->actor,'media');
         $created=[];try{return Db::transaction($this->db,function()use($id,$in,$verifiedPreview,$direct,&$created){

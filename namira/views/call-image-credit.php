@@ -1,0 +1,1 @@
+<?php foreach($works as $work): ?><section class="panel"><p>صاحب اثر: <?= e($work['data']['credit_name']) ?></p><p class="hint">اثر فراخوان · کد رهگیری <span dir="ltr"><?= e($work['data']['tracking']) ?></span></p></section><?php endforeach ?>
