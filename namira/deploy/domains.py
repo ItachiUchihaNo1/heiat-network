@@ -5,6 +5,7 @@ from pathlib import Path
 from ftplib import FTP_TLS,error_perm
 from urllib.request import Request,urlopen,build_opener,HTTPCookieProcessor,HTTPSHandler
 from urllib.parse import urlencode
+from urllib.error import HTTPError
 ROOT=Path(__file__).resolve().parents[1]
 PUBLIC='public_html';ADMIN='admin.naamiraa.ir';PRIVATE='_namira_live'
 SITES={'public':'https://naamiraa.ir','admin':'https://admin.naamiraa.ir'}
@@ -45,6 +46,13 @@ def csrf(raw):
  m=re.search(rb'name="csrf" value="([a-f0-9]{64})"',raw)
  if not m:raise DeploymentError('Installer CSRF field not found; no secret values logged')
  return m.group(1).decode()
+def installation_confirmed(remote,attempts=31,delay=10):
+ # Hosts may finish PHP work after their HTTP proxy has timed out. Poll only private completion markers.
+ for attempt in range(attempts):
+  if remote.maybe(PRIVATE+'/.setup.lock') is not None and remote.maybe(PRIVATE+'/config.local.json') is not None:return True
+  if attempt+1<attempts:time.sleep(delay)
+ return False
+
 def deploy():
  host=os.environ['DEPLOY_FTPS_HOST'];user=os.environ['DEPLOY_FTPS_USER'];password=os.environ['DEPLOY_FTPS_PASSWORD'];dbpass=os.environ.get('NAAMIRAA_DB_PASSWORD')
  if not dbpass:raise DeploymentError('NAAMIRAA_DB_PASSWORD secret is required')
@@ -105,9 +113,10 @@ def deploy():
    _,body,_=http(setup,opener=opener)
    _,body,_=http(setup,{'action':'unlock','csrf':csrf(body),'setup_key':key.decode()},opener)
    try:http(setup,{'action':'migrate-existing','csrf':csrf(body),'db_host':'localhost','db_port':'3306','db_name':'ouidoyhy_namira_live','db_user':'ouidoyhy_nmapp','db_password':dbpass},opener)
-   except Exception:
+   except Exception as error:
     # A lost response is not permission to repeat a database copy.
-    if r.maybe(PRIVATE+'/.setup.lock') is None:raise DeploymentError('Database copy not confirmed; inspect private status and account privileges; originals retained')
+    if isinstance(error,HTTPError) and error.code<500:raise DeploymentError('Installer rejected installation; inspect account privileges and private status; originals retained')
+    if not installation_confirmed(r):raise DeploymentError('Database copy not confirmed; inspect private status and account privileges; originals retained')
    if r.maybe(PRIVATE+'/.setup.lock') is None or r.maybe(PRIVATE+'/config.local.json') is None:raise DeploymentError('Destination installation not confirmed')
   for surface,folder in [('public',PUBLIC),('admin',ADMIN)]:
    if r.read(folder+'/index.php')!=entry(surface):raise DeploymentError('Entry point readback mismatch')

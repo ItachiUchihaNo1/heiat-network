@@ -23,6 +23,15 @@ class FTP:
  def quit(self):pass
  def close(self):pass
 class Safety(unittest.TestCase):
+ def test_late_completion_after_proxy_timeout_is_confirmed_without_retry(self):
+  from unittest.mock import Mock
+  remote=Mock();remote.maybe.side_effect=[None,b'lock',None,b'lock',b'config']
+  with patch.object(d.time,'sleep') as wait:self.assertTrue(d.installation_confirmed(remote,attempts=3,delay=10))
+  self.assertEqual(wait.call_count,2);self.assertEqual({c.args[0] for c in remote.maybe.call_args_list},{'_namira_live/.setup.lock','_namira_live/config.local.json'})
+ def test_unconfirmed_install_is_not_reported_as_success(self):
+  from unittest.mock import Mock
+  remote=Mock();remote.maybe.return_value=None
+  with patch.object(d.time,'sleep'):self.assertFalse(d.installation_confirmed(remote,attempts=2,delay=10))
  def test_cookie_jar_is_not_shadowed_by_http_helper(self):
   jar=d.CookieJar();opener=d.build_opener(d.HTTPCookieProcessor(jar));self.assertTrue(callable(d.http));self.assertTrue(any(getattr(h,'cookiejar',None) is jar for h in opener.handlers))
  def test_entry_domains_and_private_core(self):
