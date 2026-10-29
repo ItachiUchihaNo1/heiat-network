@@ -4,7 +4,7 @@ on:
     branches: [main]
     paths: ['namira/**', '.github/workflows/namira.yml']
   pull_request:
-    branches: [main]
+    branches: [main, codex/store-v21-catalog]
     paths: ['namira/**', '.github/workflows/namira.yml']
   workflow_dispatch:
 permissions:
@@ -31,6 +31,10 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y php-cli php-mysql php-sqlite3 php-gd php-xml php-mbstring php-zip
+      - name: Shared mobile navigation model
+        run: |
+          php namira/tests/mobile-navigation.php
+          node --check namira/public/assets/mobile-navigation.js
       - name: PHP syntax
         run: find namira -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Versioned deployment and shared configuration tests
@@ -221,6 +225,18 @@ jobs:
           NAMIRA_UI_MANIFEST: storage/store-ui-fixture.json
           STORE_UI_ARTIFACTS: storage/store-ui-artifacts
         run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/namira-browser/node_modules/playwright" node tests/store-ui.cjs
+      - name: Responsive navigation and account menu checks
+        working-directory: namira
+        env:
+          NAMIRA_UI_MANIFEST: storage/store-ui-fixture.json
+        run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/namira-browser/node_modules/playwright" node tests/mobile-navigation-ui.cjs
+      - name: Save navigation screenshots and results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: namira-mobile-navigation
+          path: namira/storage/navigation-ui-artifacts
+          retention-days: 7
       - name: Save test screenshots and results
         if: always()
         uses: actions/upload-artifact@v4
