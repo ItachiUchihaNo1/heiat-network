@@ -47,7 +47,6 @@ def csrf(raw):
 def deploy():
  host=os.environ['DEPLOY_FTPS_HOST'];user=os.environ['DEPLOY_FTPS_USER'];password=os.environ['DEPLOY_FTPS_PASSWORD'];dbpass=os.environ.get('NAAMIRAA_DB_PASSWORD')
  if not dbpass:raise DeploymentError('NAAMIRAA_DB_PASSWORD secret is required')
- if user!='ouidoyhy':raise DeploymentError('Unexpected hosting account; recheck roots before deploying')
  revision=os.environ['NAMIRA_RELEASE_ID']
  if not re.fullmatch('[a-f0-9]{40}',revision):raise DeploymentError('Immutable source revision required')
  release=revision+'-'+uuid.uuid4().hex[:12];prefix=PRIVATE+'/releases/'+release
@@ -65,6 +64,8 @@ def deploy():
   for surface,raw in old_indices.items():
    if raw is not None and b'Namira\\Web::run' not in raw:raise DeploymentError('Foreign entry point in '+surface+'; not overwritten')
   source='Public_html/new/_namira'
+  original=r.maybe('Public_html/new/index.php')
+  if original is None or b'Namira\\Web::run' not in original or b'/_namira/' not in original:raise DeploymentError('Verified original Namira entry point required')
   if r.maybe(source+'/config.local.json') is None:raise DeploymentError('Existing private source configuration not found')
   r.ensure(PRIVATE);r.put(PRIVATE+'/.htaccess',b'Require all denied\n',True);r.put(PRIVATE+'/.namira-shared-root',b'namira-private-shared-v1\n',True)
   configured=r.maybe(PRIVATE+'/config.local.json') is not None
