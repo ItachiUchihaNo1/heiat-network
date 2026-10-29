@@ -56,7 +56,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
    pass(width+'px real artist/store/account destinations and active selection');
    await page.goto(base+'/index.php?page=home');
    if(width===320){await page.screenshot({path:path.join(artifacts,'mobile-home.png')});console.log('VISUAL:navigation-home:'+((await page.screenshot({type:'jpeg',quality:55})).toString('base64')));}
-   await toggle.click();await dialog.waitFor({state:'visible'});await page.waitForFunction(()=>Math.abs(document.querySelector('[data-mobile-drawer]').getBoundingClientRect().x)<1);await page.setViewportSize({width:1280,height:900});await dialog.waitFor({state:'hidden'});assert.equal(await page.locator('body').evaluate(el=>el.style.position),'');
+   await toggle.click();await dialog.waitFor({state:'visible'});await page.waitForFunction(()=>Math.abs(document.querySelector('[data-mobile-drawer]').getBoundingClientRect().x)<1);await page.setViewportSize({width:1280,height:900});await dialog.waitFor({state:'hidden'});await page.waitForFunction(()=>document.body.style.position!=='fixed');assert.equal(await page.locator('body').evaluate(el=>el.style.position),'');
    assert(!(await bottom.isVisible()));assert(await page.locator('.desktop-navigation').isVisible());assert(await page.locator('.header-actions').isVisible());
    pass(width+'px resize closes drawer and restores desktop navigation');
    assert.deepEqual(errors,[]);await context.close();
