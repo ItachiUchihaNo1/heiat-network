@@ -1,5 +1,5 @@
 /* Shared public mobile navigation; desktop and the administration layout keep their existing navigation. */
-.nm-menu-toggle,.nm-bottom-nav{display:none}
+.nm-menu-toggle.nm-icon-button,.nm-bottom-nav{display:none}
 .nm-drawer[open]{display:flex;flex-direction:column;position:fixed;inset:0 auto 0 0;margin:0;width:min(352px,88vw);height:100vh;height:100dvh;max-height:100dvh;max-width:none;padding:0;border:0;border-radius:0 24px 24px 0;background:var(--surface);color:var(--text);box-shadow:8px 0 36px var(--shadow-color);overflow:hidden;animation:nm-drawer-enter .22s ease-out;direction:rtl}
 .nm-drawer::backdrop{background:var(--backdrop);animation:nm-backdrop-enter .2s ease-out}
 .nm-drawer.is-closing{animation:nm-drawer-exit .16s ease-in both}

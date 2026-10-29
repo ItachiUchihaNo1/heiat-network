@@ -57,7 +57,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
    await page.goto(base+'/index.php?page=home');
    if(width===320){await page.screenshot({path:path.join(artifacts,'mobile-home.png')});console.log('VISUAL:navigation-home:'+((await page.screenshot({type:'jpeg',quality:55})).toString('base64')));}
    await toggle.click();await dialog.waitFor({state:'visible'});await page.waitForFunction(()=>Math.abs(document.querySelector('[data-mobile-drawer]').getBoundingClientRect().x)<1);await page.setViewportSize({width:1280,height:900});await dialog.waitFor({state:'hidden'});await page.waitForFunction(()=>document.body.style.position!=='fixed');assert.equal(await page.locator('body').evaluate(el=>el.style.position),'');
-   assert(!(await bottom.isVisible()));assert(await page.locator('.desktop-navigation').isVisible());assert(await page.locator('.header-actions').isVisible());
+   assert(!(await bottom.isVisible()));assert(!(await toggle.isVisible()));assert(await page.locator('.desktop-navigation').isVisible());assert(await page.locator('.header-actions').isVisible());
    pass(width+'px resize closes drawer and restores desktop navigation');
    assert.deepEqual(errors,[]);await context.close();
   }
@@ -73,7 +73,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
   await page.locator('[data-mobile-menu]').click();await page.locator('[data-mobile-drawer]').getByRole('button',{name:'خروج از حساب',exact:true}).click();await page.waitForLoadState('domcontentloaded');
   assert((await page.locator('.nm-bottom-nav a').last().getAttribute('href')).includes('page=member-login'));
   pass('member account, real orders route and CSRF-protected logout restore guest menu');
-  await page.goto(base+'/index.php?page=home');await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:path.join(artifacts,'desktop-home.png')});assert(!(await page.locator('.nm-bottom-nav').isVisible()));assert(await page.locator('.desktop-navigation').isVisible());pass('1440px desktop retains original navigation without bottom bar');
+  await page.goto(base+'/index.php?page=home');await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:path.join(artifacts,'desktop-home.png')});assert(!(await page.locator('.nm-bottom-nav').isVisible()));assert(!(await page.locator('[data-mobile-menu]').isVisible()));assert(await page.locator('.desktop-navigation').isVisible());pass('1440px desktop retains original navigation without bottom bar');
   fs.writeFileSync(path.join(artifacts,'results.json'),JSON.stringify({checks:checks.length,items:checks,status:'success'},null,2));console.log(checks.length+' mobile navigation browser checks passed');
  }catch(e){fs.writeFileSync(path.join(artifacts,'failure.txt'),e.stack||String(e));throw e;}
  finally{if(browser)await browser.close();server.kill();fs.writeFileSync(path.join(artifacts,'server.log'),logs);}
