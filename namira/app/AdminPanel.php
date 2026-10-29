@@ -33,9 +33,9 @@ final class AdminPanel {
         'settings'=>['تنظیمات و پشتیبان','مدیریت','settings.manage']
     ];}
     public static function boot(PDO $db,array $user):void {
-        if(PlatformSchema::ready($db)&&CommunitySchema::ready($db)&&MartyrTaxonomySchema::ready($db)&&MemberSchema::ready($db)&&AccountUi::ready($db)&&StoreSchema::ready($db)&&StoreOrderSchema::ready($db)&&StoreOperationsSchema::ready($db))return;
+        if(PlatformSchema::ready($db)&&CommunitySchema::ready($db)&&MartyrTaxonomySchema::ready($db)&&MemberSchema::ready($db)&&AccountUi::ready($db)&&StoreSchema::ready($db)&&StoreOrderSchema::ready($db)&&StoreOperationsSchema::ready($db)&&CallSchema::ready($db))return;
         if($user['role']!=='superadmin')throw new HttpError(503,'مدیر اصلی باید یک بار پنل را باز کند تا پشتیبان و ارتقای ساختار اجرا شود.');
-        PlatformSchema::migrate($db);CommunitySchema::migrate($db);MartyrTaxonomySchema::migrate($db);MemberSchema::migrate($db);AccountUi::migrate($db);StoreSchema::migrate($db);StoreOrderSchema::migrate($db);StoreOperationsSchema::migrate($db);
+        PlatformSchema::migrate($db);CommunitySchema::migrate($db);MartyrTaxonomySchema::migrate($db);MemberSchema::migrate($db);AccountUi::migrate($db);StoreSchema::migrate($db);StoreOrderSchema::migrate($db);StoreOperationsSchema::migrate($db);CallSchema::migrate($db);
     }
     public static function show(PDO $db,array|false $user):void {
         if(!$user)redirect('login',['legacy'=>1]);if(!Permissions::allows($db,$user,'dashboard.view'))redirect('account');

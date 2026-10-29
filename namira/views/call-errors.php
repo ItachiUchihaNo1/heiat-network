@@ -1,0 +1,1 @@
+<?php if(!empty($errors)): ?><div class="notice notice-error" role="alert"><b>اطلاعات ذخیره نشد؛ ورودی‌های شما محفوظ‌اند.</b><ul><?php foreach($errors as $key=>$message): ?><li data-call-error-key="<?= e($key) ?>"><?= e($message) ?></li><?php endforeach ?></ul></div><?php endif ?><div class="call-feedback notice" role="status" aria-live="polite" data-call-feedback hidden></div>

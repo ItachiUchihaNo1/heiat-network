@@ -4,7 +4,7 @@ on:
     branches: [main]
     paths: ['namira/**', '.github/workflows/namira.yml']
   pull_request:
-    branches: [main, codex/store-v21-catalog]
+    branches: [main, codex/store-v21-catalog, codex/mobile-navigation]
     paths: ['namira/**', '.github/workflows/namira.yml']
   workflow_dispatch:
 permissions:
@@ -200,6 +200,17 @@ jobs:
         run: |
           php -r '$db=new PDO(getenv("TEST_DB_DSN"),getenv("TEST_DB_USER"),getenv("TEST_DB_PASSWORD"));$db->exec("CREATE DATABASE namira_test_store_orders CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");'
           php namira/tests/store-orders.php
+      - name: Complete calls on SQLite
+        run: php namira/tests/calls.php
+      - name: Complete calls on MySQL
+        env:
+          TEST_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test;charset=utf8mb4'
+          TEST_CALLS_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test_calls;charset=utf8mb4'
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: test-only-password
+        run: |
+          php -r '$db=new PDO(getenv("TEST_DB_DSN"),getenv("TEST_DB_USER"),getenv("TEST_DB_PASSWORD"));$db->exec("CREATE DATABASE namira_test_calls CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");'
+          php namira/tests/calls.php
       - name: Validate deployment script
         run: python3 -m py_compile namira/deploy/ftps.py
   store-browser:
@@ -243,6 +254,33 @@ jobs:
         with:
           name: namira-store-browser
           path: namira/storage/store-ui-artifacts
+          retention-days: 7
+  calls-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Isolated calls database and private files
+        working-directory: namira
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-sqlite3 php-gd php-xml php-mbstring php-zip
+          CALLS_UI_MANIFEST=storage/calls-ui-fixture.json php tests/calls.php
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install pinned test browser in runner only
+        run: |
+          npm install --prefix "$RUNNER_TEMP/namira-browser" --no-package-lock --ignore-scripts playwright@1.56.1
+          node "$RUNNER_TEMP/namira-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Calls participant and secretariat end-to-end journey
+        working-directory: namira
+        run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/namira-browser/node_modules/playwright" node tests/calls-ui.cjs
+      - name: Save calls browser results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: namira-calls-browser
+          path: namira/storage/calls-ui-artifacts
           retention-days: 7
   deploy:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.NAMIRA_ENABLE_DIRECT_FTPS == 'true' }}

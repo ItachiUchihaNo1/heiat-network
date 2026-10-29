@@ -161,7 +161,7 @@ foreach(['calls','submissions','contributions','claims'] as $tab){
 foreach([['calls',$call],['submissions',$entry],['submissions',$second],['contributions',$contribution],['contributions',$newContribution],['contributions',$photoContribution],['claims',$claim]] as [$tab,$edit]){
  $_GET=['tab'=>$tab,'edit'=>$edit];ob_start();Namira\AdminPanel::show($db,$actor);$html=ob_get_clean();ok(str_contains($html,'admin-sidebar'),'admin detail '.$tab.' renders without warnings');
 }
-$_GET=['tab'=>'calls','new'=>1];ob_start();Namira\AdminPanel::show($db,$actor);$html=ob_get_clean();ok(str_contains($html,'call-save'),'new-call form renders without warnings');
+$_GET=['tab'=>'calls','new'=>1];ob_start();Namira\AdminPanel::show($db,$actor);$html=ob_get_clean();ok(str_contains($html,'call2-save'),'new-call form renders without warnings');
 restore_error_handler();
 $photoMerge=['request_key'=>bin2hex(random_bytes(16)),'revision'=>$reviews->get($photoContribution)['revision'],'destination'=>'none','files'=>[$fid],'reason'=>'پذیرش پیوست تصویری','merge_ack'=>'1'];
 $photoResult=$reviews->merge($photoContribution,$photoMerge);$photoMedia=(int)$photoResult['media_ids'][0];

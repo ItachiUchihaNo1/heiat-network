@@ -72,7 +72,7 @@ final class CommunityWeb {
         header('Content-Type: application/json; charset=utf-8');header('Cache-Control: private, no-store');echo json_encode($rows,JSON_UNESCAPED_UNICODE);exit;
     }
     public static function file(PDO $db):never {
-        CommunitySchema::requireReady($db);$actor=Security::user($db);if(!$actor)throw new HttpError(404,'فایل پیدا نشد.');$asset=IncomingAssets::file($db,(int)($_GET['id']??0),$actor);$preview=($_GET['size']??'')==='preview';
+        CommunitySchema::requireReady($db);if(CallSchema::ready($db)&&Db::query($db,'SELECT id FROM call_asset_links WHERE asset_id=?',[(int)($_GET['id']??0)])->fetchColumn())CallHttp::file($db);$actor=Security::user($db);if(!$actor)throw new HttpError(404,'فایل پیدا نشد.');$asset=IncomingAssets::file($db,(int)($_GET['id']??0),$actor);$preview=($_GET['size']??'')==='preview';
         Web::sendFile(Upload::absolute($asset[$preview?'preview_path':'original_path']),$preview?'image/webp':$asset['mime'],$preview?'inline':'attachment',$preview?'preview.webp':'original-'.(int)$asset['id'].'.'.(['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'][$asset['mime']]));exit;
     }
     public static function people(PDO $db,array $ids):array {
@@ -80,6 +80,7 @@ final class CommunityWeb {
         return Db::query($db,'SELECT id,code,first_name,last_name FROM martyrs WHERE id IN ('.implode(',',array_fill(0,count($ids),'?')).')',$ids)->fetchAll();
     }
     public static function show(PDO $db,string $page,array|false $user):string {
+        if(CallSchema::ready($db)&&($page==='calls'||($page==='call'&&CallHttp::modern($db,(int)($_GET['id']??0)))||($page==='submit-art'&&CallHttp::modern($db,(int)($_GET['call_id']??0)))))return CallHttp::page($db,$page,$user);
         CommunitySchema::requireReady($db);$data=['db'=>$db,'user'=>$user,'errors'=>[],'old'=>null];
         if(MemberSchema::ready($db)&&$page==='account'){if(!$user)redirect('member-login',['next_page'=>'account']);MemberWeb::account($db,$user);return 'حساب کاربری | نامیرا';}
         if(MemberSchema::ready($db)&&$page==='register')redirect('member-login',['mode'=>'register']+$_GET);
@@ -105,6 +106,7 @@ final class CommunityWeb {
         view($page==='submit-art'?'submission-form':(MemberSchema::ready($db)?'participation-form':'contribution-form'),$data);return ($page==='submit-art'?'ارسال اثر هنری':'مشارکت در تکمیل اطلاعات').' | نامیرا';
     }
     public static function admin(PDO $db,array $user,string $tab,array $data):void {
+        if(CallSchema::ready($db)&&($tab==='calls'||($tab==='submissions'&&(!isset($_GET['edit'])||Db::query($db,'SELECT submission_id FROM call_work_details WHERE submission_id=?',[(int)$_GET['edit']])->fetchColumn())))){CallHttp::admin($db,$user,$tab,$data);return;}
         $id=(int)($_GET['edit']??0);$params=['tab'=>$tab]+($id?['edit'=>$id]:(isset($_GET['new'])?['new'=>1]:[]));$data=array_replace($data,self::feedback('admin',$params));
         if($tab==='calls'){$service=new Calls($db,$user);$data+=['editing'=>$id?$service->get($id):null,'result'=>$service->listing($_GET),'terms'=>Db::query($db,"SELECT * FROM protocol_terms WHERE taxonomy IN ('media_type','art_specialty') AND active=1 ORDER BY title")->fetchAll()];view('admin-calls',$data);return;}
         if($tab==='claims'){$where='1=1';$args=[];if(!empty($_GET['status'])){$where='c.status=?';$args[]=$_GET['status'];}$data+=['result'=>AdminQueries::paginate($db,'SELECT c.*,a.display_name,u.email','FROM artist_account_claims c JOIN artists a ON a.id=c.artist_id JOIN users u ON u.id=c.user_id',$where,$args,['new'=>'c.id DESC'],$_GET),'editing'=>$id?Db::query($db,'SELECT c.*,a.display_name,u.email FROM artist_account_claims c JOIN artists a ON a.id=c.artist_id JOIN users u ON u.id=c.user_id WHERE c.id=?',[$id])->fetch():null];view(MemberSchema::ready($db)?'legacy-artist-links':'admin-claims',$data);return;}

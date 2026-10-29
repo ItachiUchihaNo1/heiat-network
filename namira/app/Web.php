@@ -29,6 +29,12 @@ final class Web {
                 echo json_encode(['ok'=>true]+GalleryFacets::response($db,$_GET,Security::text($_GET,'changed',30,false),($_GET['mode']??'')==='results'),JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);return;
             }
             if($page==='account-geography'){if(!ProtocolSchema::ready($db))throw new HttpError(503,'فرهنگ جغرافیا هنوز فعال نیست.');header('Content-Type: application/json; charset=utf-8');header('Cache-Control: public, max-age=300');echo json_encode(AccountUi::counties($db,(int)($_GET['province']??0)),JSON_UNESCAPED_UNICODE);return;}
+            if($page==='call-file'){CallSchema::requireReady($db);CallHttp::file($db);}
+            if($page==='call-public-file'){CallSchema::requireReady($db);CallHttp::file($db,true);}
+            if($page==='call-export-download'){CallSchema::requireReady($db);CallHttp::download($db);}
+            if($page==='call-lookup'){CallSchema::requireReady($db);CallHttp::lookup($db);}
+            if($page==='call-compare'){CallSchema::requireReady($db);$actor=Security::user($db);if(!$actor)throw new HttpError(403,'ورود لازم است.');$person=(int)($_GET['martyr_id']??0);$compare=CallQueries::compare($db,$actor,$person);CallHttp::json(['ok'=>true,'html'=>CallUI::render('call-comparison',compact('db','compare','person'))]);}
+            if($page==='call-geography'){CallSchema::requireReady($db);CallHttp::geography($db);}
             if($page==='catalog-geography')MartyrCatalogWeb::options($db);
             if($page==='public-lookup')CommunityWeb::lookup($db);
             if($page==='community-file')CommunityWeb::file($db);
@@ -74,13 +80,13 @@ final class Web {
                     $m=$archive->find((int)($_GET['id']??0)); if(!$m)throw new HttpError(404,'پروفایل پیدا نشد.');
                     $title='شهید '.(($m['display_name']??'')?:trim($m['first_name'].' '.$m['last_name'])).' | نامیرا';
                     $selectedType=max(0,(int)($_GET['media_type']??0));$personTypes=$archive->personTypes((int)$m['id']);$profileResult=$archive->forPerson((int)$m['id'],max(1,(int)($_GET['p']??1)),$selectedType);$images=$profileResult['items'];
-                    view('profile',compact('m','images','profileResult','personTypes','selectedType')); break;
-                case 'image': $im=$archive->image((int)($_GET['id']??0)); if(!$im)throw new HttpError(404,'تصویر پیدا نشد.'); $title=PublicPresentation::imageTitle($im).' | نامیرا'; $creators=$archive->creators((int)$im['id']);$people=$archive->relatedPeople((int)$im['id']);view('image',compact('im','creators','people')); break;
+                    view('profile',compact('m','images','profileResult','personTypes','selectedType'));if(CallSchema::ready($db))view('call-public-works',['db'=>$db,'works'=>CallPublishing::publicWorks($db,(int)$m['id'])]);break;
+                case 'image': $im=$archive->image((int)($_GET['id']??0)); if(!$im)throw new HttpError(404,'تصویر پیدا نشد.'); $title=PublicPresentation::imageTitle($im).' | نامیرا'; $creators=$archive->creators((int)$im['id']);$people=$archive->relatedPeople((int)$im['id']);view('image',compact('im','creators','people'));if(CallSchema::ready($db)&&!$creators)view('call-image-credit',['works'=>CallPublishing::publicWorks($db,null,null,(int)$im['id'])]);break;
 
                 case 'artists':
                     $title='هنرمندان و پدیدآورندگان | نامیرا';$result=PlatformSchema::ready($db)?(new Artists($db,[]))->listing($_GET,true):['items'=>[],'count'=>0,'page'=>1,'per'=>24];$specialties=PlatformSchema::ready($db)?Db::query($db,"SELECT id,title FROM protocol_terms WHERE taxonomy='art_specialty' AND active=1 ORDER BY title")->fetchAll():[];view('artists',compact('result','specialties'));break;
                 case 'artist':
-                    if(!PlatformSchema::ready($db))throw new HttpError(404,'پروفایل پیدا نشد.');$artist=(new Artists($db,[]))->get((int)($_GET['id']??0),true);if(!$artist)throw new HttpError(404,'پروفایل هنرمند پیدا نشد.');$title=$artist['display_name'].' | هنرمندان نامیرا';$result=$archive->images(['artist_id'=>$artist['id']],max(1,(int)($_GET['p']??1)));$specialties=Db::query($db,"SELECT id,title FROM protocol_terms WHERE taxonomy='art_specialty'")->fetchAll();view('artist',compact('artist','result','specialties'));break;
+                    if(!PlatformSchema::ready($db))throw new HttpError(404,'پروفایل پیدا نشد.');$artist=(new Artists($db,[]))->get((int)($_GET['id']??0),true);if(!$artist)throw new HttpError(404,'پروفایل هنرمند پیدا نشد.');$title=$artist['display_name'].' | هنرمندان نامیرا';$result=$archive->images(['artist_id'=>$artist['id']],max(1,(int)($_GET['p']??1)));$specialties=Db::query($db,"SELECT id,title FROM protocol_terms WHERE taxonomy='art_specialty'")->fetchAll();view('artist',compact('artist','result','specialties'));if(CallSchema::ready($db))view('call-public-works',['db'=>$db,'works'=>CallPublishing::publicWorks($db,null,(int)$artist['id']),'onlyAdditional'=>true]);break;
                 case 'request': if(!$user)redirect('member-login',['next_page'=>'request']);if(MemberSchema::ready($db)&&!MobileAuth::verified($db,$user))redirect('member-login',['next_page'=>'request']);view('request',compact('db','user')); break;
 
                 case 'request-track':
@@ -128,7 +134,7 @@ final class Web {
         redirect($page,$params);
     }
     private static function action(PDO $db,Archive $archive,Shop $shop): never {
-        $a=Security::text($_POST,'action',40);if(StoreHttp::handles($a))StoreHttp::action($db,$a);if(StoreOrderSchema::ready($db)&&in_array($a,['cart','checkout'],true))throw new HttpError(410,'از مسیر جدید فروشگاه استفاده کنید.');if(StoreOrderSchema::ready($db)&&in_array($a,['test-pay','order-status'],true)){ $newOrder=$a==='test-pay'?Db::query($db,'SELECT d.order_id FROM store_order_details d JOIN orders o ON o.id=d.order_id WHERE o.token=?',[(string)($_POST['token']??'')])->fetchColumn():Db::query($db,'SELECT order_id FROM store_order_details WHERE order_id=?',[(int)($_POST['id']??0)])->fetchColumn();if($newOrder)throw new HttpError(410,'از عملیات جدید سفارش استفاده کنید.');}if(StoreWeb::handles($a))StoreWeb::action($db,$a);if(MemberWeb::handles($a))MemberWeb::action($db,$a);if(MartyrCatalogWeb::handles($a))MartyrCatalogWeb::action($db,$a);if(CommunityWeb::handles($a))CommunityWeb::action($db,$a);if(AdminPanel::handles($a))AdminPanel::action($db,$a);
+        $a=Security::text($_POST,'action',40);if(CallHttp::handles($a))CallHttp::action($db,$a);if(StoreHttp::handles($a))StoreHttp::action($db,$a);if(StoreOrderSchema::ready($db)&&in_array($a,['cart','checkout'],true))throw new HttpError(410,'از مسیر جدید فروشگاه استفاده کنید.');if(StoreOrderSchema::ready($db)&&in_array($a,['test-pay','order-status'],true)){ $newOrder=$a==='test-pay'?Db::query($db,'SELECT d.order_id FROM store_order_details d JOIN orders o ON o.id=d.order_id WHERE o.token=?',[(string)($_POST['token']??'')])->fetchColumn():Db::query($db,'SELECT order_id FROM store_order_details WHERE order_id=?',[(int)($_POST['id']??0)])->fetchColumn();if($newOrder)throw new HttpError(410,'از عملیات جدید سفارش استفاده کنید.');}if(StoreWeb::handles($a))StoreWeb::action($db,$a);if(MemberWeb::handles($a))MemberWeb::action($db,$a);if(MartyrCatalogWeb::handles($a))MartyrCatalogWeb::action($db,$a);if(CommunityWeb::handles($a))CommunityWeb::action($db,$a);if(AdminPanel::handles($a))AdminPanel::action($db,$a);
         switch($a){
             case 'login':
                 Security::limit($db,'login',8); $email=Security::text($_POST,'email',190); $password=$_POST['password']??'';if(!is_string($password)||strlen($password)>1024)throw new HttpError(422,'ایمیل یا رمز معتبر نیست.');
