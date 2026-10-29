@@ -206,10 +206,11 @@ jobs:
         env:
           TEST_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test;charset=utf8mb4'
           TEST_CALLS_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test_calls;charset=utf8mb4'
+          TEST_CALLS_RESTORE_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test_calls_restore;charset=utf8mb4'
           TEST_DB_USER: root
           TEST_DB_PASSWORD: test-only-password
         run: |
-          php -r '$db=new PDO(getenv("TEST_DB_DSN"),getenv("TEST_DB_USER"),getenv("TEST_DB_PASSWORD"));$db->exec("CREATE DATABASE namira_test_calls CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");'
+          php -r '$db=new PDO(getenv("TEST_DB_DSN"),getenv("TEST_DB_USER"),getenv("TEST_DB_PASSWORD"));$db->exec("CREATE DATABASE namira_test_calls CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");$db->exec("CREATE DATABASE namira_test_calls_restore CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");'
           php namira/tests/calls.php
       - name: Validate deployment script
         run: python3 -m py_compile namira/deploy/ftps.py
