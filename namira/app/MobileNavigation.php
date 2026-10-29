@@ -18,8 +18,8 @@ final class MobileNavigation {
         ];
         $account=$user?'account':'member-login';
         $bottom=[];
-        foreach([['خانه','home','home'],['تصاویر','gallery','gallery'],['هنرمندان','artists','palette'],['فروشگاه','shop','shop'],['حساب',$account,'user']] as [$label,$target,$icon]){
-            $entry=$item($label,$target,$icon);$entry['active']=$current===($label==='حساب'?'account':$target);$bottom[]=$entry;
+        foreach([['خانه','home','home'],['تصاویر','gallery','gallery'],['فروشگاه','shop','shop'],['هنرمندان','artists','palette'],['حساب کاربری',$account,'user']] as [$label,$target,$icon]){
+            $entry=$item($label,$target,$icon);$entry['active']=$current===($label==='حساب کاربری'?'account':$target);$bottom[]=$entry;
         }
         $groups=[
             ['title'=>'بخش‌های اصلی','items'=>[
