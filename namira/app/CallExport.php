@@ -44,7 +44,7 @@ final class CallExport {
   foreach(array_unique(array_map('intval',$assetIds)) as $id){
    $a=CallFiles::privateFile($db,$id,$actor);$absolute=Upload::absolute($a['original_path']);if(!is_file($absolute))throw new HttpError(409,'فایل اثر '.$w['tracking'].' در مخزن موجود نیست؛ خروجی ناقص ساخته نشد.');
    $ext=strtolower(pathinfo($a['filename'],PATHINFO_EXTENSION));$name=$w['tracking'].'/'.str_pad((string)$n++,3,'0',STR_PAD_LEFT).'.'.$ext;
-   $files[]=['source'=>$absolute,'name'=>$name,'bytes'=>(int)$a['bytes']];$names[]=$name;$links[]=rtrim(Env::get('APP_URL'),'/').url('call-file',['id'=>$id]);
+   $files[]=['source'=>$absolute,'name'=>$name,'bytes'=>(int)$a['bytes']];$names[]=$name;$links[]=DomainRouting::absolute('call-file',['id'=>$id]);
   }
   $row['فایل‌های مرتبط در ZIP']=implode("\n",$names);$row['لینک خصوصی فایل‌ها']=implode("\n",$links);
   if($s['text']!==''){$path=$folder.'/rows/'.$item['id'].'-text.txt';file_put_contents($path,$s['text']);$files[]=['source'=>$path,'name'=>$w['tracking'].'/work.txt','bytes'=>filesize($path)];}
