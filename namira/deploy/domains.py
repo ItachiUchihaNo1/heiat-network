@@ -1,5 +1,6 @@
 """Deploy two Namira surfaces; no credentials are accepted in source or printed."""
-import os,re,io,json,ssl,secrets,uuid,hashlib,time,posixpath,http.cookiejar
+import os,re,io,json,ssl,secrets,uuid,hashlib,time,posixpath
+from http.cookiejar import CookieJar
 from pathlib import Path
 from ftplib import FTP_TLS,error_perm
 from urllib.request import Request,urlopen,build_opener,HTTPCookieProcessor,HTTPSHandler
@@ -100,7 +101,7 @@ def deploy():
   for surface,folder in [('admin',ADMIN),('public',PUBLIC)]:r.put(folder+'/index.php',entry(surface))
   print('DOMAIN_RELEASE_FILES_READY '+json.dumps({'source':revision,'release':release,'files':count+2,'private':PRIVATE,'public':PUBLIC,'admin':ADMIN}))
   if not configured:
-   jar=http.cookiejar.CookieJar();opener=build_opener(HTTPCookieProcessor(jar),HTTPSHandler(context=ssl.create_default_context()));setup=SITES['admin']+'/index.php?page=setup'
+   jar=CookieJar();opener=build_opener(HTTPCookieProcessor(jar),HTTPSHandler(context=ssl.create_default_context()));setup=SITES['admin']+'/index.php?page=setup'
    _,body,_=http(setup,opener=opener)
    _,body,_=http(setup,{'action':'unlock','csrf':csrf(body),'setup_key':key.decode()},opener)
    try:http(setup,{'action':'migrate-existing','csrf':csrf(body),'db_host':'localhost','db_port':'3306','db_name':'ouidoyhy_namira_live','db_user':'ouidoyhy_nmapp','db_password':dbpass},opener)

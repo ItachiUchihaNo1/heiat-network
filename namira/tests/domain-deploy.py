@@ -23,6 +23,8 @@ class FTP:
  def quit(self):pass
  def close(self):pass
 class Safety(unittest.TestCase):
+ def test_cookie_jar_is_not_shadowed_by_http_helper(self):
+  jar=d.CookieJar();opener=d.build_opener(d.HTTPCookieProcessor(jar));self.assertTrue(callable(d.http));self.assertTrue(any(getattr(h,'cookiejar',None) is jar for h in opener.handlers))
  def test_entry_domains_and_private_core(self):
   public=d.entry('public');admin=d.entry('admin');self.assertIn(b"NAMIRA_SURFACE', 'public'",public);self.assertIn(b"NAMIRA_SURFACE', 'admin'",admin);self.assertIn(b"dirname(__DIR__).'/_namira_live'",admin);self.assertIn(b'PUBLIC_APP_URL=https://naamiraa.ir',public);self.assertIn(b'ADMIN_APP_URL=https://admin.naamiraa.ir',admin);self.assertNotIn(b'DB_PASSWORD',admin)
  def test_traversal_rejected(self):
