@@ -20,7 +20,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
    assert.equal((await page.goto(base+'/index.php?page=home')).status(),200);
    const bottom=page.getByRole('navigation',{name:'ناوبری پایین موبایل'}),toggle=page.getByRole('button',{name:'باز کردن منوی سایت'}),dialog=page.getByRole('dialog',{name:'منوی نامیرا'});
    assert.equal(await bottom.locator('a').count(),5);assert(await bottom.isVisible());assert(!(await page.locator('.desktop-navigation').isVisible()));assert(!(await page.locator('.header-actions').isVisible()));
-   assert.deepEqual(await bottom.locator('.nm-bottom-label').allTextContents(),['خانه','تصاویر','هنرمندان','فروشگاه','حساب']);
+   assert.deepEqual(await bottom.locator('.nm-bottom-label').allTextContents(),['خانه','تصاویر','فروشگاه','هنرمندان','حساب']);
    assert.equal(await bottom.locator('[aria-current=page]').innerText(),'خانه');
    const rects=await bottom.locator('a').evaluateAll(nodes=>nodes.map(n=>({x:n.getBoundingClientRect().x,w:n.getBoundingClientRect().width,h:n.getBoundingClientRect().height})));
    assert(rects.every((r,i)=>r.w>=44&&r.h>=44&&(!i||r.x<rects[i-1].x)));

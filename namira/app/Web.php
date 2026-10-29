@@ -12,7 +12,7 @@ final class Web {
     public static function run(): void {
         Security::start(); $db=null; $page='home';
         try {
-            $page=Security::text($_GET,'page',40,false)?:'home';
+            $page=Security::text($_GET,'page',40,false)?:(DomainRouting::enabled()&&DomainRouting::surface()==='admin'?'admin':'home');DomainRouting::enforce($page);
             if($page==='setup'){ Installer::web(); return; }
             $db=Db::connect(); $archive=new Archive($db); $shop=new Shop($db);
             if($_SERVER['REQUEST_METHOD']==='POST'){
@@ -111,18 +111,18 @@ final class Web {
                 case 'register':case 'calls':case 'call':case 'submit-art':case 'contribute':case 'account':$title=CommunityWeb::show($db,$page,$user);break;
                 case 'store-account':case 'store-order':case 'store-info':if(!StoreOrderSchema::ready($db))throw new HttpError(503,'فروشگاه هنوز ارتقا نیافته است.');StoreHttp::page($db,$page,$user);break;
                 case 'member-login':MemberWeb::login($db);break;
-                case 'login': if(MemberSchema::ready($db)&&empty($_GET['legacy']))MemberWeb::login($db);else view('login'); break;
+                case 'login': if(DomainRouting::enabled()&&DomainRouting::surface()==='admin'){view('admin-login');break;}if(MemberSchema::ready($db)&&empty($_GET['legacy']))MemberWeb::login($db);else view('login'); break;
                 case 'admin': self::admin($db,$user); break;
                 case 'about': view('about'); break;
                 default: throw new HttpError(404,'صفحه پیدا نشد.');
             }
-            $content=ob_get_clean();$seo=StoreSeo::tags($page,$title,$page==='product'&&StoreSchema::ready($db)?($product??null):null,!empty($preview));if($seo['private'])header('X-Robots-Tag: noindex, nofollow');view('layout',compact('content','page','title','user','db','seo'));
+            $content=ob_get_clean();$seo=StoreSeo::tags($page,$title,$page==='product'&&StoreSchema::ready($db)?($product??null):null,!empty($preview));if($seo['private'])header('X-Robots-Tag: noindex, nofollow');view(DomainRouting::enabled()&&DomainRouting::surface()==='admin'?'admin-layout':'layout',compact('content','page','title','user','db','seo'));
         } catch(\Throwable $ex){
             while(ob_get_level()) ob_end_clean(); $status=$ex instanceof HttpError?$ex->status:503; http_response_code($status);
             $message=$ex instanceof HttpError?$ex->getMessage():'سرویس موقتاً در دسترس نیست؛ تنظیم پایگاه داده یا گزارش خطا را بررسی کنید.';
             if(!$ex instanceof HttpError) error_log('Namira: '.$ex->getMessage());
             if(self::jsonUpload()||$page==='gallery-data'){ header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); echo json_encode(['ok'=>false,'message'=>$message],JSON_UNESCAPED_UNICODE); return; }
-            $title='نامیرا | '.$status; $user=false; $content='<section class="request"><h1>'.e(fa($status)).'</h1><p role="alert">'.e($message).'</p><p><a class="outline" href="'.e(url('home')).'">صفحه اصلی</a></p></section>'; view('layout',compact('content','page','title','user','db'));
+            $title='نامیرا | '.$status; $user=false; $content='<section class="request"><h1>'.e(fa($status)).'</h1><p role="alert">'.e($message).'</p><p><a class="outline" href="'.e(url('home')).'">صفحه اصلی</a></p></section>'; view(DomainRouting::enabled()&&DomainRouting::surface()==='admin'?'admin-layout':'layout',compact('content','page','title','user','db'));
         }
     }
     private static function jsonUpload(): bool { return ($_SERVER['REQUEST_METHOD']??'')==='POST' && str_contains($_SERVER['HTTP_ACCEPT']??'','application/json'); }
@@ -141,9 +141,9 @@ final class Web {
                 $u=Db::query($db,'SELECT * FROM users WHERE email=? AND active=1',[$email])->fetch();
                 $dummy='$2y$10$wHVV71XhPT3QCKoRV4pxXej0zu1ZokgOphJ9BSkS0HAsRkUPdMQpK';
                 if(!password_verify($password,$u['password_hash']??$dummy)||!$u) throw new HttpError(422,'ایمیل یا رمز معتبر نیست.');
-                session_regenerate_id(true); $_SESSION['user_id']=$u['id']; $_SESSION['csrf']=bin2hex(random_bytes(32));if(in_array($_POST['next_page']??'',['account','submit-art','contribute','call','request','cart','product'],true))CommunityWeb::next($_POST,$db);if(MemberSchema::ready($db)&&!Permissions::allows($db,$u,'dashboard.view'))redirect('account');redirect('admin');
+                if(DomainRouting::enabled()&&DomainRouting::surface()==='admin'&&!Permissions::allows($db,$u,'dashboard.view'))throw new HttpError(403,'این حساب دسترسی به پنل مدیریت ندارد.');session_regenerate_id(true); $_SESSION['user_id']=$u['id']; $_SESSION['csrf']=bin2hex(random_bytes(32));if(in_array($_POST['next_page']??'',['account','submit-art','contribute','call','request','cart','product'],true))CommunityWeb::next($_POST,$db);if(MemberSchema::ready($db)&&!Permissions::allows($db,$u,'dashboard.view'))redirect('account');redirect('admin');
             case 'account-password':$actor=Security::user($db);if(!$actor)throw new HttpError(403,'ورود لازم است.');Accounts::password($db,$actor,$_POST);$_SESSION['flash']='رمز ورود تغییر کرد.';redirect('account');
-            case 'logout': $_SESSION=[]; session_regenerate_id(true); redirect('home');
+            case 'logout': $_SESSION=[]; session_regenerate_id(true); redirect(DomainRouting::enabled()&&DomainRouting::surface()==='admin'?'login':'home');
             case 'protocol-quick': case 'protocol-save': case 'protocol-transition': case 'protocol-shared': case 'protocol-term': ProtocolController::action($db,$a);
             case 'martyr-save': throw new HttpError(410,'از فرم هشت‌مرحله‌ای ثبت شهید استفاده کنید.'); Security::requireRole($db,'content'); $id=$archive->save($_POST,!empty($_POST['id'])?(int)$_POST['id']:null); $_SESSION['flash']='اطلاعات ذخیره شد.'; redirect('admin',['tab'=>'martyrs','edit'=>$id]);
             case 'category': if(MartyrTaxonomySchema::ready($db))throw new HttpError(410,'از مدیریت مرکزی محورهای شهدا استفاده کنید.');Security::requireRole($db,'content'); Db::insert($db,'categories',['name'=>Security::text($_POST,'name',150)]); Db::audit($db,'category.create',''); redirect('admin',['tab'=>'categories']);

@@ -5,8 +5,8 @@ use PDO;
 final class Security {
     public static function start(): void {
         if(in_array(Env::get('APP_ENV','production'),['production','staging'],true)){ini_set('display_errors','0');ini_set('log_errors','1');}
-        ini_set('session.use_strict_mode','1'); session_name('namira_session');
-        session_set_cookie_params(['httponly'=>true,'secure'=>Env::get('APP_ENV','production')==='production'||parse_url(Env::get('APP_URL'),PHP_URL_SCHEME)==='https','samesite'=>'Lax','path'=>'/']); session_start();
+        ini_set('session.use_strict_mode','1'); session_name(DomainRouting::enabled()?'namira_'.DomainRouting::surface().'_session':'namira_session');
+        session_set_cookie_params(['httponly'=>true,'secure'=>Env::get('APP_ENV','production')==='production'||parse_url(Env::get('APP_URL'),PHP_URL_SCHEME)==='https','samesite'=>'Lax','path'=>'/']); session_start();if(DomainRouting::enabled()){if(isset($_SESSION['_surface'])&&$_SESSION['_surface']!==DomainRouting::surface()){$_SESSION=[];session_regenerate_id(true);}$_SESSION['_surface']=DomainRouting::surface();}
         header('X-Content-Type-Options: nosniff'); header('Referrer-Policy: same-origin'); header('X-Frame-Options: DENY');
         header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; script-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'");
         if(Env::get('APP_ENV')==='production') header('Strict-Transport-Security: max-age=31536000');

@@ -5,7 +5,7 @@ use Namira\MobileNavigation as N;
 $_SESSION=[];$checks=0;
 function ok(bool $v,string $label):void{global $checks;if(!$v)throw new RuntimeException($label);$checks++;echo 'PASS '.$label.PHP_EOL;}
 $guest=N::items('home',false,true);
-ok(array_column($guest['bottom'],'label')===['خانه','تصاویر','هنرمندان','فروشگاه','حساب'],'five bottom destinations in RTL source order');
+ok(array_column($guest['bottom'],'label')===['خانه','تصاویر','فروشگاه','هنرمندان','حساب'],'five bottom destinations in RTL source order');
 ok(count(array_filter($guest['bottom'],fn($x)=>$x['active']))===1,'one home active destination');
 ok(str_contains($guest['bottom'][4]['href'],'page=member-login'),'guest account uses existing member login');
 foreach(['image'=>'gallery','profile'=>'gallery','artist'=>'artists','product'=>'shop','cart'=>'shop','store-order'=>'account','store-account'=>'account','member-login'=>'account'] as $page=>$section){
