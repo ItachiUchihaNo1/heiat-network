@@ -5,3 +5,25 @@
 @media(prefers-reduced-motion:reduce){.hs-product-image img{transition:none}}
 
 @media(min-width:761px){.hs-hero-art:has(img){height:330px;position:relative;transform:none;padding:20px}.hs-hero-art img{position:absolute;width:170px;height:235px;object-fit:contain;background:#fff;border:7px solid white;box-shadow:0 14px 35px #50202b16;border-radius:14px;transform:rotate(-8deg);left:15%;top:35px}.hs-hero-art img:nth-child(2){left:40%;top:55px;transform:rotate(9deg);z-index:1}.hs-hero-art img:nth-child(3){left:26%;top:22px;transform:rotate(-2deg);z-index:2}.hs-hero-art:has(img) small{position:absolute;bottom:0;left:20%;transform:none}}
+
+/* Sparse real catalogs use a composed feature rather than empty grid columns. */
+@media(min-width:761px){
+ .hs-people-row{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+ .hs-people-row>.hs-artist,.hs-people-row>.hs-martyr{width:100%;max-width:220px;justify-self:center}
+ .hs-products-grid:has(>.hs-product:only-child){display:block}
+ .hs-product:only-child>a{display:grid;grid-template-columns:minmax(240px,.7fr) minmax(0,1fr);grid-template-areas:"image title" "image price";gap:0 42px;padding:28px;background:var(--hs-soft);border-radius:24px}
+ .hs-product:only-child .hs-product-image{grid-area:image;height:280px;aspect-ratio:auto}
+ .hs-product:only-child h3{grid-area:title;align-self:end;font-size:25px;margin:0 0 16px}
+ .hs-product:only-child .hs-price{grid-area:price;align-self:start;font-size:22px;margin:0}
+ .hs-call:not(:has(.hs-call-poster)){min-height:0}
+ .hs-call:not(:has(.hs-call-poster)) .hs-call-copy{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px 30px;width:100%;padding:32px}
+ .hs-call:not(:has(.hs-call-poster)) .hs-live,.hs-call:not(:has(.hs-call-poster)) h3,.hs-call:not(:has(.hs-call-poster)) p{grid-column:1;margin:0}
+ .hs-call:not(:has(.hs-call-poster)) .primary{grid-column:2;grid-row:1/4;align-self:center}
+}
+@media(max-width:760px){
+ .hs-product:only-child{grid-column:1/-1}
+ .hs-product:only-child>a{display:grid;grid-template-columns:42% minmax(0,1fr);grid-template-areas:"image title" "image price";gap:0 14px;padding:16px;background:var(--hs-soft);border-radius:18px}
+ .hs-product:only-child .hs-product-image{grid-area:image;height:160px;aspect-ratio:auto}
+ .hs-product:only-child h3{grid-area:title;align-self:end;margin:0 0 12px;font-size:15px}
+ .hs-product:only-child .hs-price{grid-area:price;align-self:start;margin:0}
+}
