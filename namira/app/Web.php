@@ -75,7 +75,7 @@ final class Web {
             switch($page){
                 case 'home':
                     if(!empty($_GET['topic'])){$home=Storefront::home($db,$_GET);redirect('gallery',$home['f']);}$sections=HomeShowcase::sections($db);view('home-showcase',compact('db','sections','page'));break;
-                case 'home-preview':Permissions::require($db,'settings.manage');$sections=HomeShowcase::sections($db,true);view('home-showcase',compact('db','sections','page'));break;
+                case 'home-preview':Permissions::require($db,'settings.manage');Security::homePreviewHeaders();$sections=HomeShowcase::sections($db,true);view('home-showcase',compact('db','sections','page'));break;
                 case 'gallery':
                     $f=$page==='gallery'?GalleryFacets::input($db,$_GET):$_GET; $catalogFilters=$page==='gallery'?MartyrFilters::options($db,$f):[]; $result=$archive->images($f,max(1,(int)($_GET['p']??1))); $categories=[]; $options=[];
                     view('gallery',compact('db','page','f','result','categories','options','catalogFilters')); break;
