@@ -3,12 +3,15 @@ declare(strict_types=1);
 namespace Namira;
 use PDO;
 final class Security {
+    private const CSP="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; script-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'";
+    /** Only the authorized home-preview route permits same-origin framing. */
+    public static function homePreviewHeaders():void {header('X-Frame-Options: SAMEORIGIN');header('Content-Security-Policy: '.str_replace("frame-ancestors 'none'","frame-ancestors 'self'",self::CSP));}
     public static function start(): void {
         if(in_array(Env::get('APP_ENV','production'),['production','staging'],true)){ini_set('display_errors','0');ini_set('log_errors','1');}
         ini_set('session.use_strict_mode','1'); session_name(DomainRouting::enabled()?'namira_'.DomainRouting::surface().'_session':'namira_session');
         session_set_cookie_params(['httponly'=>true,'secure'=>Env::get('APP_ENV','production')==='production'||parse_url(Env::get('APP_URL'),PHP_URL_SCHEME)==='https','samesite'=>'Lax','path'=>'/']); session_start();if(DomainRouting::enabled()){if(isset($_SESSION['_surface'])&&$_SESSION['_surface']!==DomainRouting::surface()){$_SESSION=[];session_regenerate_id(true);}$_SESSION['_surface']=DomainRouting::surface();}
         header('X-Content-Type-Options: nosniff'); header('Referrer-Policy: same-origin'); header('X-Frame-Options: DENY');
-        header("Content-Security-Policy: default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; script-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'");
+        header('Content-Security-Policy: '.self::CSP);
         if(Env::get('APP_ENV')==='production') header('Strict-Transport-Security: max-age=31536000');
     }
     public static function csrf(): string { return $_SESSION['csrf']??=bin2hex(random_bytes(32)); }

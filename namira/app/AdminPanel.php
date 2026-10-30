@@ -5,6 +5,7 @@ use PDO;
 final class AdminPanel {
     public static function navigation():array{return [
         'dashboard'=>['داشبورد','نمای کلی','dashboard.view'],
+        'homepage'=>['مدیریت صفحه اصلی','مدیریت','settings.manage'],
         'martyrs'=>['بانک شهدا','بانک‌ها و آرشیو','martyrs.view'],
         'artists'=>['بانک هنرمندان','بانک‌ها و آرشیو','artists.view'],
         'images'=>['تصاویر و آثار','بانک‌ها و آرشیو','media.view'],
@@ -63,6 +64,7 @@ final class AdminPanel {
             case 'returns':case 'store-notifications':case 'orders':case 'store-operations':case 'store-forms':case 'store-quotes':case 'store-dashboard':case 'store-coupons':case 'store-reports':case 'store-settings':StoreAdmin::show($db,$user,$tab);break;
             case 'requests':if(MemberSchema::ready($db))view('member-admin-requests',$data);else view('admin-legacy',$data);break;
             case 'reports':view('admin-reports',$data);break;
+            case 'homepage':HomeShowcaseWeb::show($db,$user);break;
             case 'settings':view('admin-settings',$data);break;
             default:view('admin-legacy',$data);
         }
