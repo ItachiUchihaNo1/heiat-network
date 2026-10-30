@@ -15,6 +15,8 @@ final class Web {
             $page=Security::text($_GET,'page',40,false)?:(DomainRouting::enabled()&&DomainRouting::surface()==='admin'?'admin':'home');DomainRouting::enforce($page);
             if($page==='setup'){ Installer::web(); return; }
             $db=Db::connect(); $archive=new Archive($db); $shop=new Shop($db);
+            if($page==='home-lookup')HomeShowcaseWeb::lookup($db);
+            if(in_array($page,['home-banner','home-banner-preview'],true)){$draft=$page==='home-banner-preview';if($draft)Permissions::require($db,'settings.manage');$asset=HomeShowcase::asset($db,Security::text($_GET,'id',40),Security::text($_GET,'device',10),$draft);self::sendFile(Upload::absolute($asset['path']),'image/webp','inline','banner.webp');return;}
             if($_SERVER['REQUEST_METHOD']==='POST'){
                 if(empty($_POST)&&empty($_FILES)&&(int)($_SERVER['CONTENT_LENGTH']??0)>0&&str_starts_with($_SERVER['CONTENT_TYPE']??'','multipart/form-data'))throw new HttpError(413,'حجم کل ارسال از محدودیت هاست بیشتر است؛ فایل‌های کمتر یا کوچک‌تر انتخاب کنید.');
                 Security::verify($_POST); self::action($db,$archive,$shop);
@@ -72,7 +74,8 @@ final class Web {
             ob_start();
             switch($page){
                 case 'home':
-                    $home=Storefront::home($db,$_GET);$f=$home['f'];$result=$home['result'];view('gallery',compact('db','page','f','result','home'));break;
+                    if(!empty($_GET['topic'])){$home=Storefront::home($db,$_GET);redirect('gallery',$home['f']);}$sections=HomeShowcase::sections($db);view('home-showcase',compact('db','sections','page'));break;
+                case 'home-preview':Permissions::require($db,'settings.manage');$sections=HomeShowcase::sections($db,true);view('home-showcase',compact('db','sections','page'));break;
                 case 'gallery':
                     $f=$page==='gallery'?GalleryFacets::input($db,$_GET):$_GET; $catalogFilters=$page==='gallery'?MartyrFilters::options($db,$f):[]; $result=$archive->images($f,max(1,(int)($_GET['p']??1))); $categories=[]; $options=[];
                     view('gallery',compact('db','page','f','result','categories','options','catalogFilters')); break;
@@ -134,7 +137,7 @@ final class Web {
         redirect($page,$params);
     }
     private static function action(PDO $db,Archive $archive,Shop $shop): never {
-        $a=Security::text($_POST,'action',40);if(CallHttp::handles($a))CallHttp::action($db,$a);if(StoreHttp::handles($a))StoreHttp::action($db,$a);if(StoreOrderSchema::ready($db)&&in_array($a,['cart','checkout'],true))throw new HttpError(410,'از مسیر جدید فروشگاه استفاده کنید.');if(StoreOrderSchema::ready($db)&&in_array($a,['test-pay','order-status'],true)){ $newOrder=$a==='test-pay'?Db::query($db,'SELECT d.order_id FROM store_order_details d JOIN orders o ON o.id=d.order_id WHERE o.token=?',[(string)($_POST['token']??'')])->fetchColumn():Db::query($db,'SELECT order_id FROM store_order_details WHERE order_id=?',[(int)($_POST['id']??0)])->fetchColumn();if($newOrder)throw new HttpError(410,'از عملیات جدید سفارش استفاده کنید.');}if(StoreWeb::handles($a))StoreWeb::action($db,$a);if(MemberWeb::handles($a))MemberWeb::action($db,$a);if(MartyrCatalogWeb::handles($a))MartyrCatalogWeb::action($db,$a);if(CommunityWeb::handles($a))CommunityWeb::action($db,$a);if(AdminPanel::handles($a))AdminPanel::action($db,$a);
+        $a=Security::text($_POST,'action',40);if($a==='home-showcase-save')HomeShowcaseWeb::save($db,Permissions::require($db,'settings.manage'));if(CallHttp::handles($a))CallHttp::action($db,$a);if(StoreHttp::handles($a))StoreHttp::action($db,$a);if(StoreOrderSchema::ready($db)&&in_array($a,['cart','checkout'],true))throw new HttpError(410,'از مسیر جدید فروشگاه استفاده کنید.');if(StoreOrderSchema::ready($db)&&in_array($a,['test-pay','order-status'],true)){ $newOrder=$a==='test-pay'?Db::query($db,'SELECT d.order_id FROM store_order_details d JOIN orders o ON o.id=d.order_id WHERE o.token=?',[(string)($_POST['token']??'')])->fetchColumn():Db::query($db,'SELECT order_id FROM store_order_details WHERE order_id=?',[(int)($_POST['id']??0)])->fetchColumn();if($newOrder)throw new HttpError(410,'از عملیات جدید سفارش استفاده کنید.');}if(StoreWeb::handles($a))StoreWeb::action($db,$a);if(MemberWeb::handles($a))MemberWeb::action($db,$a);if(MartyrCatalogWeb::handles($a))MartyrCatalogWeb::action($db,$a);if(CommunityWeb::handles($a))CommunityWeb::action($db,$a);if(AdminPanel::handles($a))AdminPanel::action($db,$a);
         switch($a){
             case 'login':
                 Security::limit($db,'login',8); $email=Security::text($_POST,'email',190); $password=$_POST['password']??'';if(!is_string($password)||strlen($password)>1024)throw new HttpError(422,'ایمیل یا رمز معتبر نیست.');
