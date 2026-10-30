@@ -1,5 +1,5 @@
 <?php use Namira\HomeShowcase; $isPreview=$page==='home-preview';$homeVersion=HomeShowcase::state($db)['version']; ?>
-<link rel="stylesheet" href="/assets/home-showcase.css?v=013">
+<link rel="stylesheet" href="/assets/home-showcase.css?v=013-2">
 <?php if($isPreview): ?><p class="hs-preview-note">پیش‌نمایش خصوصی چیدمان ذخیره‌شده؛ هنوز منتشر نشده است.</p><?php endif ?>
 <div class="home-showcase">
 <?php foreach($sections as $index=>$block):$type=$block['type'];$items=$block['items'];$routes=['images'=>'gallery','products'=>'shop','calls'=>'calls','artists'=>'artists','martyrs'=>'gallery'];$more=$block['link']?:url($routes[$type]??'gallery'); ?>
