@@ -3,7 +3,7 @@
 <?php if($isPreview): ?><p class="hs-preview-note">پیش‌نمایش خصوصی چیدمان ذخیره‌شده؛ هنوز منتشر نشده است.</p><?php endif ?>
 <div class="home-showcase">
 <?php foreach($sections as $index=>$block):$type=$block['type'];$items=$block['items'];$routes=['images'=>'gallery','products'=>'shop','calls'=>'calls','artists'=>'artists','martyrs'=>'gallery'];$more=$block['link']?:url($routes[$type]??'gallery'); ?>
-<section class="hs-section hs-<?= e($type) ?>" data-home-block="<?= e($block['id']) ?>">
+<section class="hs-section <?= e($type==='banner'?'hs-banner-section':'hs-'.$type) ?>" data-home-block="<?= e($block['id']) ?>">
 <?php if($type==='banner'): ?>
 <div class="hs-banner <?= empty($block['assets'])?'hs-editorial':'hs-illustrated' ?>">
 <?php if($block['assets']):$desktop=$block['assets']['desktop']??$block['assets']['mobile'];$desktopKey=isset($block['assets']['desktop'])?'desktop':'mobile';$assetPage=$isPreview?'home-banner-preview':'home-banner'; ?>
