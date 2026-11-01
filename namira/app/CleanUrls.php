@@ -7,6 +7,7 @@ final class CleanUrls {
  private static array $titles=[];
  public const SIMPLE=['home'=>'/','gallery'=>'/images','martyrs'=>'/martyrs','artists'=>'/artists','calls'=>'/calls','shop'=>'/shop','login'=>'/login','member-login'=>'/login','register'=>'/login','request'=>'/request','request-track'=>'/request-track','about'=>'/about','cart'=>'/cart','account'=>'/account','store-account'=>'/account/store','order'=>'/order','submit-art'=>'/submit-art','contribute'=>'/contribute','store-sitemap'=>'/sitemap.xml'];
  public const DETAILS=['profile'=>'martyrs','artist'=>'artists','call'=>'calls','product'=>'products','image'=>'images'];
+ public static function enabled():bool{return !is_file(BASE_PATH.'/.clean-urls-pending');}
  public static function bind(PDO $db):void {self::$db=$db;self::$titles=[];}
  public static function slug(string $title):string {
   $title=Security::normalize(strip_tags($title));$s=preg_replace('/[^\p{L}\p{N}]+/u','-',mb_strtolower($title));return mb_substr(trim($s,'-'),0,100)?:'namira';
@@ -24,7 +25,7 @@ final class CleanUrls {
  }
  public static function publicExists(string $page,int $id):bool{return self::title($page,$id)!==null;}
  public static function path(string $page,array $params=[]):?string {
-  unset($params['page']);$path=self::SIMPLE[$page]??null;
+  if(!self::enabled())return null;unset($params['page']);$path=self::SIMPLE[$page]??null;
   if($page==='register')$params=['mode'=>'register']+$params;
   if(isset(self::DETAILS[$page])){
    $raw=$params['id']??0;if(!is_scalar($raw)||!ctype_digit((string)$raw)||(int)$raw<1)return null;
@@ -46,7 +47,7 @@ final class CleanUrls {
   if($route===null)throw new HttpError(404,'صفحه پیدا نشد.');return array_replace($query,['page'=>$route],$params);
  }
  public static function canonical(string $page,array $query,string $uri,string $method):?string {
-  if(!in_array($method,['GET','HEAD'],true)||DomainRouting::surface()==='admin')return null;
+  if(!self::enabled())return null;if(!in_array($method,['GET','HEAD'],true)||DomainRouting::surface()==='admin')return null;
   if(isset(self::DETAILS[$page])){if(!self::title($page,(int)($query['id']??0)))throw new HttpError(404,'صفحه پیدا نشد.');}
   $target=self::path($page,$query);if($target===null)return null;
   // URI comparison tolerates percent-encoding case but canonicalizes aliases, trailing slashes and old slugs.
@@ -60,6 +61,7 @@ final class CleanUrls {
   parse_str($u['query']??'',$params);$page=$params['page']??'';if(!is_string($page))return null;$path=self::path($page,$params);return $path===null?null:$path.(isset($u['fragment'])?'#'.$u['fragment']:'');
  }
  public static function html(string $html):string {
+  if(!self::enabled())return $html;
   // Only owned rendered GET forms are normalized. POST bodies, endpoints, APIs and downloads stay intact.
   $html=preg_replace_callback('~<form\b[^>]*>.*?</form>~si',function($m){$form=$m[0];if(!preg_match('~^<form\b[^>]*\bmethod=["\']get["\']~i',$form))return $form;
    if(!preg_match('~<input\b(?=[^>]*\bname=["\']page["\'])(?=[^>]*\bvalue=["\']([^"\']+)["\'])[^>]*>~i',$form,$field))return $form;

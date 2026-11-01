@@ -34,6 +34,7 @@ jobs:
           pathlib.Path('/tmp/namira-clean.conf').write_text(conf+'</VirtualHost>\n')
           pathlib.Path('/tmp/namira-test-storage').write_text(m['storage'])
           PY
+          sudo chmod o+x /home/runner /home/runner/work "$(dirname "$GITHUB_WORKSPACE")" "$GITHUB_WORKSPACE"
           sudo chown -R www-data:www-data "$(cat /tmp/namira-test-storage)"
           sudo cp /tmp/namira-clean.conf /etc/apache2/sites-available/namira-clean.conf
           sudo a2enmod rewrite
