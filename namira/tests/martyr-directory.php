@@ -21,7 +21,7 @@ try{
  $f=['axis'=>['collection'=>[(string)$topic],$jobKey=>[(string)$job]]];
  ok(D::listing($db,$f)['count']===1&&F::count($db,$f,true)===1,'independent directory axes combine with AND');
  ok(F::count($db,[],true)===2&&F::count($db,[])===$baseline,'directory facets count people while gallery still counts images');
- $snap=F::response($db,['axis'=>['collection'=>[(string)$topic]]],'',true,true);ok($snap['count']===2&&str_contains($snap['url'],'page=martyrs')&&str_contains($snap['html'],'hs-martyr-grid')&&str_contains($snap['tags'],'page=martyrs'),'AJAX response uses directory cards tags URLs and count');
+ $snap=F::response($db,['axis'=>['collection'=>[(string)$topic]]],'',true,true);ok($snap['count']===2&&str_contains($snap['url'],'/martyrs')&&str_contains($snap['html'],'hs-martyr-grid')&&str_contains($snap['tags'],'/martyrs'),'AJAX response uses directory cards tags URLs and count');
  $country=(int)Db::query($db,"SELECT id FROM protocol_terms WHERE taxonomy='country' AND active=1 LIMIT 1")->fetchColumn();
  $city=(int)Db::query($db,"SELECT id FROM protocol_terms WHERE taxonomy='city' AND active=1 LIMIT 1")->fetchColumn();
  if(!$city)$city=Db::insert($db,'protocol_terms',['taxonomy'=>'city','title'=>'شهر آزمون','slug'=>'directory-city','active'=>1]);
@@ -43,7 +43,7 @@ try{
  ok(D::card($db,$a->find($person))['cover']['id']===$second,'hidden feature falls back to a public linked image');
  Db::query($db,'UPDATE images SET published=1 WHERE id=?',[$image]);
  $home=H::content($db,'martyrs',[$person])[0];ok($home['cover']['id']===D::card($db,$a->find($person))['cover']['id'],'homepage and directory share featured-image presentation');
- $sections=H::sections($db);$page='home';ob_start();view('home-showcase',compact('db','sections','page'));$html=ob_get_clean();ok(str_contains($html,'page=martyrs'),'homepage more link leads to independent directory');
+ $sections=H::sections($db);$page='home';ob_start();view('home-showcase',compact('db','sections','page'));$html=ob_get_clean();ok(str_contains($html,'/martyrs'),'homepage more link leads to independent directory');
  $nav=MobileNavigation::items('martyrs',false,true);ok(in_array('martyrs',array_column(array_merge(...array_column($nav['groups'],'items')),'page'))&&count($nav['bottom'])===5,'mobile drawer adds martyrs and retains five bottom destinations');
  $f=[];$catalogFilters=F::options($db,[],true);$result=D::listing($db);ob_start();view('martyrs',compact('db','f','catalogFilters','result'));$html=ob_get_clean();ok(!str_contains($html,'martyr-directory-search')&&str_contains($html,'data-gallery-dialog')&&!str_contains($html,'Warning:'),'directory renders shared filter sheet and search without PHP warnings');
  if(str_starts_with($dsn,'sqlite:')){$fixture=json_decode(file_get_contents(BASE_PATH.'/storage/home-showcase-fixture.json'),true);$fixture['topic']=$topic;$fixture['directoryCount']=2;file_put_contents(BASE_PATH.'/storage/home-showcase-fixture.json',json_encode($fixture));}
