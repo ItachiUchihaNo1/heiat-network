@@ -58,7 +58,8 @@ jobs:
           node "$RUNNER_TEMP/namira-home-browser/node_modules/playwright/cli.js" install --with-deps chromium
       - name: Mobile desktop editor publication and private preview journey
         working-directory: namira
-        run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/namira-home-browser/node_modules/playwright" node tests/home-showcase-ui.cjs
+        run: |
+          PLAYWRIGHT_MODULE="$RUNNER_TEMP/namira-home-browser/node_modules/playwright" node tests/home-showcase-ui.cjs
           php tests/martyr-directory.php
           PLAYWRIGHT_MODULE="$RUNNER_TEMP/namira-home-browser/node_modules/playwright" node tests/martyr-directory-ui.cjs
       - uses: actions/upload-artifact@v4
