@@ -1,0 +1,26 @@
+<?php
+declare(strict_types=1);
+require __DIR__.'/members.php';
+use Namira\{TsmsClient, SmsService, MobileAuth, Db};
+$start=$checks;putenv('TSMS_RESPONSE_MODE=numeric_ids');$calls=[];$wire=static function($url,$params)use(&$calls){$calls[]=[$url,$params];return ['status'=>200,'body'=>'123456789'];};
+$client=new TsmsClient('fake-user','fake-password','30001234',TsmsClient::ORIGINAL_URL,$wire);
+ok($client->sendMessage('۰۹۱۲۱۰۰۰۰۰۱','متن آزمایشی')==='123456789','sender returns the mocked provider receipt');
+ok($calls[0][0]===TsmsClient::ORIGINAL_URL&&array_keys($calls[0][1])===['from','to','username','password','message'],'exact Python endpoint and GET parameter names retained');
+ok($calls[0][1]['to']==='09121000001'&&$calls[0][1]['message']==='متن آزمایشی','recipient normalized and Persian message retained');
+foreach(['1','2','3','4','5','6','7','8','9','14'] as $error)denied(fn()=>(new TsmsClient('u','p','30001234',TsmsClient::ORIGINAL_URL,fn()=>['status'=>200,'body'=>$error]))->sendMessage('09121000001','متن'),503,'provided TSMS error code '.$error.' rejected');
+foreach([['status'=>302,'body'=>'123456'],['status'=>500,'body'=>'error'],['status'=>200,'body'=>'']] as $reply)denied(fn()=>(new TsmsClient('u','p','30001234',TsmsClient::ORIGINAL_URL,fn()=>$reply))->sendMessage('09121000001','متن'),503,'redirect server failure or empty response rejected');
+try{(new TsmsClient('private-user','private-password','30001234',TsmsClient::ORIGINAL_URL,fn()=>throw new RuntimeException('private-password query string')))->sendMessage('09121000001','متن');throw new RuntimeException('Expected timeout');}catch(Namira\HttpError $e){ok($e->status===503&&!str_contains($e->getMessage(),'private-password'),'transport failure never exposes credentials or retries');}
+denied(fn()=>(new TsmsClient('u','p','30001234'))->sendMessage('09121000001','متن'),503,'plaintext HTTP real transport is blocked before network access');
+ok(TsmsClient::accepted('123456789')&&!TsmsClient::accepted('0')&&!TsmsClient::accepted('14')&&!TsmsClient::accepted('<html>error</html>'),'unrecognized success responses never count as delivered');
+putenv('TSMS_RESPONSE_MODE=');ok(!TsmsClient::accepted('123456789'),'unconfirmed response mode fails closed');putenv('TSMS_RESPONSE_MODE=numeric_ids');
+$service=new SmsService($db,$client);$count=count($calls);ok($service->notify('09121000002','اطلاع‌رسانی','order:1:ready:v1')==='123456789','notifications share the same central sender');ok($service->notify('09121000002','اطلاع‌رسانی','order:1:ready:v1')===false&&count($calls)===$count+1,'same event never sends twice');
+$seen=0;$failing=new SmsService($db,new TsmsClient('u','p','30001234',TsmsClient::ORIGINAL_URL,function()use(&$seen){$seen++;throw new RuntimeException('timeout');}));denied(fn()=>$failing->notify('09121000003','متن','event:ambiguous'),503,'ambiguous timeout reports controlled error');ok($failing->notify('09121000003','متن','event:ambiguous')===false&&$seen===1,'timed out events are not automatically resent');
+$otp='';$otpClient=new TsmsClient('u','p','30001234',TsmsClient::ORIGINAL_URL,function($url,$params)use(&$otp){preg_match('/[0-9]{6}/',$params['message'],$match);$otp=$match[0];return ['status'=>200,'body'=>'987654321'];});$otpService=new SmsService($db,$otpClient);$_SESSION['otp_binding']=bin2hex(random_bytes(32));
+$id=MobileAuth::request($db,'09121000004','login',null,$otpService);$row=Db::query($db,'SELECT * FROM otp_challenges WHERE id=?',[$id])->fetch();ok((int)$row['delivered']===1&&!str_contains($row['code_digest'],$otp),'OTP uses central TSMS sender and stores only its digest');ok(MobileAuth::verify($db,$id,$otp)['mobile']==='09121000004','existing OTP verification remains functional');denied(fn()=>MobileAuth::request($db,'09121000004','login',null,$otpService),429,'OTP cooldown remains enforced');
+$bad=new SmsService($db,new TsmsClient('u','p','30001234',TsmsClient::ORIGINAL_URL,fn()=>['status'=>200,'body'=>'unknown successful-looking text']));denied(fn()=>MobileAuth::request($db,'09121000005','login',null,$bad),503,'unknown provider reply cannot activate an OTP');$badRow=Db::query($db,'SELECT delivered,consumed_at FROM otp_challenges WHERE mobile=?',['09121000005'])->fetch();ok(!(int)$badRow['delivered']&&$badRow['consumed_at']!==null,'failed OTP remains unusable');
+putenv('SMS_MOBILE_HOURLY_LIMIT=1');$service->notify('09121000006','متن','limit:1');$before=count($calls);denied(fn()=>$service->notify('09121000006','متن','limit:2'),429,'recipient hourly quota enforced before sending');ok(count($calls)===$before,'quota rejection never reaches transport');putenv('SMS_MOBILE_HOURLY_LIMIT=10');
+putenv('SMS_DRIVER=disabled');putenv('SMS_ENABLED=0');ok(!MobileAuth::available(),'deployment stays disabled without explicit activation');
+putenv('APP_ENV=production');denied(fn()=>new SmsService($db,$client),503,'production rejects injected test client');denied(fn()=>MobileAuth::request($db,'09121000007','login',null,$otpService),503,'production OTP rejects injected gateway');putenv('APP_ENV=testing');
+ok(!str_contains(serialize(Db::query($db,'SELECT * FROM rate_limits WHERE bucket LIKE ?', ['sms-%'])->fetchAll()),'fake-password'),'rate and dedup records contain no provider password');
+echo ($checks-$start)." TSMS checks passed; no real SMS or provider network request performed
+";

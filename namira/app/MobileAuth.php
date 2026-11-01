@@ -4,13 +4,14 @@ namespace Namira;
 use PDO;
 final class MobileAuth {
     private static function secret():string {$key=Env::get('OTP_SECRET');if(strlen($key)<32)throw new HttpError(503,'ورود پیامکی هنوز پیکربندی نشده است.');return $key;}
-    public static function available():bool{return false;} // A real SMS provider has not been supplied.
+    public static function available():bool{return SmsService::available();}
     private static function sessionKey():string {return $_SESSION['otp_binding']??=bin2hex(random_bytes(32));}
     public static function request(PDO $db,string $phone,string $purpose='login',?array $actor=null,?SmsGateway $gateway=null):string {
         if(!MemberSchema::ready($db))throw new HttpError(503,'ارتقای حساب‌ها هنوز انجام نشده است.');
         $mobile=Security::phone($phone);$secret=self::secret();
         if(!in_array($purpose,['login','change','password'],true)||($purpose==='change'&&!$actor))throw new HttpError(422,'درخواست تأیید معتبر نیست.');
-        if(!$gateway||Env::get('APP_ENV','production')==='production')throw new HttpError(503,'سرویس پیامک هنوز متصل نشده است.'); // Injected adapters are tests only.
+        if($gateway!==null&&Env::get('APP_ENV','production')==='production')throw new HttpError(503,'اتصال آزمایشی پیامک مجاز نیست.');
+        if($gateway===null){if(!self::available())throw new HttpError(503,'سرویس پیامک هنوز فعال و پیکربندی نشده است.');$gateway=new SmsService($db);}
         Security::limit($db,'otp-ip',10,3600);Security::limit($db,'otp-mobile-'.hash_hmac('sha256',$mobile,$secret),5,3600);
         $binding=hash_hmac('sha256',self::sessionKey(),$secret);$now=time();$id=bin2hex(random_bytes(24));$code=(string)random_int(100000,999999);
         Db::transaction($db,function()use($db,$mobile,$purpose,$actor,$binding,$now,$id,$code,$secret){
@@ -18,11 +19,12 @@ final class MobileAuth {
             $bucket='otp-lock-'.hash_hmac('sha256',$mobile,$secret);$mysql=$db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql';
             Db::query($db,$mysql?'INSERT INTO rate_limits(bucket,hits,expires) VALUES(?,0,?) ON DUPLICATE KEY UPDATE hits=hits':'INSERT INTO rate_limits(bucket,hits,expires) VALUES(?,0,?) ON CONFLICT(bucket) DO NOTHING',[$bucket,$now+3600]);
             Db::query($db,'SELECT bucket FROM rate_limits WHERE bucket=?'.($mysql?' FOR UPDATE':''),[$bucket])->fetch();
+            if((int)Db::query($db,'SELECT COUNT(*) FROM otp_challenges WHERE mobile=? AND created_at>?',[$mobile,$now-3600])->fetchColumn()>=5)throw new HttpError(429,'سقف ارسال کد برای این شماره تکمیل شده است.');
             $last=Db::query($db,'SELECT created_at FROM otp_challenges WHERE mobile=? ORDER BY created_at DESC LIMIT 1',[$mobile])->fetchColumn();if($last!==false&&$now-(int)$last<60)throw new HttpError(429,'برای ارسال دوباره یک دقیقه صبر کنید.');
             Db::query($db,'UPDATE otp_challenges SET consumed_at=? WHERE mobile=? AND consumed_at IS NULL',[$now,$mobile]);
             Db::insert($db,'otp_challenges',['id'=>$id,'mobile'=>$mobile,'purpose'=>$purpose,'bound_user_id'=>$actor['id']??null,'session_digest'=>$binding,'code_digest'=>hash_hmac('sha256',$id.':'.$code,$secret),'expires_at'=>$now+120,'created_at'=>$now]);
         });
-        try{$gateway->send($mobile,$code);Db::query($db,'UPDATE otp_challenges SET delivered=1 WHERE id=?',[$id]);}catch(\Throwable){Db::query($db,'UPDATE otp_challenges SET consumed_at=? WHERE id=?',[$now,$id]);throw new HttpError(503,'ارسال کد انجام نشد؛ بعداً دوباره تلاش کنید.');}
+        try{if($gateway instanceof SmsService)$gateway->sendOtp($mobile,$code,$id);else $gateway->send($mobile,$code);Db::query($db,'UPDATE otp_challenges SET delivered=1 WHERE id=?',[$id]);}catch(\Throwable){Db::query($db,'UPDATE otp_challenges SET consumed_at=? WHERE id=?',[$now,$id]);throw new HttpError(503,'ارسال کد انجام نشد؛ بعداً دوباره تلاش کنید.');}
         return $id;
     }
     /** Commits failed attempts even when authentication is rejected. */

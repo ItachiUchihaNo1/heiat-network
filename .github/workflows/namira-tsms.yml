@@ -1,0 +1,35 @@
+name: Namira TSMS checks
+on:
+  push:
+    branches: ['codex/tsms']
+    paths: ['namira/**','.github/workflows/namira-tsms.yml']
+permissions:
+  contents: read
+jobs:
+  sms:
+    runs-on: ubuntu-24.04
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: namira_test_members
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-sqlite3 php-mysql php-gd php-xml php-mbstring php-zip php-curl
+          php -l namira/app/TsmsClient.php
+          php -l namira/app/SmsService.php
+      - name: Mock TSMS and existing authentication on SQLite - no network send
+        run: php namira/tests/tsms.php
+      - name: Mock TSMS and existing authentication on MySQL - no network send
+        env:
+          TEST_MEMBERS_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test_members;charset=utf8mb4'
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: test-only-password
+        run: php namira/tests/tsms.php
