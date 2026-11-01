@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace Namira;
 use PDO;
 final class MobileAuth {
-    private static function secret():string {$key=Env::get('OTP_SECRET');if(strlen($key)<32)throw new HttpError(503,'ورود پیامکی هنوز پیکربندی نشده است.');return $key;}
+    private static function secret():string {$key=SmsService::secret();if(strlen($key)<32)throw new HttpError(503,'ورود پیامکی هنوز پیکربندی نشده است.');return $key;}
     public static function available():bool{return SmsService::available();}
     private static function sessionKey():string {return $_SESSION['otp_binding']??=bin2hex(random_bytes(32));}
     public static function request(PDO $db,string $phone,string $purpose='login',?array $actor=null,?SmsGateway $gateway=null):string {

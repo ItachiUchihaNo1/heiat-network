@@ -15,6 +15,11 @@ final class Env {
         if(!is_file($path))return;
         $values=json_decode((string)file_get_contents($path),true,16,JSON_THROW_ON_ERROR);
         if(!is_array($values))throw new \RuntimeException('Invalid private configuration');
+
+        if(isset($values['sms'])&&is_array($values['sms'])){
+            $sms=$values['sms'];putenv('SMS_DRIVER=tsms');putenv('SMS_ENABLED='.((($sms['enabled']??false)===true||($sms['enabled']??'')==='1')?'1':'0'));
+            foreach(['username'=>'TSMS_USERNAME','password'=>'TSMS_PASSWORD','sender'=>'TSMS_SENDER'] as $field=>$env){$v=$sms[$field]??'';putenv($env.'='.(is_string($v)?($field==='password'?$v:trim($v)):''));}
+        }
         foreach($values as $key=>$value)if(is_string($key)&&preg_match('/^[A-Z_][A-Z0-9_]*$/D',$key)&&is_string($value)&&getenv($key)===false)putenv($key.'='.$value);
     }
     public static function get(string $key, string $default = ''): string { $v = getenv($key); return $v === false ? $default : $v; }

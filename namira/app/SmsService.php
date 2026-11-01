@@ -7,7 +7,12 @@ final class SmsService implements SmsGateway {
  public function __construct(private PDO $db,private ?TsmsClient $client=null){
   if($client&&Env::get('APP_ENV','production')!=='testing')throw new HttpError(503,'اتصال آزمایشی در محیط واقعی مجاز نیست.');
  }
- public static function available():bool{return strlen(Env::get('OTP_SECRET'))>=32&&TsmsClient::ready();}
+ public static function secret():string {
+  $secret=Env::get('OTP_SECRET');if(strlen($secret)>=32)return $secret;
+  $file=Env::privateRoot().'/.otp-secret';if(!is_file($file))return '';
+  $raw=@file_get_contents($file);if($raw===false)return '';$secret=trim($raw);return strlen($secret)>=32?$secret:'';
+ }
+ public static function available():bool{return strlen(self::secret())>=32&&TsmsClient::ready();}
  public function send(string $mobile,string $code):void {$this->sendOtp($mobile,$code,'code:'.hash('sha256',$mobile.':'.$code));}
  public function sendOtp(string $mobile,string $code,string $challenge):void {
   if(!preg_match('/^[0-9]{6}$/D',$code))throw new HttpError(422,'کد تأیید معتبر نیست.');
@@ -24,7 +29,7 @@ final class SmsService implements SmsGateway {
  }
  private function once(string $mobile,string $message,string $event):string|false {
   if(!$this->client&&!self::available())throw new HttpError(503,'ارسال پیامکی هنوز فعال و پیکربندی نشده است.');
-  $secret=Env::get('OTP_SECRET');if(strlen($secret)<32)throw new HttpError(503,'کلید امنیت پیامک تنظیم نشده است.');$mobile=Security::phone($mobile);if(strlen($event)>240||trim($event)===''||trim($message)===''||mb_strlen($message)>1000)throw new HttpError(422,'مشخصات ارسال معتبر نیست.');
+  $secret=self::secret();if(strlen($secret)<32)throw new HttpError(503,'کلید امنیت پیامک تنظیم نشده است.');$mobile=Security::phone($mobile);if(strlen($event)>240||trim($event)===''||trim($message)===''||mb_strlen($message)>1000)throw new HttpError(422,'مشخصات ارسال معتبر نیست.');
   $digest=hash_hmac('sha256',$mobile,$secret);$bucket='sms-once-'.hash_hmac('sha256',$mobile.'|'.$event,$secret);
   try{$claim=Db::transaction($this->db,function()use($bucket,$digest){
    $now=time();$suffix=$this->db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':'';$old=Db::query($this->db,'SELECT expires FROM rate_limits WHERE bucket=?'.$suffix,[$bucket])->fetchColumn();if($old!==false&&(int)$old>$now)return false;
