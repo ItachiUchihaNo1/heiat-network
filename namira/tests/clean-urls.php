@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require __DIR__.'/home-showcase.php';
 use Namira\{CleanUrls as C,DomainRouting as R,StoreSeo,Db,HttpError};
-C::bind($db);$n=$checks;
+C::bind($db);$n=$checks;$topic=(int)Db::query($db,"SELECT id FROM protocol_terms WHERE taxonomy='collection' AND active=1 LIMIT 1")->fetchColumn();Db::insert($db,'martyr_public_terms',['martyr_id'=>$person,'axis_key'=>'collection','term_id'=>$topic,'revision'=>1]);
 foreach(C::SIMPLE as $route=>$path){$actual=C::path($route);ok(str_starts_with($actual,$path),'public route '.$route);}
 foreach(['profile'=>$person,'artist'=>$artist,'call'=>$call,'product'=>$product,'image'=>$image] as $route=>$id){$path=C::path($route,['id'=>$id]);ok(str_starts_with($path,'/'.C::DETAILS[$route].'/'.$id.'/'),'stable ID and readable slug for '.$route);$query=C::resolve($path,['id'=>'99999']);ok($query['page']===$route&&(int)$query['id']===$id,'path ID wins over untrusted query for '.$route);ok(C::canonical($route,$query,$path,'GET')===null,'canonical detail never loops '.$route);ok(C::canonical($route,['page'=>$route,'id'=>$id],'/index.php?page='.$route.'&id='.$id,'GET')===$path,'old detail redirects '.$route);ok(C::canonical($route,['page'=>$route,'id'=>$id],'/'.C::DETAILS[$route].'/'.$id.'/old-slug','GET')===$path,'outdated slug redirects '.$route);}
 $f=['page'=>'gallery','q'=>'نام فارسی','axis'=>['collection'=>[(string)Db::query($db,"SELECT id FROM protocol_terms WHERE taxonomy='collection' LIMIT 1")->fetchColumn()]],'p'=>'2'];$url=C::path('gallery',$f);parse_str(parse_url($url,PHP_URL_QUERY),$rest);ok($rest===array_diff_key($f,['page'=>1]),'search arrays and pagination survive old redirect');
