@@ -5,12 +5,13 @@ use Namira\MobileNavigation as N;
 $_SESSION=[];$checks=0;
 function ok(bool $v,string $label):void{global $checks;if(!$v)throw new RuntimeException($label);$checks++;echo 'PASS '.$label.PHP_EOL;}
 $guest=N::items('home',false,true);
-ok(array_column($guest['bottom'],'label')===['خانه','تصاویر','فروشگاه','هنرمندان','حساب'],'five bottom destinations in RTL source order');
+ok(array_column($guest['bottom'],'label')===['خانه','شهدا','فروشگاه','تصاویر','حساب'],'five bottom destinations in RTL source order');
 ok(count(array_filter($guest['bottom'],fn($x)=>$x['active']))===1,'one home active destination');
 ok(str_contains($guest['bottom'][4]['href'],'page=member-login'),'guest account uses existing member login');
-foreach(['image'=>'gallery','profile'=>'gallery','artist'=>'artists','product'=>'shop','cart'=>'shop','store-order'=>'account','store-account'=>'account','member-login'=>'account'] as $page=>$section){
+foreach(['image'=>'gallery','profile'=>'martyrs','martyrs'=>'martyrs','product'=>'shop','cart'=>'shop','store-order'=>'account','store-account'=>'account','member-login'=>'account'] as $page=>$section){
  $m=N::items($page,false,true);ok(N::section($page)===$section&&count(array_filter($m['bottom'],fn($x)=>$x['active']))===1,'active parent for '.$page);
 }
+ok(!array_filter(N::items('artist',false,true)['bottom'],fn($x)=>$x['active']),'artist has no unrelated active bottom destination');
 $member=N::items('account',['id'=>1],true);ok(str_contains($member['bottom'][4]['href'],'page=account'),'member links shared account');
 $links=array_merge(...array_column($guest['groups'],'items'));$labels=array_column($links,'label');
 ok(in_array('تماس با ما',$labels,true)&&in_array('سؤالات متداول',$labels,true)&&in_array('قوانین و مقررات',$labels,true),'information links use existing store sections');

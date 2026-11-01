@@ -1,13 +1,14 @@
-<link rel="stylesheet" href="/assets/gallery-filters.css?v=008"><script src="/assets/gallery-filters.js?v=20261027-direct4" defer></script>
-<section class="gallery-filter-tools" id="gallery-filters" data-gallery-controller aria-label="فیلتر تصاویر">
+<?php $filterRoute=$filterRoute??'gallery';$filterUnit=$filterUnit??'تصویر'; ?>
+<link rel="stylesheet" href="/assets/gallery-filters.css?v=008"><script src="/assets/gallery-filters.js?v=014-directory1" defer></script>
+<section class="gallery-filter-tools" id="gallery-filters" data-gallery-controller aria-label="<?= e('فیلتر '.$filterUnit) ?>">
 <div class="gallery-chip-row" role="group" aria-label="انتخاب فیلتر"><?php foreach($catalogFilters['chips'] as $chip): ?><button class="gallery-filter-chip" type="button" data-filter-chip="<?= e($chip['key']) ?>" aria-haspopup="dialog" aria-expanded="false"><span data-chip-title><?= e($chip['title']) ?></span><small data-chip-count></small><span aria-hidden="true">⌄</span></button><?php endforeach ?></div>
 <p class="gallery-feedback" role="status" aria-live="polite" data-gallery-status hidden></p><button type="button" class="outline gallery-retry" data-gallery-retry hidden>تلاش دوباره</button>
-<div class="gallery-active-tags" data-gallery-tags><?php view('martyr-filter-tags',compact('db','f')); ?></div>
+<div class="gallery-active-tags" data-gallery-tags><?php view('martyr-filter-tags',compact('db','f','filterRoute')); ?></div>
 <dialog class="gallery-filter-dialog" aria-labelledby="gallery-filter-title" data-gallery-dialog>
 <header class="gallery-sheet-header"><h2 id="gallery-filter-title"></h2><button type="button" class="gallery-icon-button" data-sheet-close aria-label="بستن بدون اعمال انتخاب‌های موقت">×</button></header>
 <div class="gallery-sheet-scroll"><p class="gallery-sheet-notice" data-sheet-notice role="status" hidden></p><label class="gallery-sheet-search" data-search-label>جست‌وجو در گزینه‌ها<input type="search" data-sheet-search placeholder="جست‌وجو…" autocomplete="off"></label><button type="button" class="outline" data-sheet-retry hidden>تلاش دوباره</button><div data-sheet-options></div></div>
-<footer class="gallery-sheet-footer"><button type="button" class="outline" data-sheet-clear>پاک کردن</button><button type="button" class="primary" data-sheet-apply>نمایش <?= fa($result['count']) ?> تصویر</button></footer>
+<footer class="gallery-sheet-footer"><button type="button" class="outline" data-sheet-clear>پاک کردن</button><button type="button" class="primary" data-sheet-apply>نمایش <?= fa($result['count']) ?> <?= e($filterUnit??'تصویر') ?></button></footer>
 </dialog>
-<script type="application/json" id="gallery-filter-state"><?= json_encode(['filters'=>$f,'facets'=>$catalogFilters,'count'=>$result['count']],JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_THROW_ON_ERROR) ?></script>
-<noscript><details><summary>فیلترهای بدون جاوااسکریپت</summary><form class="filters gallery-filters" action="/index.php" method="get"><input type="hidden" name="page" value="gallery"><?php if(($f['q']??'')!==''): ?><input type="hidden" name="q" value="<?= e($f['q']) ?>"><?php endif ?><?php view('martyr-public-filters',compact('db','f','catalogFilters')); ?><button class="primary">اعمال فیلتر</button></form></details></noscript>
+<script type="application/json" id="gallery-filter-state"><?= json_encode(['route'=>$filterRoute??'gallery','unit'=>$filterUnit??'تصویر','filters'=>$f,'facets'=>$catalogFilters,'count'=>$result['count']],JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT|JSON_THROW_ON_ERROR) ?></script>
+<noscript><details><summary>فیلترهای بدون جاوااسکریپت</summary><form class="filters gallery-filters" action="/index.php" method="get"><input type="hidden" name="page" value="<?= e($filterRoute??'gallery') ?>"><?php if(($f['q']??'')!==''): ?><input type="hidden" name="q" value="<?= e($f['q']) ?>"><?php endif ?><?php view('martyr-public-filters',compact('db','f','catalogFilters')); ?><button class="primary">اعمال فیلتر</button></form></details></noscript>
 </section>

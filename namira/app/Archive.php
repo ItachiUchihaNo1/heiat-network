@@ -27,10 +27,10 @@ final class Archive {
     private function publicNameSql():string {return ProtocolSchema::ready($this->db)?"COALESCE(NULLIF((SELECT public_name FROM martyr_protocols mp WHERE mp.martyr_id=m.id),''),TRIM(CONCAT(m.first_name,' ',m.last_name)))":"";}
     private function nameSelect():string {if(!ProtocolSchema::ready($this->db))return '';return ",(SELECT public_name FROM martyr_protocols mp WHERE mp.martyr_id=m.id) AS display_name";}
 
-    public function conditions(array $f): array {
+    public function conditions(array $f,bool $images=false): array {
         $where=['m.published=1']; $args=[];
         $q=Security::normalize(Security::text($f,'q',150,false));
-        if($q!=='') foreach(preg_split('/\s+/u',$q,-1,PREG_SPLIT_NO_EMPTY) as $term){ $name=ProtocolSchema::ready($this->db)?' OR EXISTS(SELECT 1 FROM martyr_protocols mp WHERE mp.martyr_id=m.id AND mp.public_name LIKE ?)':'';$where[]='(m.first_name LIKE ? OR m.last_name LIKE ? OR m.code LIKE ? OR m.summary LIKE ?'.$name.')'; $args=[...$args,...array_fill(0,$name?5:4,'%'.$term.'%')]; }
+        if($q!=='') foreach(preg_split('/\s+/u',$q,-1,PREG_SPLIT_NO_EMPTY) as $term){ $name=ProtocolSchema::ready($this->db)?' OR EXISTS(SELECT 1 FROM martyr_protocols mp WHERE mp.martyr_id=m.id AND mp.public_name LIKE ?)':'';$media=$images?' OR i.title LIKE ? OR i.designer LIKE ?':'';$where[]='(m.first_name LIKE ? OR m.last_name LIKE ? OR m.code LIKE ? OR m.summary LIKE ?'.$name.$media.')'; $args=[...$args,...array_fill(0,($name?5:4)+($images?2:0),'%'.$term.'%')]; }
         foreach(['province','city','job','organization'] as $key){ $v=Security::text($f,$key,150,false); if($v!==''){ $where[]='m.'.$key.'=?'; $args[]=$v; } }
         if(!empty($f['category'])){ $where[]='EXISTS(SELECT 1 FROM martyr_categories mc WHERE mc.martyr_id=m.id AND mc.category_id=?)'; $args[]=(int)$f['category']; }
         [$catalogSql,$catalogArgs]=MartyrFilters::conditions($this->db,$f);if($catalogSql!==''){$where[]=$catalogSql;$args=[...$args,...$catalogArgs];}
@@ -54,7 +54,7 @@ final class Archive {
         return Db::query($this->db,'SELECT ma.artist_id,ma.creator_role,ma.credit_name,a.slug,a.status,a.archived,a.public_visible FROM media_public_artists ma JOIN artists a ON a.id=ma.artist_id WHERE ma.image_id=? ORDER BY ma.credit_order,ma.artist_id',[$image])->fetchAll();
     }
     public function images(array $f=[],int $page=1,int $perPage=24): array {
-        [$where,$args]=$this->conditions($f);
+        [$where,$args]=$this->conditions($f,true);
         if(PlatformSchema::ready($this->db))$where='EXISTS(SELECT 1 FROM media_public_martyrs related JOIN martyrs m ON m.id=related.martyr_id WHERE related.image_id=i.id AND '.$where.')';
         $where.=' AND i.published=1';
         $kind=Security::text($f,'kind',30,false)?:'design';if($kind!=='all'){$where.=' AND i.kind=?';$args[]=$kind;}
@@ -71,7 +71,7 @@ final class Archive {
         $count=(int)Db::query($this->db,'SELECT COUNT(*) '.$this->mediaFrom().' WHERE '.$where,$args)->fetchColumn();
         $offset=(max(1,$page)-1)*$perPage;
         $items=Db::query($this->db,'SELECT i.*,m.id AS martyr_id,m.first_name,m.last_name,m.code,m.province,m.city'.(PlatformSchema::ready($this->db)?',mp.download_allowed':',1 AS download_allowed').$this->nameSelect().' '.$this->mediaFrom().' WHERE '.$where.' ORDER BY '.$sort.' LIMIT '.(int)$perPage.' OFFSET '.$offset,$args)->fetchAll();
-        if($items&&PlatformSchema::ready($this->db)&&array_filter(MartyrFilters::galleryInput($f))){[$pw,$pa]=$this->conditions($f);$ids=array_map(fn($row)=>(int)$row['id'],$items);$marks=implode(',',array_fill(0,count($ids),'?'));$people=Db::query($this->db,'SELECT r.image_id,m.id AS martyr_id,m.first_name,m.last_name,m.code,m.province,m.city'.$this->nameSelect().' FROM media_public_martyrs r JOIN martyrs m ON m.id=r.martyr_id WHERE r.image_id IN ('.$marks.') AND '.$pw.' ORDER BY m.id',[...$ids,...$pa])->fetchAll();$chosen=[];foreach($people as $person)if(!isset($chosen[$person['image_id']]))$chosen[$person['image_id']]=$person;foreach($items as &$item)if(isset($chosen[$item['id']])){$person=$chosen[$item['id']];unset($person['image_id']);$item=array_replace($item,$person);}unset($item);}
+        if($items&&PlatformSchema::ready($this->db)&&array_filter(MartyrFilters::galleryInput($f))){[$pw,$pa]=$this->conditions($f,true);$ids=array_map(fn($row)=>(int)$row['id'],$items);$marks=implode(',',array_fill(0,count($ids),'?'));$people=Db::query($this->db,'SELECT r.image_id,m.id AS martyr_id,m.first_name,m.last_name,m.code,m.province,m.city'.$this->nameSelect().' FROM media_public_martyrs r JOIN martyrs m ON m.id=r.martyr_id JOIN images i ON i.id=r.image_id WHERE r.image_id IN ('.$marks.') AND '.$pw.' ORDER BY m.id',[...$ids,...$pa])->fetchAll();$chosen=[];foreach($people as $person)if(!isset($chosen[$person['image_id']]))$chosen[$person['image_id']]=$person;foreach($items as &$item)if(isset($chosen[$item['id']])){$person=$chosen[$item['id']];unset($person['image_id']);$item=array_replace($item,$person);}unset($item);}
         $items=Storefront::cards($this->db,$items);return compact('items','count');
     }
     public function image(int $id):array|false {

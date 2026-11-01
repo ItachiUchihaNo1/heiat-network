@@ -4,7 +4,8 @@ namespace Namira;
 
 final class MobileNavigation {
     public static function section(string $page):string {
-        if(in_array($page,['gallery','image','profile'],true))return 'gallery';
+        if(in_array($page,['gallery','image'],true))return 'gallery';
+        if(in_array($page,['martyrs','profile'],true))return 'martyrs';
         if(in_array($page,['artists','artist'],true))return 'artists';
         if(in_array($page,['shop','product','cart'],true))return 'shop';
         if(in_array($page,['account','member-login','login','store-account','store-order','order','contribute','request-track'],true))return 'account';
@@ -18,12 +19,13 @@ final class MobileNavigation {
         ];
         $account=$user?'account':'member-login';
         $bottom=[];
-        foreach([['خانه','home','home'],['تصاویر','gallery','gallery'],['فروشگاه','shop','shop'],['هنرمندان','artists','palette'],['حساب',$account,'user']] as [$label,$target,$icon]){
+        foreach([['خانه','home','home'],['شهدا','martyrs','user'],['فروشگاه','shop','shop'],['تصاویر','gallery','gallery'],['حساب',$account,'user']] as [$label,$target,$icon]){
             $entry=$item($label,$target,$icon);$entry['active']=$current===($label==='حساب'?'account':$target);$bottom[]=$entry;
         }
         $groups=[
             ['title'=>'بخش‌های اصلی','items'=>[
                 $item('خانه','home','home'),$item('همه تصاویر','gallery','gallery',[], '',$current==='gallery'),
+                $item('شهدا','martyrs','user'),
                 $item('دسته‌بندی تصاویر و شهدا','gallery','categories',[],'#gallery-filters',false),
                 $item('هنرمندان','artists','palette',[],'',$current==='artists'),$item('فراخوان‌ها','calls','megaphone')
             ]],

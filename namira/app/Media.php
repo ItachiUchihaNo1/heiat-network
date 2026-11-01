@@ -9,6 +9,7 @@ final class Media {
         $this->permit('media.view');
         $im=Db::query($this->db,'SELECT i.*,d.title AS draft_title,d.type_id,d.status,d.description,d.source_text,d.rights_text,d.download_allowed,d.sort_order,d.revision FROM images i JOIN media_details d ON d.image_id=i.id WHERE i.id=?',[$id])->fetch();if(!$im)return false;$im['public_title']=$im['title'];$im['title']=$im['draft_title'];
         $im['martyrs']=array_map('intval',Db::query($this->db,'SELECT martyr_id FROM media_martyrs WHERE image_id=?',[$id])->fetchAll(PDO::FETCH_COLUMN));
+        $im['featured_people']=array_map('intval',Db::query($this->db,'SELECT martyr_id FROM media_martyrs WHERE image_id=? AND is_featured=1',[$id])->fetchAll(PDO::FETCH_COLUMN));
         $im['featured_for']=(int)Db::query($this->db,'SELECT martyr_id FROM media_martyrs WHERE image_id=? AND is_featured=1',[$id])->fetchColumn();
         $im['creators']=Db::query($this->db,'SELECT ma.*,a.display_name,a.status AS artist_status FROM media_artists ma JOIN artists a ON a.id=ma.artist_id WHERE ma.image_id=? ORDER BY credit_order,artist_id',[$id])->fetchAll();return $im;
     }
@@ -24,7 +25,9 @@ final class Media {
             // Draft metadata and reviewed public projections are separate.
             Db::query($this->db,"UPDATE media_details SET title=?,type_id=?,description=?,source_text=?,rights_text=?,download_allowed=?,sort_order=?,status='draft',revision=revision+1,updated_at=? WHERE image_id=?",[$title,$type['id'],$description,$source,$rights,$download,$sort,date('Y-m-d H:i:s'),$id]);
             // Public image fields and relationships are updated only by explicit reviewed publication.
-            Db::query($this->db,'DELETE FROM media_martyrs WHERE image_id=?',[$id]);foreach($martyrs as $person){if($featured===$person)Db::query($this->db,'UPDATE media_martyrs SET is_featured=0 WHERE martyr_id=?',[$person]);Db::insert($this->db,'media_martyrs',['image_id'=>$id,'martyr_id'=>$person,'is_featured'=>$featured===$person?1:0]);}
+            $persons=$martyrs;sort($persons,SORT_NUMERIC);foreach($persons as $person)Db::query($this->db,'SELECT id FROM martyrs WHERE id=?'.$lock,[$person])->fetchColumn();
+            $previousFeatured=array_map('intval',Db::query($this->db,'SELECT martyr_id FROM media_martyrs WHERE image_id=? AND is_featured=1',[$id])->fetchAll(PDO::FETCH_COLUMN));
+            Db::query($this->db,'DELETE FROM media_martyrs WHERE image_id=?',[$id]);foreach($martyrs as $person){if($featured===$person)Db::query($this->db,'UPDATE media_martyrs SET is_featured=0 WHERE martyr_id=?',[$person]);Db::insert($this->db,'media_martyrs',['image_id'=>$id,'martyr_id'=>$person,'is_featured'=>($featured===$person||in_array($person,$previousFeatured,true))?1:0]);}
             Db::query($this->db,'DELETE FROM media_artists WHERE image_id=?',[$id]);foreach($credits as $credit)Db::insert($this->db,'media_artists',['image_id'=>$id,'artist_id'=>$credit['artist'],'creator_role'=>$credit['role'],'credit_order'=>$credit['order']]);
             $this->history($id,'metadata.edit',$before,['type_id'=>$type['id'],'martyrs'=>$martyrs,'creators'=>$credits,'title'=>$title,'download'=>$download],$reason);
         });
