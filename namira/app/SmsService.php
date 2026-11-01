@@ -38,7 +38,7 @@ final class SmsService implements SmsGateway {
   });}catch(\PDOException $e){if($e->getCode()==='23000')return false;throw new HttpError(503,'ثبت امن درخواست پیامک انجام نشد؛ دوباره تلاش کنید.');}
   if(!$claim)return false;
   try{$reply=($this->client??TsmsClient::configured())->sendMessage($mobile,$message);if(!TsmsClient::accepted($reply))throw new HttpError(503,'قالب پاسخ موفق TSMS هنوز تأیید نشده است.');}
-  catch(\Throwable $error){Db::query($this->db,'UPDATE rate_limits SET hits=-1 WHERE bucket=?',[$bucket]);$kind=$error instanceof HttpError&&str_starts_with($error->getMessage(),'TSMS:')&&preg_match('/\(([1-9]|14)\)$/D',$error->getMessage(),$matched)?'provider-'.$matched[1]:'unconfirmed';error_log('Namira SMS: event='.substr($bucket,9,16).' kind='.$kind);throw new HttpError(503,'ارسال پیامک تأیید نشد؛ از تکرار خودکار جلوگیری شد.');}
-  Db::query($this->db,'UPDATE rate_limits SET hits=2 WHERE bucket=?',[$bucket]);return $reply;
+  catch(\Throwable $error){Db::query($this->db,'UPDATE rate_limits SET hits=-1 WHERE bucket=?',[$bucket]);$kind=$error instanceof HttpError&&str_starts_with($error->getMessage(),'TSMS:')&&preg_match('/\(([1-9]|14)\)$/D',$error->getMessage(),$matched)?'provider-'.$matched[1]:'unconfirmed';error_log('Namira SMS: event='.substr($bucket,9,16).' kind='.$kind);try{Db::audit($this->db,'sms.failed','event='.substr($bucket,-16).'; kind='.$kind);}catch(\Throwable){}throw new HttpError(503,'ارسال پیامک تأیید نشد؛ از تکرار خودکار جلوگیری شد.');}
+  Db::query($this->db,'UPDATE rate_limits SET hits=2 WHERE bucket=?',[$bucket]);$receipt=preg_match('/^[0-9,]+$/D',$reply)&&!str_contains($message,$reply)?substr($reply,0,64):'redacted';try{Db::audit($this->db,'sms.accepted','event='.substr($bucket,-16).'; receipt='.$receipt);}catch(\Throwable){error_log('Namira SMS: receipt audit unavailable');}return $reply;
  }
 }
