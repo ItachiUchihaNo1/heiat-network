@@ -20,6 +20,13 @@ try{
  ok(D::listing($db,$f)['count']===1&&F::count($db,$f,true)===1,'independent directory axes combine with AND');
  ok(F::count($db,[],true)===2&&F::count($db,[])===$baseline,'directory facets count people while gallery still counts images');
  $snap=F::response($db,['axis'=>['collection'=>[(string)$topic]]],'',true,true);ok($snap['count']===2&&str_contains($snap['url'],'page=martyrs')&&str_contains($snap['html'],'hs-martyr-grid')&&str_contains($snap['tags'],'page=martyrs'),'AJAX response uses directory cards tags URLs and count');
+ $country=(int)Db::query($db,"SELECT id FROM protocol_terms WHERE taxonomy='country' AND active=1 LIMIT 1")->fetchColumn();
+ $city=(int)Db::query($db,"SELECT id FROM protocol_terms WHERE taxonomy='city' AND active=1 LIMIT 1")->fetchColumn();
+ if(!$city)$city=Db::insert($db,'protocol_terms',['taxonomy'=>'city','title'=>'شهر آزمون','slug'=>'directory-city','active'=>1]);
+ Db::insert($db,'martyr_public_facts',['martyr_id'=>$noPhoto,'fact_key'=>'birth_place','country_id'=>$country,'city_id'=>$city,'revision'=>1]);
+ ok(F::count($db,['geo_role'=>'birth_place','geo_country'=>(string)$country,'geo_city'=>(string)$city],true)===1,'directory geography filters one published person without requiring a photo');
+ ok(F::count($db,['geo_role'=>'martyrdom_place','geo_country'=>(string)$country,'geo_city'=>(string)$city],true)===0,'geographic roles never substitute birth location for martyrdom');
+ ok(in_array($city,array_map('intval',array_column(F::geo($db,['geo_country'=>(string)$country],'birth_place',true)['city'],'id')),true),'dependent geographic choices include valid directory results');
  $card=D::card($db,$a->find($noPhoto));ok($card['cover']===null&&$card['card_city']==='شهر قدیمی'&&count($card['topics'])===1,'card preserves legacy city and public topic without fake photo');
  $canvas=imagecreatetruecolor(240,360);imagepng($canvas,$dir.'/second.png');imagedestroy($canvas);$second=Upload::attach($db,$person,$dir.'/second.png','000123-2.png',['title'=>'شاخص تازه']);AdminPublishing::publish($db,$actor,'media',$second);
  $media=new Media($db,$actor);$v=$media->get($second);$v['martyrs']=[$person,$noPhoto];$v['featured_for']=$person;$media->save($second,$v);AdminPublishing::publish($db,$actor,'media',$second);
