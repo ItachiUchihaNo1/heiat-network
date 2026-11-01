@@ -7,7 +7,7 @@ final class GalleryFacets {
     public const ROLES=['residence_at_incident'=>'محل سکونت هنگام واقعه','birth_place'=>'محل تولد','martyrdom_place'=>'محل شهادت','burial_place'=>'محل دفن'];
     public const LEVELS=['country','province','county','city'];
     private static function base(PDO $db,array $f,bool $people=false):array {
-        [$where,$args]=(new Archive($db))->conditions($f);
+        [$where,$args]=(new Archive($db))->conditions($f,!$people);
         if($people)return ['FROM martyrs m',$where,$args];
         return ["FROM images i JOIN media_publication ip ON ip.image_id=i.id JOIN media_public_martyrs rel ON rel.image_id=i.id JOIN martyrs m ON m.id=rel.martyr_id", "i.published=1 AND i.kind='design' AND ".$where,$args];
     }

@@ -4,6 +4,8 @@ require __DIR__.'/home-showcase.php';
 use Namira\{Db,Archive,MartyrDirectory as D,GalleryFacets as F,Media,AdminPublishing,Upload,HomeShowcase as H,MobileNavigation};
 set_error_handler(static function($n,$s,$f,$l){if(error_reporting()&$n)throw new ErrorException($s,0,$n,$f,$l);});
 try{
+ ok((new Archive($db))->images(['q'=>'اثر عمومی'])['count']===1&&F::count($db,['q'=>'اثر عمومی'])===1,'gallery search matches published image title and facet count');
+ ok(D::listing($db,['q'=>'اثر عمومی'])['count']===0,'martyr search never searches unrelated image metadata');
  $baseline=(new Archive($db))->images([])['count'];$noPhoto=$a->save(['code'=>'000125','first_name'=>'شهید','last_name'=>'بدون تصویر','published'=>1,'city'=>'شهر قدیمی']);
  $rows=D::listing($db);ok($rows['count']===2&&in_array($noPhoto,array_column($rows['items'],'id')),'directory includes published people without pictures and excludes drafts');
  ok(D::listing($db,['q'=>'بدون تصویر'])['count']===1,'directory searches full names');
@@ -43,7 +45,7 @@ try{
  $home=H::content($db,'martyrs',[$person])[0];ok($home['cover']['id']===D::card($db,$a->find($person))['cover']['id'],'homepage and directory share featured-image presentation');
  $sections=H::sections($db);$page='home';ob_start();view('home-showcase',compact('db','sections','page'));$html=ob_get_clean();ok(str_contains($html,'page=martyrs'),'homepage more link leads to independent directory');
  $nav=MobileNavigation::items('martyrs',false,true);ok(in_array('martyrs',array_column(array_merge(...array_column($nav['groups'],'items')),'page'))&&count($nav['bottom'])===5,'mobile drawer adds martyrs and retains five bottom destinations');
- $f=[];$catalogFilters=F::options($db,[],true);$result=D::listing($db);ob_start();view('martyrs',compact('db','f','catalogFilters','result'));$html=ob_get_clean();ok(str_contains($html,'جست‌وجوی نام شهید')&&str_contains($html,'data-gallery-dialog')&&!str_contains($html,'Warning:'),'directory renders shared filter sheet and search without PHP warnings');
+ $f=[];$catalogFilters=F::options($db,[],true);$result=D::listing($db);ob_start();view('martyrs',compact('db','f','catalogFilters','result'));$html=ob_get_clean();ok(!str_contains($html,'martyr-directory-search')&&str_contains($html,'data-gallery-dialog')&&!str_contains($html,'Warning:'),'directory renders shared filter sheet and search without PHP warnings');
  if(str_starts_with($dsn,'sqlite:')){$fixture=json_decode(file_get_contents(BASE_PATH.'/storage/home-showcase-fixture.json'),true);$fixture['topic']=$topic;$fixture['directoryCount']=2;file_put_contents(BASE_PATH.'/storage/home-showcase-fixture.json',json_encode($fixture));}
  echo ($checks-37)." directory checks passed
 ";
