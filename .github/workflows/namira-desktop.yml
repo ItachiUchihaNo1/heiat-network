@@ -1,0 +1,42 @@
+name: Namira public desktop checks
+on:
+  push:
+    branches: ['codex/desktop-ui']
+    paths: ['namira/**','.github/workflows/namira-desktop.yml']
+permissions:
+  contents: read
+jobs:
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-sqlite3 php-gd php-xml php-mbstring php-zip
+          php -l namira/views/layout.php
+          php namira/tests/home-showcase.php
+          php <<'PHP'
+          <?php
+          require 'namira/app/bootstrap.php';
+          $m=json_decode(file_get_contents('namira/storage/home-showcase-fixture.json'),true);
+          if($m['dsn']!=='sqlite:'.$m['storage'].'/db.sqlite'||!str_contains($m['storage'],'home-showcase-test-'))throw new RuntimeException('Isolated fixture required');
+          putenv('DB_DSN='.$m['dsn']);putenv('DB_USER=');putenv('DB_PASSWORD=');$db=Namira\Db::connect();
+          if(Namira\Db::query($db,'SELECT user_id FROM account_identities WHERE user_id=?',[$m['member']])->fetchColumn())Namira\Db::query($db,'UPDATE account_identities SET mobile=?,mobile_verified_at=? WHERE user_id=?',['09121112222',date(DATE_ATOM),$m['member']]);
+          else Namira\Db::insert($db,'account_identities',['user_id'=>$m['member'],'first_name'=>'نام','last_name'=>'آزمون','mobile'=>'09121112222','mobile_verified_at'=>date(DATE_ATOM),'created_at'=>date(DATE_ATOM),'updated_at'=>date(DATE_ATOM)]);
+          PHP
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm install --prefix "$RUNNER_TEMP/namira-browser" --no-package-lock --ignore-scripts playwright@1.56.1
+          node "$RUNNER_TEMP/namira-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Public desktop layouts and mobile preservation
+        working-directory: namira
+        run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/namira-browser/node_modules/playwright" node tests/public-desktop-ui.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: namira-public-desktop-evidence
+          path: namira/storage/desktop-artifacts
+          retention-days: 14

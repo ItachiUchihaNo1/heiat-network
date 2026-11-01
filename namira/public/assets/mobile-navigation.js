@@ -16,7 +16,7 @@ function unlock(){
 function finishClose(){
  clearTimeout(timer);if(dialog.open)dialog.close();dialog.classList.remove('is-closing');
  closing=false;trigger.setAttribute('aria-expanded','false');unlock();
- if(media.matches)trigger.focus({preventScroll:true});
+ trigger.focus({preventScroll:true});
 }
 function close(immediate=false){
  if(!dialog.open||closing)return;
@@ -32,7 +32,7 @@ function markCategory(){
  }
 }
 function open(){
- if(!media.matches||dialog.open)return;
+ if(dialog.open)return;
  markCategory();
  locked={y:window.scrollY,overflow:document.body.style.overflow,position:document.body.style.position,top:document.body.style.top,width:document.body.style.width,rootOverflow:document.documentElement.style.overflow};
  document.body.style.overflow='hidden';document.body.style.position='fixed';document.body.style.top=-locked.y+'px';document.body.style.width='100%';document.documentElement.style.overflow='hidden';
@@ -54,6 +54,6 @@ dialog.addEventListener('keydown',event=>{
  if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
  else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
 });
-media.addEventListener('change',()=>{if(!media.matches&&dialog.open)close(true);});
+media.addEventListener('change',()=>{if(dialog.open)close(true);});
 window.addEventListener('pagehide',()=>{if(dialog.open)close(true);});
 })();
