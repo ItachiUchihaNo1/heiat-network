@@ -18,8 +18,10 @@ final class DomainRouting {
   return in_array($a,['login','logout','account-password','account-register','account-profile','claim-create','submission-save','contribution-save','owned-artist-save','owned-artist-submit','mobile-request','mobile-verify','mobile-password','mobile-complete','member-profile','member-address','request-message','request','cart','checkout','test-pay','return','call2-start','call2-common','call2-work','call2-upload','call2-remove-file','call2-delete-work','call2-finalize','call2-notifications-read','commerce-add','commerce-quote','commerce-quantity','commerce-checkout','commerce-pay','commerce-retry','commerce-cancel','commerce-feedback','commerce-message','commerce-return','commerce-return-file','commerce-notification-read'],true);
  }
  public static function link(string $p,array $params=[]):string {
-  $path='/index.php?'.http_build_query(['page'=>$p]+$params);if(!self::enabled())return $path;
-  $target=self::adminPage($p)?'admin':(self::sharedPage($p)?self::surface():'public');return $target===self::surface()?$path:self::origin($target==='admin'?'ADMIN_APP_URL':'PUBLIC_APP_URL').$path;
+  $target=self::adminPage($p)?'admin':(self::sharedPage($p)?self::surface():'public');
+  $path=($target==='public'?CleanUrls::path($p,$params):null)??('/index.php?'.http_build_query(['page'=>$p]+$params));
+  if(!self::enabled())return $path;
+  return $target===self::surface()?$path:self::origin($target==='admin'?'ADMIN_APP_URL':'PUBLIC_APP_URL').$path;
  }
  public static function absolute(string $p,array $params=[]):string {
   $link=self::link($p,$params);if(str_starts_with($link,'https://'))return $link;$origin=self::enabled()?self::origin(self::surface()==='admin'?'ADMIN_APP_URL':'PUBLIC_APP_URL'):rtrim(Env::get('APP_URL'),'/');return $origin.$link;

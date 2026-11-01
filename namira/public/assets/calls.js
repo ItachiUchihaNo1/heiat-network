@@ -1,5 +1,5 @@
 (()=>{'use strict';
-const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];const nf=new Intl.NumberFormat('fa-IR');const fa=v=>nf.format(v);const route=(page,params={})=>{const u=new URL('index.php',location.href);u.search='';u.searchParams.set('page',page);Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));return u.href};
+const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)];const nf=new Intl.NumberFormat('fa-IR');const fa=v=>nf.format(v);const route=(page,params={})=>{const u=new URL('/index.php',location.origin);u.search='';u.searchParams.set('page',page);Object.entries(params).forEach(([k,v])=>u.searchParams.set(k,v));return u.href};
 let pending=0;const dirty=new Set();const csrf=()=> $('[name=csrf]')?.value||$('[data-call-csrf]')?.value||'';
 const node=(tag,text,cls)=>{const n=document.createElement(tag);if(text!==undefined)n.textContent=text;if(cls)n.className=cls;return n};
 const errorText=e=>Object.values(e.errors||{}).flat().join('\n')||e.message||'ارتباط برقرار نشد؛ دوباره تلاش کنید.';

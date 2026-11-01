@@ -1,0 +1,54 @@
+name: Namira clean URL checks
+on:
+  push:
+    branches: ['codex/clean-urls']
+    paths: ['namira/**','.github/workflows/namira-clean-urls.yml']
+permissions:
+  contents: read
+jobs:
+  routes:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Apache and PHP route-test dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y apache2 libapache2-mod-php php-cli php-sqlite3 php-gd php-xml php-mbstring php-zip
+      - name: Routing, publication and domain boundaries
+        run: |
+          php -l namira/app/CleanUrls.php
+          php namira/tests/clean-urls.php
+          php namira/tests/domain-routing.php public
+          php namira/tests/domain-routing.php admin
+          php namira/tests/mobile-navigation.php
+      - name: Serve actual htaccess with Apache mod_rewrite
+        run: |
+          python3 - <<'PY'
+          import pathlib,json
+          root=pathlib.Path('namira').resolve()
+          m=json.loads((root/'storage/home-showcase-fixture.json').read_text())
+          assert m['dsn']=='sqlite:'+m['storage']+'/db.sqlite' and 'home-showcase-test-' in m['storage']
+          conf='Listen 8795\n<VirtualHost *:8795>\nServerName localhost\nDocumentRoot "'+str(root/'public')+'"\n<Directory "'+str(root/'public')+'">\nAllowOverride All\nRequire all granted\n</Directory>\n'
+          for key,value in {'APP_ENV':'testing','APP_URL':'http://127.0.0.1:8795','DB_DSN':m['dsn'],'DB_USER':'','DB_PASSWORD':'','STORAGE_PATH':m['storage'],'PUBLIC_APP_URL':'','ADMIN_APP_URL':''}.items():conf+='SetEnv '+key+' "'+value+'"\n'
+          pathlib.Path('/tmp/namira-clean.conf').write_text(conf+'</VirtualHost>\n')
+          pathlib.Path('/tmp/namira-test-storage').write_text(m['storage'])
+          PY
+          sudo chown -R www-data:www-data "$(cat /tmp/namira-test-storage)"
+          sudo cp /tmp/namira-clean.conf /etc/apache2/sites-available/namira-clean.conf
+          sudo a2enmod rewrite
+          sudo a2ensite namira-clean
+          sudo apache2ctl configtest
+          sudo service apache2 restart
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm install --prefix "$RUNNER_TEMP/namira-browser" --no-package-lock --ignore-scripts playwright@1.56.1
+          node "$RUNNER_TEMP/namira-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Direct refresh redirects forms filters and canonical URLs
+        working-directory: namira
+        run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/namira-browser/node_modules/playwright" node tests/clean-urls-ui.cjs
+      - name: Apache error log on failure
+        if: failure()
+        run: sudo tail -n 60 /var/log/apache2/error.log

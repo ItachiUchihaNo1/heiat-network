@@ -18,5 +18,5 @@ function e(mixed $v): string { return htmlspecialchars((string)($v ?? ''), ENT_Q
 function url(string $page = 'home', array $params = []): string { return Namira\DomainRouting::link($page,$params); }
 function redirect(string $page, array $params = []): never { header('Location: ' . url($page, $params), true, 303); exit; }
 function fa(mixed $v): string { return strtr((string)$v, array_combine(str_split('0123456789'), ['۰','۱','۲','۳','۴','۵','۶','۷','۸','۹'])); }
-function view(string $name, array $data = []): void { extract($data, EXTR_SKIP); require BASE_PATH . '/views/' . $name . '.php'; }
+function view(string $name, array $data = []): void { extract($data, EXTR_SKIP); if($name==='layout'){ob_start();require BASE_PATH.'/views/'.$name.'.php';echo Namira\CleanUrls::html(ob_get_clean());}else require BASE_PATH . '/views/' . $name . '.php'; }
 

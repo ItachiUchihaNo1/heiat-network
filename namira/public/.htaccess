@@ -3,3 +3,14 @@ DirectoryIndex index.php
 <FilesMatch "(^\.|\.(env|sql|sqlite|log|bak|zip)$)">
 Require all denied
 </FilesMatch>
+
+# BEGIN NAMIRA CLEAN URLS
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule ^(?:assets/|\.well-known/|index\.php$) - [END]
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [END]
+RewriteRule ^ index.php [END]
+</IfModule>
+# END NAMIRA CLEAN URLS

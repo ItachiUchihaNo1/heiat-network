@@ -12,9 +12,10 @@ final class Web {
     public static function run(): void {
         Security::start(); $db=null; $page='home';
         try {
+            if(DomainRouting::surface()!=='admin')$_GET=CleanUrls::resolve($_SERVER['REQUEST_URI']??'/index.php',$_GET);
             $page=Security::text($_GET,'page',40,false)?:(DomainRouting::enabled()&&DomainRouting::surface()==='admin'?'admin':'home');DomainRouting::enforce($page);
             if($page==='setup'){ Installer::web(); return; }
-            $db=Db::connect(); $archive=new Archive($db); $shop=new Shop($db);
+            $db=Db::connect();CleanUrls::bind($db);$clean=CleanUrls::canonical($page,$_GET,$_SERVER['REQUEST_URI']??'/index.php',$_SERVER['REQUEST_METHOD']??'GET');if($clean!==null){header('Location: '.$clean,true,301);return;} $archive=new Archive($db); $shop=new Shop($db);
             if($page==='home-lookup')HomeShowcaseWeb::lookup($db);
             if(in_array($page,['home-banner','home-banner-preview'],true)){$draft=$page==='home-banner-preview';if($draft)Permissions::require($db,'settings.manage');$asset=HomeShowcase::asset($db,Security::text($_GET,'id',40),Security::text($_GET,'device',10),$draft);self::sendFile(Upload::absolute($asset['path']),'image/webp','inline','banner.webp');return;}
             if($_SERVER['REQUEST_METHOD']==='POST'){

@@ -1,0 +1,6 @@
+User-agent: *
+Disallow: /account
+Disallow: /orders/
+Disallow: /order?
+Disallow: /index.php?page=admin
+Sitemap: https://naamiraa.ir/sitemap.xml

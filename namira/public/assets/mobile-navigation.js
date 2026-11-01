@@ -25,7 +25,7 @@ function close(immediate=false){
 }
 function markCategory(){
  const selected=location.hash==='#gallery-filters';
- if(new URL(location.href).searchParams.get('page')!=='gallery')return;
+ if((new URL(location.href).searchParams.get('page')||({'/images':'gallery'}[location.pathname]))!=='gallery')return;
  for(const link of dialog.querySelectorAll('[data-mobile-page="gallery"]')){
   const active=Boolean(link.dataset.mobileFragment)===selected;
   if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');
