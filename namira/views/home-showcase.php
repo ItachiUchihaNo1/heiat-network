@@ -1,8 +1,8 @@
 <?php use Namira\HomeShowcase; $isPreview=$page==='home-preview';$homeVersion=HomeShowcase::state($db)['version']; ?>
-<link rel="stylesheet" href="/assets/home-showcase.css?v=013-3">
+<link rel="stylesheet" href="/assets/home-showcase.css?v=014-1">
 <?php if($isPreview): ?><p class="hs-preview-note">پیش‌نمایش خصوصی چیدمان ذخیره‌شده؛ هنوز منتشر نشده است.</p><?php endif ?>
 <div class="home-showcase">
-<?php foreach($sections as $index=>$block):$type=$block['type'];$items=$block['items'];$routes=['images'=>'gallery','products'=>'shop','calls'=>'calls','artists'=>'artists','martyrs'=>'gallery'];$more=$block['link']?:url($routes[$type]??'gallery'); ?>
+<?php foreach($sections as $index=>$block):$type=$block['type'];$items=$block['items'];$routes=['images'=>'gallery','products'=>'shop','calls'=>'calls','artists'=>'artists','martyrs'=>'martyrs'];$more=$block['link']?:url($routes[$type]??'gallery'); ?>
 <section class="hs-section <?= e($type==='banner'?'hs-banner-section':'hs-'.$type) ?>" data-home-block="<?= e($block['id']) ?>">
 <?php if($type==='banner'): ?>
 <div class="hs-banner <?= empty($block['assets'])?'hs-editorial':'hs-illustrated' ?>">
@@ -19,7 +19,7 @@
 <?php elseif($type==='products'): ?><div class="hs-products-grid"><?php foreach($items as $p): ?><article class="hs-product"><a href="<?= e(url('product',['id'=>$p['id']])) ?>"><div class="hs-product-image"><?php if($p['cover_id']||$p['image_id']): ?><img loading="lazy" width="500" height="500" src="<?= e($p['cover_id']?url('store-media',['id'=>$p['cover_id']]):url('media',['id'=>$p['image_id']])) ?>" alt="<?= e($p['title']) ?>"><?php else: ?><span aria-hidden="true">ن</span><?php endif ?></div><h3><?= e($p['title']) ?></h3><p class="hs-price"><?= $p['pricing']==='quote'?'استعلام قیمت':fa(number_format((int)$p['min_price'])).' <small>تومان</small>' ?></p></a></article><?php endforeach ?></div>
 <?php elseif($type==='calls'): ?><div class="hs-calls-grid"><?php foreach($items as $c): ?><article class="hs-call"><?php if($c['poster_asset_id']): ?><a class="hs-call-poster" href="<?= e(url('call',['id'=>$c['id']])) ?>"><img loading="lazy" width="600" height="750" src="<?= e(url('asset',['id'=>$c['poster_asset_id']])) ?>" alt="<?= e($c['title']) ?>"></a><?php endif ?><div class="hs-call-copy"><span class="hs-live"><i aria-hidden="true"></i> پذیرای آثار شما</span><h3><?= e($c['title']) ?></h3><?php if(Namira\PublicPresentation::meaningful(strip_tags($c['description']))): ?><p><?= e(mb_substr(strip_tags($c['description']),0,200)) ?></p><?php endif ?><a class="primary" href="<?= e(url('call',['id'=>$c['id']])) ?>">جزئیات و شرکت در فراخوان ←</a></div></article><?php endforeach ?></div>
 <?php elseif($type==='artists'): ?><div class="hs-people-row"><?php foreach($items as $a): ?><article class="hs-artist"><a href="<?= e(url('artist',['id'=>$a['id']])) ?>"><?php view('artist-avatar',['artist'=>$a]); ?><h3><?= e($a['display_name']) ?></h3><p><?= e(mb_substr(strip_tags($a['data']['summary']??''),0,110)) ?></p><span>پروفایل و آثار ←</span></a></article><?php endforeach ?></div>
-<?php elseif($type==='martyrs'): ?><div class="hs-people-row hs-martyr-row"><?php foreach($items as $m): ?><article class="hs-martyr"><a href="<?= e(url('profile',['id'=>$m['id']])) ?>"><div class="hs-martyr-photo"><?php if($m['cover']): ?><img loading="lazy" src="<?= e(url('media',['id'=>$m['cover']['id']])) ?>" width="400" height="500" alt="<?= e($m['title']) ?>"><?php else: ?><span aria-hidden="true">ن</span><?php endif ?></div><h3>شهید <?= e($m['title']) ?></h3><span>روایت زندگی و تصاویر ←</span></a></article><?php endforeach ?></div><?php endif ?>
+<?php elseif($type==='martyrs'): ?><div class="hs-people-row hs-martyr-row"><?php foreach($items as $m): ?><?php view('martyr-card',compact('m')); ?><?php endforeach ?></div><?php endif ?>
 <?php endif ?>
 </section>
 <?php endforeach ?>

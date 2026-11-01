@@ -1,0 +1,2 @@
+<?php if(!$result['items']): ?><div class="empty"><p>شهیدی با این فیلترها پیدا نشد.</p><a class="outline" href="<?= e(url('martyrs')) ?>" data-gallery-reset>پاک‌کردن همه فیلترها</a></div><?php else: ?><div class="hs-martyr-grid"><?php foreach($result['items'] as $m)view('martyr-card',compact('m')); ?></div><?php endif ?>
+<?php view('public-pagination',['count'=>$result['count'],'per'=>24,'page'=>max(1,(int)($f['p']??1)),'route'=>'martyrs','filters'=>$f]); ?>

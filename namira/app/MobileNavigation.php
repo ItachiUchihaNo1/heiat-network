@@ -24,6 +24,7 @@ final class MobileNavigation {
         $groups=[
             ['title'=>'بخش‌های اصلی','items'=>[
                 $item('خانه','home','home'),$item('همه تصاویر','gallery','gallery',[], '',$current==='gallery'),
+                $item('شهدا','martyrs','user'),
                 $item('دسته‌بندی تصاویر و شهدا','gallery','categories',[],'#gallery-filters',false),
                 $item('هنرمندان','artists','palette',[],'',$current==='artists'),$item('فراخوان‌ها','calls','megaphone')
             ]],

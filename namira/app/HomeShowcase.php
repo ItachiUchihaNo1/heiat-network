@@ -68,7 +68,7 @@ final class HomeShowcase {
   }elseif($type==='martyrs'){
    $where='m.published=1';$args=[];if($manual){$where.=' AND m.id IN ('.implode(',',array_fill(0,count($ids),'?')).')';$args=$ids;}elseif($q!==''){$where.=' AND (m.first_name LIKE ? OR m.last_name LIKE ? OR m.code LIKE ?)';$args=array_fill(0,3,'%'.$q.'%');}
    $rows=Db::query($db,'SELECT m.id FROM martyrs m WHERE '.$where.' ORDER BY m.id DESC LIMIT 24',$args)->fetchAll(PDO::FETCH_COLUMN);if($manual)$rows=array_values(array_intersect($ids,array_map('intval',$rows)));
-   foreach(array_slice($rows,0,$limit) as $id){$m=$archive->find((int)$id,true);if(!$m)continue;$m['cover']=$archive->images(['martyr_id'=>$id,'kind'=>'all'],1,1)['items'][0]??null;$m['title']=($m['display_name']??'')?:trim($m['first_name'].' '.$m['last_name']);$items[]=$m;}
+   foreach(array_slice($rows,0,$limit) as $id){$m=$archive->find((int)$id,true);if(!$m)continue;$items[]=MartyrDirectory::card($db,$m);}
   }elseif($type==='calls'&&CallSchema::ready($db)){
    $where="status='published'";$args=[];if($manual){$where.=' AND id IN ('.implode(',',array_fill(0,count($ids),'?')).')';$args=$ids;}if($q!==''){$where.=' AND title LIKE ?';$args[]='%'.$q.'%';}$now=date('Y-m-d H:i:s');$where.=' AND (start_at IS NULL OR start_at<=?) AND (end_at IS NULL OR end_at>=?)';array_push($args,$now,$now);
    foreach(Db::query($db,'SELECT * FROM art_calls WHERE '.$where.' ORDER BY id DESC LIMIT 100',$args)->fetchAll() as $c){$c['config']=array_replace(CallCampaigns::defaults(),Protocol::decode($c['criteria']));if(CallCampaigns::accepting($c))$items[]=$c;}

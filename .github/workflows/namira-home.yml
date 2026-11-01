@@ -1,7 +1,7 @@
 name: Namira home showcase checks
 on:
   push:
-    branches: ['codex/home-showcase']
+    branches: ['codex/martyr-directory']
     paths: ['namira/**', '.github/workflows/namira-home.yml']
   pull_request:
     paths: ['namira/**', '.github/workflows/namira-home.yml']
@@ -30,13 +30,13 @@ jobs:
           find namira/app namira/views -name '*.php' -print0 | xargs -0 -n1 php -l
           php namira/tests/mobile-navigation.php
       - name: Showcase storage publication permissions and upload checks on SQLite
-        run: php namira/tests/home-showcase.php
+        run: php namira/tests/martyr-directory.php
       - name: Showcase storage publication permissions and upload checks on MySQL
         env:
           TEST_SHOWCASE_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test_showcase;charset=utf8mb4'
           TEST_DB_USER: root
           TEST_DB_PASSWORD: test-only-password
-        run: php namira/tests/home-showcase.php
+        run: php namira/tests/martyr-directory.php
       - name: Existing domain boundary checks
         run: |
           php namira/tests/domain-routing.php public
@@ -48,7 +48,7 @@ jobs:
       - run: |
           sudo apt-get update -qq
           sudo apt-get install -y php-cli php-sqlite3 php-gd php-xml php-mbstring php-zip
-          php namira/tests/home-showcase.php
+          php namira/tests/martyr-directory.php
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -59,6 +59,8 @@ jobs:
       - name: Mobile desktop editor publication and private preview journey
         working-directory: namira
         run: PLAYWRIGHT_MODULE="$RUNNER_TEMP/namira-home-browser/node_modules/playwright" node tests/home-showcase-ui.cjs
+          php tests/martyr-directory.php
+          PLAYWRIGHT_MODULE="$RUNNER_TEMP/namira-home-browser/node_modules/playwright" node tests/martyr-directory-ui.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
