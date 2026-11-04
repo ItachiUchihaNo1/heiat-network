@@ -1,0 +1,56 @@
+name: Namira media upload checks
+on:
+  push:
+    branches: ['codex/media-upload']
+    paths: ['namira/**','.github/workflows/namira-media-upload.yml']
+permissions:
+  contents: read
+jobs:
+  upload:
+    runs-on: ubuntu-24.04
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: namira_test_direct
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-sqlite3 php-mysql php-gd php-xml php-mbstring php-zip php-curl
+          php -l namira/app/AdminPublishing.php
+          php -l namira/app/Web.php
+          node --check namira/public/assets/admin.js
+      - name: Upload and existing publication checks on SQLite
+        env:
+          MEDIA_UPLOAD_MANIFEST: ${{ github.workspace }}/namira/storage/media-upload-fixture.json
+        run: php namira/tests/media-upload.php
+      - name: Upload and existing publication checks on MySQL
+        env:
+          TEST_DIRECT_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test_direct;charset=utf8mb4'
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: test-only-password
+        run: php namira/tests/media-upload.php
+      - name: Upload progress regression
+        run: node namira/tests/upload-progress.cjs
+      - name: Browser dependencies
+        run: |
+          mkdir -p /tmp/namira-upload-browser
+          npm install --prefix /tmp/namira-upload-browser playwright
+          /tmp/namira-upload-browser/node_modules/.bin/playwright install --with-deps chromium
+      - name: Real HTTP upload and responsive form checks
+        working-directory: namira
+        env:
+          PLAYWRIGHT_MODULE: /tmp/namira-upload-browser/node_modules/playwright
+        run: node tests/media-upload-ui.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: media-upload-ui
+          path: namira/storage/media-upload-artifacts
+          retention-days: 14

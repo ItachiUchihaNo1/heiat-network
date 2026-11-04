@@ -60,8 +60,30 @@ final class AdminPublishing {
         if($status==='published'){self::publish($db,$actor,$kind,$id,$revision,$options);return;}if(!in_array($status,['archived','paused'],true)||($status==='paused'&&$kind!=='call'))throw new HttpError(410,'مراحل بازبینی حذف شده‌اند؛ از ثبت و انتشار مستقیم استفاده کنید.');$actor=self::guard($db,$actor,$kind);
         Db::transaction($db,function()use($db,$actor,$kind,$id,$status,$revision){[$table,$key]=match($kind){'martyr'=>['martyr_protocols','martyr_id'],'artist'=>['artists','id'],'media'=>['media_details','image_id'],'call'=>['art_calls','id']};self::version($db,$table,$key,$id,$revision);Db::query($db,"UPDATE $table SET status=?,revision=revision+1,updated_at=? WHERE $key=?",[$status,date('Y-m-d H:i:s'),$id]);if($kind==='martyr')Db::query($db,'UPDATE martyrs SET published=0 WHERE id=?',[$id]);if($kind==='artist')Db::query($db,'UPDATE artists SET public_visible=0,archived=1 WHERE id=?',[$id]);if($kind==='media')Db::query($db,'UPDATE images SET published=0 WHERE id=?',[$id]);Db::audit($db,'admin.'.$kind.'.'.$status,(string)$id);});
     }
+    public static function uploadSelection(PDO $db,array $in):array {
+        $mode=Security::text($in,'upload_mode',20,false)?:'bulk';
+        if(!in_array($mode,['normal','bulk'],true))throw new HttpError(422,'روش بارگذاری معتبر نیست.');
+        if($mode==='bulk')return ['mode'=>'bulk','person'=>0,'artist'=>0,'name'=>''];
+        $person=filter_var($in['upload_martyr_id']??null,FILTER_VALIDATE_INT);
+        if(!$person||$person<1||!Db::query($db,'SELECT id FROM martyrs WHERE id=?',[$person])->fetchColumn())throw new HttpError(422,'یک شهید معتبر برای تصاویر انتخاب کنید.');
+        $raw=$in['upload_artist_id']??'';$artist=$raw===''?0:filter_var($raw,FILTER_VALIDATE_INT);
+        if($artist===false||$artist<0)throw new HttpError(422,'هنرمند انتخاب‌شده معتبر نیست.');
+        $name='';
+        if($artist){$name=Db::query($db,'SELECT display_name FROM artists WHERE id=? AND archived=0',[$artist])->fetchColumn();if($name===false)throw new HttpError(422,'هنرمند انتخاب‌شده پیدا نشد.');}
+        return ['mode'=>$mode,'person'=>(int)$person,'artist'=>(int)$artist,'name'=>$name];
+    }
     public static function upload(PDO $db,array $actor,string $source,string $filename,array $in,?string $preview=null):int {
         $actor=self::guard($db,$actor,'media');$existed=(bool)Db::query($db,'SELECT id FROM images WHERE sha256=?',[hash_file('sha256',$source)])->fetchColumn();$paths=[];
-        try{return Db::transaction($db,function()use($db,$actor,$source,$filename,$in,$preview,$existed,&$paths){$id=Upload::image($db,$source,$filename,$in,$preview);if(!$existed)$paths=array_values(Db::query($db,'SELECT original_path,preview_path,thumb_path FROM images WHERE id=?',[$id])->fetch());self::media($db,$actor,$id);return $id;});}catch(\Throwable $e){IncomingAssets::discardPaths($paths);throw $e;}
+        if(!Permissions::allows($db,$actor,'media.create'))throw new HttpError(403,'مجوز بارگذاری تصویر را ندارید.');
+        $selection=self::uploadSelection($db,$in);
+        if($selection['mode']==='normal'&&!preg_match('/\.(jpe?g|png|webp)$/iD',basename($filename)))throw new HttpError(422,'پسوند مجاز تصویر: JPEG، JPG، PNG یا WebP.');
+        if($selection['mode']==='normal'&&$existed)throw new HttpError(409,'این فایل قبلاً ثبت شده است؛ برای تغییر انتساب از ویرایش اثر استفاده کنید.');
+        try{return Db::transaction($db,function()use($db,$actor,$source,$filename,$in,$preview,$existed,$selection,&$paths){
+            if($selection['mode']==='normal'){$in['designer']=$selection['name'];$id=Upload::attach($db,$selection['person'],$source,$filename,$in,$preview);}
+            else $id=Upload::image($db,$source,$filename,$in,$preview);
+            if(!$existed)$paths=array_values(Db::query($db,'SELECT original_path,preview_path,thumb_path FROM images WHERE id=?',[$id])->fetch());
+            if($selection['artist'])Db::insert($db,'media_artists',['image_id'=>$id,'artist_id'=>$selection['artist'],'creator_role'=>'طراح','credit_order'=>0]);
+            self::media($db,$actor,$id);return $id;
+        });}catch(\Throwable $e){IncomingAssets::discardPaths($paths);throw $e;}
     }
 }
