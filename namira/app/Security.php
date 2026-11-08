@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace Namira;
 use PDO;
 final class Security {
-    private const CSP="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; script-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'";
+    private const CSP="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://trustseal.enamad.ir; script-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'";
     /** Only the authorized home-preview route permits same-origin framing. */
     public static function homePreviewHeaders():void {header('X-Frame-Options: SAMEORIGIN');header('Content-Security-Policy: '.str_replace("frame-ancestors 'none'","frame-ancestors 'self'",self::CSP));}
     public static function start(): void {
