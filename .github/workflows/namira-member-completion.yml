@@ -1,0 +1,37 @@
+name: Namira member completion checks
+on:
+  push:
+    branches: ['codex/member-completion']
+    paths: ['namira/**','.github/workflows/namira-member-completion.yml']
+permissions:
+  contents: read
+jobs:
+  auth:
+    runs-on: ubuntu-24.04
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: namira_test_members
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-sqlite3 php-mysql php-gd php-xml php-mbstring php-zip php-curl
+          php -l namira/app/MobileAuth.php
+          php -l namira/app/AccountUi.php
+          php -l namira/app/Web.php
+          php -l namira/views/mobile-login.php
+      - name: Completion and existing authentication checks on SQLite
+        run: php namira/tests/member-completion.php
+      - name: Completion and existing authentication checks on MySQL
+        env:
+          TEST_MEMBERS_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test_members;charset=utf8mb4'
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: test-only-password
+        run: php namira/tests/member-completion.php

@@ -54,7 +54,8 @@ final class MobileAuth {
             elseif($proof['purpose']==='password'){throw new HttpError(422,'بازیابی این حساب ممکن نیست؛ مسیر ثبت‌نام یا ورود قبلی را بررسی کنید.');}
             elseif($actor){$id=(int)$actor['id'];}
             else{
-                $legacy=Db::query($db,"SELECT user_id,phone FROM account_profiles WHERE phone<>''")->fetchAll();foreach($legacy as $p)if(Security::normalize($p['phone'])===$mobile)throw new HttpError(409,'برای حفظ سوابق، ابتدا با روش ورود قبلی وارد حساب شوید و موبایل را تأیید کنید.');
+                // A historical contact number is not a verified login identity. Create only a new member;
+                // never claim, merge, or modify the historical account by matching its contact phone.
                 $first=Security::text($in,'first_name',150);$last=Security::text($in,'last_name',150);
                 $id=Db::insert($db,'users',['email'=>'member-'.bin2hex(random_bytes(16)).'@members.invalid','password_hash'=>password_hash(bin2hex(random_bytes(32)),PASSWORD_DEFAULT),'role'=>'member','active'=>1]);
                 Db::insert($db,'user_roles',['user_id'=>$id,'role_key'=>'member']);Db::insert($db,'account_profiles',['user_id'=>$id,'display_name'=>$first.' '.$last,'phone'=>'','created_at'=>$now,'updated_at'=>$now]);

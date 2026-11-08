@@ -118,7 +118,7 @@ final class Web {
                 case 'register':case 'calls':case 'call':case 'submit-art':case 'contribute':case 'account':$title=CommunityWeb::show($db,$page,$user);break;
                 case 'store-account':case 'store-order':case 'store-info':if(!StoreOrderSchema::ready($db))throw new HttpError(503,'فروشگاه هنوز ارتقا نیافته است.');StoreHttp::page($db,$page,$user);break;
                 case 'member-login':MemberWeb::login($db);break;
-                case 'login': if(DomainRouting::enabled()&&DomainRouting::surface()==='admin'){view('admin-login');break;}if(MemberSchema::ready($db)&&empty($_GET['legacy']))MemberWeb::login($db);else view('login'); break;
+                case 'login': if(DomainRouting::enabled()&&DomainRouting::surface()==='admin'){view('admin-login');break;}if(!MemberSchema::ready($db))throw new HttpError(503,'ورود کاربران هنوز آماده نیست.');MemberWeb::login($db); break;
                 case 'admin': self::admin($db,$user); break;
                 case 'about': view('about'); break;
                 default: throw new HttpError(404,'صفحه پیدا نشد.');
@@ -144,6 +144,7 @@ final class Web {
         $a=Security::text($_POST,'action',40);if($a==='home-showcase-save')HomeShowcaseWeb::save($db,Permissions::require($db,'settings.manage'));if(CallHttp::handles($a))CallHttp::action($db,$a);if(StoreHttp::handles($a))StoreHttp::action($db,$a);if(StoreOrderSchema::ready($db)&&in_array($a,['cart','checkout'],true))throw new HttpError(410,'از مسیر جدید فروشگاه استفاده کنید.');if(StoreOrderSchema::ready($db)&&in_array($a,['test-pay','order-status'],true)){ $newOrder=$a==='test-pay'?Db::query($db,'SELECT d.order_id FROM store_order_details d JOIN orders o ON o.id=d.order_id WHERE o.token=?',[(string)($_POST['token']??'')])->fetchColumn():Db::query($db,'SELECT order_id FROM store_order_details WHERE order_id=?',[(int)($_POST['id']??0)])->fetchColumn();if($newOrder)throw new HttpError(410,'از عملیات جدید سفارش استفاده کنید.');}if(StoreWeb::handles($a))StoreWeb::action($db,$a);if(MemberWeb::handles($a))MemberWeb::action($db,$a);if(MartyrCatalogWeb::handles($a))MartyrCatalogWeb::action($db,$a);if(CommunityWeb::handles($a))CommunityWeb::action($db,$a);if(AdminPanel::handles($a))AdminPanel::action($db,$a);
         switch($a){
             case 'login':
+                if(DomainRouting::enabled()&&DomainRouting::surface()!=='admin')throw new HttpError(410,'ورود ایمیلی کاربران حذف شده است؛ با شماره همراه وارد شوید.');
                 Security::limit($db,'login',8); $email=Security::text($_POST,'email',190); $password=$_POST['password']??'';if(!is_string($password)||strlen($password)>1024)throw new HttpError(422,'ایمیل یا رمز معتبر نیست.');
                 $u=Db::query($db,'SELECT * FROM users WHERE email=? AND active=1',[$email])->fetch();
                 $dummy='$2y$10$wHVV71XhPT3QCKoRV4pxXej0zu1ZokgOphJ9BSkS0HAsRkUPdMQpK';

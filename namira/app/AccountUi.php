@@ -29,7 +29,8 @@ final class AccountUi {
     }
     public static function password(PDO $db,int $user,array $in):void {
         $value=$in['new_password']??'';if($value==='')return;
-        if(!is_string($value)||str_contains($value,"\0")||mb_strlen($value)<12||strlen($value)>1024||!is_string($in['password_confirm']??null)||!hash_equals($value,$in['password_confirm']))throw new HttpError(422,'رمز دائمی حداقل ۱۲ نویسه و تکرار آن یکسان باشد.');
+        if(!is_string($value)||!is_string($in['password_confirm']??null))throw new HttpError(422,'رمز دائمی باید دقیقاً ۶ رقم و تکرار آن یکسان باشد.');
+        $value=Security::normalize($value);$confirm=Security::normalize($in['password_confirm']);if(!preg_match('/^[0-9]{6}$/D',$value)||!hash_equals($value,$confirm))throw new HttpError(422,'رمز دائمی باید دقیقاً ۶ رقم و تکرار آن یکسان باشد.');
         Db::query($db,'UPDATE users SET password_hash=? WHERE id=?',[password_hash($value,PASSWORD_DEFAULT),$user]);Db::audit($db,'account.password.otp',(string)$user);
     }
     public static function authenticate(PDO $db,array $in):int {
@@ -37,6 +38,7 @@ final class AccountUi {
         $mobile=Security::phone(Security::text($in,'mobile',20));$password=$in['password']??null;
         Security::limit($db,'mobile-password-ip',8,900);Security::limit($db,'mobile-password-'.hash('sha256',$mobile),8,900);
         if(!is_string($password)||str_contains($password,"\0")||strlen($password)>1024)throw new HttpError(422,'شماره همراه یا رمز ورود درست نیست.');
+        if(is_string($password)&&preg_match('/^[0-9۰-۹٠-٩]{6}$/uD',$password))$password=Security::normalize($password);
         $user=Db::query($db,'SELECT u.id,u.password_hash FROM users u JOIN account_identities i ON i.user_id=u.id WHERE i.mobile=? AND i.mobile_verified_at IS NOT NULL AND u.active=1',[$mobile])->fetch();
         $dummy='$2y$12$wRLT9sXPwMZLxTIMVs0Wu.AiY.ZVQdFruc/9RC02/fJmMmbG2vGCe';
         if(!password_verify($password,$user['password_hash']??$dummy)||!$user)throw new HttpError(422,'شماره همراه یا رمز ورود درست نیست.');return (int)$user['id'];
