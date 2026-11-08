@@ -1,0 +1,34 @@
+name: Namira Bale payment checks
+on:
+  push:
+    branches: ['codex/bale-payment']
+    paths: ['namira/**','.github/workflows/namira-bale.yml']
+permissions:
+  contents: read
+jobs:
+  payments:
+    runs-on: ubuntu-24.04
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: namira_test_store_orders
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-sqlite3 php-mysql php-gd php-xml php-mbstring php-zip php-curl
+          find namira/app namira/views -name '*.php' -print0 | xargs -0 -n1 php -l >/dev/null
+      - name: Existing orders and mocked Bale wallet on SQLite
+        run: php namira/tests/bale-payments.php
+      - name: Existing orders and mocked Bale wallet on MySQL
+        env:
+          STORE_ORDERS_TEST_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test_store_orders;charset=utf8mb4'
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: test-only-password
+        run: php namira/tests/bale-payments.php

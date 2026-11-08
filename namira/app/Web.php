@@ -10,6 +10,7 @@ final class Web {
         return $rows;
     }
     public static function run(): void {
+        if(($_GET['page']??'')==='bale-webhook'){BalePayments::webhook();return;}
         Security::start(); $db=null; $page='home';
         try {
             if(DomainRouting::surface()!=='admin'&&CleanUrls::enabled())$_GET=CleanUrls::resolve($_SERVER['REQUEST_URI']??'/index.php',$_GET);
