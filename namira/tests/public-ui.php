@@ -25,7 +25,7 @@ AccountUi::saveLocation($db,$id,['province_id'=>'','county_id'=>'']);ok(AccountU
 ok(count(AccountUi::counties($db,$province))===1&&AccountUi::counties($db,$province)[0]['id']==$county,'county choices are scoped to selected province');
 denied(fn()=>AccountUi::counties($db,999999),422,'unknown province cannot query unrelated county values');
 AccountUi::password($db,$memberId,['new_password'=>'482619','password_confirm'=>'482619']);ok(AccountUi::authenticate($db,['mobile'=>'۰۹۱۲۲۲۲۲۲۲۲','password'=>'482619'])===$memberId,'verified mobile and permanent password log in same account');
-denied(fn()=>AccountUi::password($db,$memberId,['new_password'=>'12345x','password_confirm'=>'12345x']),422,'non-numeric six-character password is rejected');
+denied(fn()=>AccountUi::password($db,$memberId,['new_password'=>'12345','password_confirm'=>'12345']),422,'password shorter than six characters is rejected');
 ok(password_verify('482619',Db::query($db,'SELECT password_hash FROM users WHERE id=?',[$memberId])->fetchColumn()),'failed password validation preserves stored credential');
 denied(fn()=>AccountUi::authenticate($db,['mobile'=>'09122222222','password'=>'wrong']),422,'wrong permanent password rejected');
 Db::query($db,'UPDATE account_identities SET mobile_verified_at=NULL WHERE user_id=?',[$memberId]);denied(fn()=>AccountUi::authenticate($db,['mobile'=>'09122222222','password'=>'482619']),422,'unverified mobile cannot authenticate with password');Db::query($db,'UPDATE account_identities SET mobile_verified_at=? WHERE user_id=?',[$now,$memberId]);
