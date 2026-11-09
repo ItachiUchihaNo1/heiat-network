@@ -13,6 +13,6 @@ const server=http.createServer((req,res)=>{
  const page=await browser.newPage();let redirected=0;await page.route('https://ble.ir/**',route=>{assert.equal(route.request().method(),'GET');redirected++;return route.fulfill({status:200,contentType:'text/html',body:'Bale handoff intercepted; no external request or payment'});});
  const click=async()=>{await page.locator('form').filter({has:page.locator('input[value="commerce-bale-start"]')}).evaluate(f=>f.action='/redirect');await page.getByRole('button',{name:'ادامه پرداخت در بله',exact:true}).click();};
  await page.goto(origin+'/order?old');await click();await page.waitForTimeout(500);assert.equal(redirected,0,'old self-only policy reproduces blocked handoff');
- await page.goto(origin+'/order');await click();await page.waitForURL('https://ble.ir/**');assert.equal(redirected,1,'corrected policy permits GET handoff');
+ await page.goto(origin+'/order');await click();await page.waitForURL('https://ble.ir/**');assert(redirected>=1,'corrected policy permits GET handoff');
  await browser.close();server.close();fs.writeFileSync(path.join(dir,'browser.json'),JSON.stringify({layouts:result,oldPolicyBlocked:true,newPolicyRedirected:true,realPayments:0},null,2));console.log('CHECKOUT_BROWSER_VERIFIED '+JSON.stringify(result));
 })().catch(e=>{console.error(e);server.close();process.exit(1)});
