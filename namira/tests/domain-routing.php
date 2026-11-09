@@ -6,7 +6,7 @@ $surface=$argv[1]??'public';if(!in_array($surface,['public','admin'],true))throw
 function ok(bool $b,string $s):void {global $checks;if(!$b)throw new RuntimeException('FAIL '.$s);$checks++;echo 'PASS '.$s.PHP_EOL;}
 function rejects(callable $f,int $code,string $s):void {try{$f();}catch(HttpError $e){ok($e->status===$code,$s);return;}throw new RuntimeException('Expected rejection '.$s);}
 putenv('PUBLIC_APP_URL');putenv('ADMIN_APP_URL');ok(!R::enabled()&&url('admin')==='/index.php?page=admin','single-domain installations retain existing URLs');
-putenv('PUBLIC_APP_URL=https://naamiraa.ir');putenv('ADMIN_APP_URL=https://admin.naamiraa.ir');ok(R::enabled(),'separate secure origins enabled');
+putenv('PUBLIC_APP_URL=https://naamiraa.ir');putenv('ADMIN_APP_URL=https://admin.naamiraa.ir');ok(R::enabled(),'separate secure origins enabled');ok(url('admin-media',['id'=>1])===($surface==='admin'?'/index.php?page=admin-media&id=1':'https://admin.naamiraa.ir/index.php?page=admin-media&id=1'),'private thumbnails remain on authenticated admin origin');
 foreach(['http://admin.naamiraa.ir','https://admin.naamiraa.ir/path','https://user:pass@admin.naamiraa.ir','https://admin.naamiraa.ir?next=x','https://admin.naamiraa.ir#x',"https://admin.naamiraa.ir\r\nX: y"] as $bad){putenv('ADMIN_APP_URL='.$bad);rejects(fn()=>R::enabled(),503,'invalid origin rejected');}putenv('ADMIN_APP_URL=https://admin.naamiraa.ir');
 $_SERVER['HTTP_HOST']='evil.example';$_SERVER['REQUEST_METHOD']='GET';$_POST=[];$_GET=[];rejects(fn()=>R::enforce($surface==='admin'?'admin':'home'),421,'untrusted host never used for redirects');$_SERVER['HTTP_HOST']=$surface==='admin'?'admin.naamiraa.ir':'naamiraa.ir';
 if($surface==='public'){
