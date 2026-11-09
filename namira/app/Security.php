@@ -6,6 +6,8 @@ final class Security {
     private const CSP="default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https://trustseal.enamad.ir; script-src 'self'; form-action 'self'; frame-ancestors 'none'; base-uri 'self'";
     /** Only the authorized home-preview route permits same-origin framing. */
     public static function homePreviewHeaders():void {header('X-Frame-Options: SAMEORIGIN');header('Content-Security-Policy: '.str_replace("frame-ancestors 'none'","frame-ancestors 'self'",self::CSP));}
+    /** Only order/payment responses may redirect a form to the fixed Bale origin. */
+    public static function balePaymentHeaders():void {header('Content-Security-Policy: '.str_replace("form-action 'self'", "form-action 'self' https://ble.ir",self::CSP));}
     public static function start(): void {
         if(in_array(Env::get('APP_ENV','production'),['production','staging'],true)){ini_set('display_errors','0');ini_set('log_errors','1');}
         ini_set('session.use_strict_mode','1'); session_name(DomainRouting::enabled()?'namira_'.DomainRouting::surface().'_session':'namira_session');

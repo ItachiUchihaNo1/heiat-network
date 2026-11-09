@@ -1,0 +1,47 @@
+name: Namira checkout UI checks
+on:
+  push:
+    branches: ['codex/member-completion']
+    paths: ['namira/**','.github/workflows/namira-checkout-ui.yml']
+permissions:
+  contents: read
+jobs:
+  checkout:
+    runs-on: ubuntu-24.04
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: namira_test_store_orders
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-sqlite3 php-mysql php-gd php-xml php-mbstring php-zip php-curl
+          php namira/tests/checkout-ui-render.php
+        env:
+          CHECKOUT_UI_DIR: /tmp/checkout-ui
+      - run: php namira/tests/bale-payments.php
+        env:
+          STORE_ORDERS_TEST_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test_store_orders;charset=utf8mb4'
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: test-only-password
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+          node namira/tests/checkout-ui-browser.cjs
+        env:
+          CHECKOUT_UI_DIR: /tmp/checkout-ui
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: checkout-ui
+          path: /tmp/checkout-ui
