@@ -1,0 +1,10 @@
+@font-face{font-family:'Peyda';font-style:normal;font-weight:100;font-display:swap;src:url('/assets/fonts/peyda/peyda-100.ttf') format('truetype')}
+@font-face{font-family:'Peyda';font-style:normal;font-weight:200;font-display:swap;src:url('/assets/fonts/peyda/peyda-200.ttf') format('truetype')}
+@font-face{font-family:'Peyda';font-style:normal;font-weight:300;font-display:swap;src:url('/assets/fonts/peyda/peyda-300.ttf') format('truetype')}
+@font-face{font-family:'Peyda';font-style:normal;font-weight:400;font-display:swap;src:url('/assets/fonts/peyda/peyda-400.ttf') format('truetype')}
+@font-face{font-family:'Peyda';font-style:normal;font-weight:500;font-display:swap;src:url('/assets/fonts/peyda/peyda-500.ttf') format('truetype')}
+@font-face{font-family:'Peyda';font-style:normal;font-weight:600;font-display:swap;src:url('/assets/fonts/peyda/peyda-600.ttf') format('truetype')}
+@font-face{font-family:'Peyda';font-style:normal;font-weight:700;font-display:swap;src:url('/assets/fonts/peyda/peyda-700.ttf') format('truetype')}
+@font-face{font-family:'Peyda';font-style:normal;font-weight:800;font-display:swap;src:url('/assets/fonts/peyda/peyda-800.ttf') format('truetype')}
+@font-face{font-family:'Peyda';font-style:normal;font-weight:900;font-display:swap;src:url('/assets/fonts/peyda/peyda-900.ttf') format('truetype')}
+:root{--font-family:'Peyda',Tahoma,sans-serif}html,body,button,input,select,textarea{font-family:var(--font-family)}
