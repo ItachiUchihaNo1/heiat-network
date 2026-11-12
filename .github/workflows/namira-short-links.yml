@@ -1,0 +1,35 @@
+name: Namira short link checks
+on:
+  push:
+    branches: ['codex/short-links-sharing']
+  pull_request:
+    branches: ['codex/member-completion']
+permissions:
+  contents: read
+jobs:
+  short-links:
+    runs-on: ubuntu-24.04
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: namira_test_showcase
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-sqlite3 php-mysql php-gd php-xml php-mbstring php-zip
+          php -l namira/views/profile.php
+          php -l namira/views/image.php
+          node --check namira/public/assets/share.js
+          php namira/tests/short-links.php
+      - run: php namira/tests/short-links.php
+        env:
+          TEST_SHOWCASE_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test_showcase;charset=utf8mb4'
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: test-only-password

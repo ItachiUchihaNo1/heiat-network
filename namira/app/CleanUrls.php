@@ -42,6 +42,7 @@ final class CleanUrls {
   foreach(self::SIMPLE as $key=>$value)if($trimmed===$value){$route=$key;break;}
   if($trimmed==='/login')$route='login';
   if($route===null&&preg_match('~^/(martyrs|artists|calls|products|images)/([0-9]+)(?:/([^/]+))?$~uD',$trimmed,$m)){$route=array_search($m[1],self::DETAILS,true);if((int)$m[2]<1)throw new HttpError(404,'صفحه پیدا نشد.');$params['id']=(int)$m[2];}
+  if($route===null&&preg_match('~^/(m|i)/([1-9][0-9]{0,17})$~D',$trimmed,$m)){$route=$m[1]==='m'?'profile':'image';$params['id']=(int)$m[2];}
   if($route===null&&preg_match('~^/orders/([1-9][0-9]*)$~D',$trimmed,$m)){$route='store-order';$params['id']=(int)$m[1];}
   if($route===null&&preg_match('~^/help/([a-z_-]+)$~D',$trimmed,$m)){$route='store-info';$params['section']=str_replace('-','_',$m[1]);}
   if($route===null)throw new HttpError(404,'صفحه پیدا نشد.');return array_replace($query,['page'=>$route],$params);
