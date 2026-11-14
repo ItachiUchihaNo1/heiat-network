@@ -72,6 +72,17 @@ jobs:
         with:
           name: namira-release
           path: artifacts
+      - name: Check VPS network reachability
+        run: |
+          python3 - <<'PY'
+          import socket,json
+          for port in (22,80,443):
+              try:
+                  with socket.create_connection(('188.253.2.237',port),timeout=8):
+                      print(json.dumps({'host':'188.253.2.237','port':port,'tcp':'reachable'}),flush=True)
+              except OSError as error:
+                  print(json.dumps({'host':'188.253.2.237','port':port,'tcp':'unreachable','reason':type(error).__name__}),flush=True)
+          PY
       - name: Deploy with restricted SSH key
         env:
           VPS_DEPLOY_KEY: ${{ secrets.VPS_DEPLOY_KEY }}
