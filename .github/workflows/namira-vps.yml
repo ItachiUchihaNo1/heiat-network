@@ -1,4 +1,5 @@
 name: Namira VPS deployment
+run-name: 'Namira VPS · ${{ github.ref_name }} · ${{ github.sha }}'
 on:
   push:
     branches: ['codex/vps-deployment','namira-production']
