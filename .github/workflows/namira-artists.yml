@@ -37,6 +37,8 @@ jobs:
           node namira/tests/gallery-filter-state.cjs
           python3 namira/tests/vps-deploy.py
       - name: Artist lifecycle and isolation on SQLite
+        env:
+          ARTIST_UI_FIXTURE: '1'
         run: php namira/tests/artist-portal.php
       - name: Artist lifecycle and isolation on MySQL
         env:
@@ -50,6 +52,20 @@ jobs:
           php namira/tests/members.php
           php namira/tests/admin-managers.php
           php namira/tests/gallery-facets.php
+      - name: Install isolated browser test dependencies
+        run: |
+          npm install --prefix "$RUNNER_TEMP/artist-browser" playwright@1.56.1
+          "$RUNNER_TEMP/artist-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Artist browser workflows on mobile and desktop
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/artist-browser/node_modules/playwright
+        run: node namira/tests/artist-portal-ui.cjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: artist-browser-results
+          path: namira/storage/artist-ui-artifacts
+          retention-days: 7
       - name: Build tested code-only release
         run: |
           python3 namira/deploy/package_vps.py --source namira --revision "$GITHUB_SHA" --output artifacts/namira.tar.gz
