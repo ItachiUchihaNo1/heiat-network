@@ -1,4 +1,5 @@
 (function(){'use strict';
+document.querySelector('.artist-tabs [aria-current="page"]')?.scrollIntoView({block:'nearest',inline:'center'});
 const missing=document.querySelector('[data-missing-martyr]'),proposal=document.querySelector('[data-proposed-martyr]');
 function toggle(){if(!missing||!proposal)return;proposal.hidden=!missing.checked;for(const key of ['first_name','last_name'])proposal.querySelector('[name="proposed_'+key+'"]').required=missing.checked;const lookup=document.querySelector('[name="martyr_id"]')?.closest('.community-lookup');if(lookup)lookup.hidden=missing.checked;}missing?.addEventListener('change',toggle);toggle();
 const tools=document.querySelector('[data-artist-selection-tools]');if(!tools)return;
