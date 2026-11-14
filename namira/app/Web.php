@@ -39,6 +39,7 @@ final class Web {
             if($page==='call-lookup'){CallSchema::requireReady($db);CallHttp::lookup($db);}
             if($page==='call-compare'){CallSchema::requireReady($db);$actor=Security::user($db);if(!$actor)throw new HttpError(403,'ورود لازم است.');$person=(int)($_GET['martyr_id']??0);$compare=CallQueries::compare($db,$actor,$person);CallHttp::json(['ok'=>true,'html'=>CallUI::render('call-comparison',compact('db','compare','person'))]);}
             if($page==='call-geography'){CallSchema::requireReady($db);CallHttp::geography($db);}
+            if($page==='martyr-similar')MartyrSuggestions::response($db);
             if($page==='catalog-geography')MartyrCatalogWeb::options($db);
             if($page==='public-lookup')CommunityWeb::lookup($db);
             if($page==='community-file')CommunityWeb::file($db);
@@ -158,7 +159,7 @@ final class Web {
             case 'images':
                 if(PlatformSchema::ready($db))Permissions::require($db,'media.create');else Security::requireRole($db,'content'); $actor=Security::user($db);AdminPanel::boot($db,$actor);AdminPublishing::guard($db,$actor,'media');$files=self::files('images'); if(!$files||count($files)>10) throw new HttpError(422,'از ۱ تا ۱۰ فایل در هر نوبت انتخاب کنید.'); $messages=[]; $failedUploads=0; AdminPublishing::uploadSelection($db,$_POST);
                  $previews=self::files('previews');if($previews&&count($previews)!==count($files))throw new HttpError(422,'تعداد پیش‌نمایش‌های همراه با فایل‌های اصلی یکسان نیست.');
-                foreach($files as $index=>$f){ try{ $id=AdminPublishing::upload($db,$actor,Upload::receive($f),$f['name'],$_POST,isset($previews[$index])?Upload::receive($previews[$index]):null); $messages[]=$f['name'].' : ثبت/موجود '.$id; }catch(\Throwable $ex){ $failedUploads++; error_log('Upload: '.$ex->getMessage()); $messages[]=$f['name'].' : '.($ex instanceof HttpError?$ex->getMessage():'خطای پردازش؛ دوباره تلاش کنید'); } }
+                foreach($files as $index=>$f){ try{ $id=AdminPublishing::upload($db,$actor,Upload::receive($f),$f['name'],$_POST,isset($previews[$index])?Upload::receive($previews[$index]):null); $messages[]=$f['name'].' : کد تصویر '.ImageCode::format($id); }catch(\Throwable $ex){ $failedUploads++; error_log('Upload: '.$ex->getMessage()); $messages[]=$f['name'].' : '.($ex instanceof HttpError?$ex->getMessage():'خطای پردازش؛ دوباره تلاش کنید'); } }
                 $_SESSION['flash_type']=$failedUploads?'error':'success'; $_SESSION['flash']=implode("\n",$messages); self::uploadResponse('admin',['tab'=>'images']);
             case 'image-publish': if(PlatformSchema::ready($db))throw new HttpError(410,'از ثبت و انتشار مستقیم رسانه استفاده کنید.'); Security::requireRole($db,'content'); Db::query($db,'UPDATE images SET published=? WHERE id=?',[(int)!empty($_POST['published']),(int)$_POST['id']]); Db::audit($db,'image.publish',(string)(int)$_POST['id']); redirect('admin',['tab'=>'images']);
             case 'import-preview': Security::requireRole($db,'content'); $files=self::files('excel'); if(count($files)!==1) throw new HttpError(422,'یک فایل XLSX انتخاب کنید.'); $_SESSION['import_rows']=Xlsx::read(Upload::receive($files[0])); redirect('admin',['tab'=>'import']);

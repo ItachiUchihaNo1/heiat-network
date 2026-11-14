@@ -39,7 +39,7 @@ final class Protocol {
         $where=implode(' AND ',array_map(fn($k)=>$k.'=?',array_keys($owner)));foreach(Db::query($this->db,'SELECT DISTINCT field_key FROM '.$table.' WHERE '.$where,array_values($owner))->fetchAll(PDO::FETCH_COLUMN) as $storedField)unset($data[$storedField]);
     }
     public function quick(array $in):int {
-        $code=Security::normalize(Security::text($in,'code',80));$first=Security::text($in,'first_name',150);$last=Security::text($in,'last_name',150);
+        $code=Security::normalize(Security::text($in,'code',80,false));$first=Security::text($in,'first_name',150);$last=Security::text($in,'last_name',150);
         return $this->save(0,1,['form_complete'=>'1','data'=>['archive_code'=>$code,'first_name'=>$first,'last_name'=>$last,'display_name'=>trim($first.' '.$last),'identity_status'=>'unknown']]);
     }
     public function save(int $id,int $step,array $in):int {

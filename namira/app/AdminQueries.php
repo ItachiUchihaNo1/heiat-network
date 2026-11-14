@@ -18,7 +18,7 @@ final class AdminQueries {
         return self::paginate($db,$select,$from,$sql,$args,['new'=>'m.id DESC','name'=>'m.last_name,m.first_name,m.id','updated'=>'p.updated_at DESC,m.id DESC','code'=>'m.code,m.id'],$f);
     }
     public static function media(PDO $db,array $f):array {
-        $where=['1=1'];$args=[];$q=Security::text($f,'q',150,false);if($q!==''){$where[]='(d.title LIKE ? OR i.designer LIKE ? OR m.code LIKE ?)';$args=[...array_fill(0,3,'%'.$q.'%')];}
+        $where=['1=1'];$args=[];$q=Security::normalize(Security::text($f,'q',150,false));if($q!==''){$where[]='(d.title LIKE ? OR i.designer LIKE ? OR m.code LIKE ? OR i.id=?)';$args=[...array_fill(0,3,'%'.$q.'%'),ctype_digit($q)?(int)$q:0];}
         foreach(['status'=>'d.status','type_id'=>'d.type_id'] as $key=>$col)if(($f[$key]??'')!==''){if($key==='status'&&$f[$key]==='unpublished')$where[]="d.status NOT IN ('published','archived')";else{$where[]=$col.'=?';$args[]=$key==='type_id'?(int)$f[$key]:Security::text($f,$key,30);}}
         if(($f['uncredited']??'')==='1')$where[]='NOT EXISTS(SELECT 1 FROM media_artists ma WHERE ma.image_id=i.id)';
         $from='FROM images i JOIN media_details d ON d.image_id=i.id JOIN martyrs m ON m.id=i.martyr_id LEFT JOIN protocol_terms t ON t.id=d.type_id';
@@ -26,14 +26,15 @@ final class AdminQueries {
         return self::paginate($db,$select,$from,implode(' AND ',$where),$args,['new'=>'i.id DESC','updated'=>'d.updated_at DESC','downloads'=>'i.downloads DESC'],$f);
     }
     public static function dashboard(PDO $db,array $user):array {
-        $stats=[];$add=function($key,$label,$sql,$tab)use($db,&$stats){$stats[]=['key'=>$key,'label'=>$label,'value'=>(int)$db->query($sql)->fetchColumn(),'tab'=>$tab];};
+        $stats=[];$add=function($key,$label,$sql,$tab,$format='count')use($db,&$stats){$raw=$db->query($sql)->fetchColumn();$stats[]=['key'=>$key,'label'=>$label,'value'=>$format==='mb'?(float)$raw:(int)$raw,'tab'=>$tab,'format'=>$format];};
         if(Permissions::allows($db,$user,'martyrs.view')){$add('martyrs','پرونده شهدا','SELECT COUNT(*) FROM martyrs','martyrs');$add('incomplete','پرونده نیازمند تکمیل',"SELECT COUNT(*) FROM martyrs WHERE summary=''",'martyrs');}
-        if(Permissions::allows($db,$user,'media.view')){$add('media','رسانه‌ها','SELECT COUNT(*) FROM images','images');$add('pending_media','رسانه منتشرنشده',"SELECT COUNT(*) FROM media_details WHERE status NOT IN ('published','archived')",'images');$add('uncredited','رسانه بدون پدیدآورنده متصل','SELECT COUNT(*) FROM images i WHERE NOT EXISTS(SELECT 1 FROM media_artists ma WHERE ma.image_id=i.id)','images');}
+        if(Permissions::allows($db,$user,'media.view')){$add('media','تصاویر و فایل‌های آرشیو','SELECT COUNT(*) FROM images','images');$add('media_bytes','حجم اصل تصاویر ثبت‌شده (مگابایت)','SELECT COALESCE(SUM(bytes),0)/1048576.0 FROM images','images','mb');$add('pending_media','رسانه منتشرنشده',"SELECT COUNT(*) FROM media_details WHERE status NOT IN ('published','archived')",'images');$add('uncredited','رسانه بدون پدیدآورنده متصل','SELECT COUNT(*) FROM images i WHERE NOT EXISTS(SELECT 1 FROM media_artists ma WHERE ma.image_id=i.id)','images');}
         if(Permissions::allows($db,$user,'artists.view'))$add('artists','پرونده هنرمندان','SELECT COUNT(*) FROM artists WHERE archived=0','artists');
         if(Permissions::allows($db,$user,'requests.view'))$add('requests','درخواست طراحی در جریان',"SELECT COUNT(*) FROM design_requests WHERE status IN ('submitted','reviewing','accepted')",'requests');
         if(Permissions::allows($db,$user,'shop.manage')){$add('orders','سفارش نیازمند رسیدگی',"SELECT COUNT(*) FROM orders WHERE status IN ('paid','preparing')",'orders');$add('low_stock','تنوع کم‌موجودی','SELECT COUNT(*) FROM variants WHERE stock<=3','products');}
+        if(Permissions::allows($db,$user,'users.manage')){$add('users','کل کاربران','SELECT COUNT(*) FROM users','users');$add('active_users','کاربران فعال','SELECT COUNT(*) FROM users WHERE active=1','users');}
         if(CommunitySchema::ready($db)){
-            if(Permissions::allows($db,$user,'calls.view'))$add('calls','فراخوان منتشرشده',"SELECT COUNT(*) FROM art_calls WHERE status='published'",'calls');
+            if(Permissions::allows($db,$user,'calls.view')){$add('calls','کل فراخوان‌ها','SELECT COUNT(*) FROM art_calls','calls');$add('published_calls','فراخوان منتشرشده',"SELECT COUNT(*) FROM art_calls WHERE status='published'",'calls');}
             if(Permissions::allows($db,$user,'submissions.view'))$add('incoming_works','اثر دریافتی منتشرنشده',"SELECT COUNT(*) FROM art_submissions WHERE status IN ('submitted','reviewing')",'submissions');
             if(Permissions::allows($db,$user,'contributions.view'))$add('contributions','مشارکت دریافتی',"SELECT COUNT(*) FROM public_contributions WHERE status IN ('submitted','reviewing')",'contributions');
             if(Permissions::allows($db,$user,'artists.claims.review'))$add('claims','اتصال هنرمند در صف',"SELECT COUNT(*) FROM artist_account_claims WHERE status='pending'",'claims');

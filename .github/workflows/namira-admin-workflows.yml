@@ -1,0 +1,32 @@
+name: Namira admin workflow checks
+on:
+  push:
+    branches: ['codex/admin-workflow-tools']
+permissions:
+  contents: read
+jobs:
+  admin:
+    runs-on: ubuntu-24.04
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: namira_test_direct
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-sqlite3 php-mysql php-gd php-xml php-mbstring php-zip php-curl
+          node --check namira/public/assets/martyr-suggestions.js
+          php namira/tests/admin-managers.php
+          php namira/tests/simple-martyr.php
+      - run: php namira/tests/admin-managers.php
+        env:
+          TEST_DIRECT_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test_direct;charset=utf8mb4'
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: test-only-password

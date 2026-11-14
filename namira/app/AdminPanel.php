@@ -29,6 +29,7 @@ final class AdminPanel {
         'store-settings'=>['تنظیمات فروشگاه','فروشگاه','settings.manage'],
         'returns'=>['مرجوعی‌ها','فروشگاه','store.returns'],
         'store-notifications'=>['سوابق ارسال اعلان‌ها','فروشگاه','shop.manage'],
+        'managers'=>['مدیران و سطح دسترسی','مدیریت','users.manage'],
         'users'=>['کاربران و مجوزها','مدیریت','users.manage'],
         'reports'=>['گزارش‌ها و خروجی','مدیریت','reports.archive'],
         'settings'=>['تنظیمات و پشتیبان','مدیریت','settings.manage']
@@ -45,6 +46,7 @@ final class AdminPanel {
         $old=$_SESSION['panel_feedback']['input']??null;$errors=$_SESSION['panel_feedback']['errors']??[];unset($_SESSION['panel_feedback']);$data+=compact('old','errors');
         ob_start();
         switch($tab){
+            case 'managers':view('admin-managers',$data+['result'=>ManagerAccounts::listing($db,$_GET)]);break;
             case 'dashboard':view('admin-dashboard',$data+AdminQueries::dashboard($db,$user));break;
             case 'martyrs':
                 if(array_key_exists('edit',$_GET)||!empty($_GET['new'])){if(!Permissions::allows($db,$user,'martyrs.edit'))throw new HttpError(403,'مجوز ویرایش پرونده را ندارید.');ProtocolController::show($db,$user);}
@@ -70,15 +72,16 @@ final class AdminPanel {
         }
         $body=ob_get_clean();view('admin-shell',compact('body','db','user','tab','nav','label','errors'));
     }
-    public static function handles(string $action):bool{return in_array($action,['artist-save','artist-transition','media-save','media-transition','backup-create','user-save','storefront-save','participation-settings'],true);}
+    public static function handles(string $action):bool{return in_array($action,['manager-save','artist-save','artist-transition','media-save','media-transition','backup-create','user-save','storefront-save','participation-settings'],true);}
     public static function action(PDO $db,string $action):never {
-        $user=Security::user($db);if(!$user)throw new HttpError(403,'ورود لازم است.');self::boot($db,$user);$id=(int)($_POST['id']??0);$tab=$action==='user-save'?'users':(str_starts_with($action,'artist')?'artists':(str_starts_with($action,'media')?'images':'settings'));
+        $user=Security::user($db);if(!$user)throw new HttpError(403,'ورود لازم است.');self::boot($db,$user);$id=(int)($_POST['id']??0);$tab=$action==='manager-save'?'managers':($action==='user-save'?'users':(str_starts_with($action,'artist')?'artists':(str_starts_with($action,'media')?'images':'settings')));
         try{
             switch($action){
                 case 'artist-save':$avatars=Web::files('avatar');if(count($avatars)>1)throw new HttpError(422,'یک تصویر پروفایل انتخاب کنید.');$id=AdminPublishing::save($db,$user,'artist',fn()=>(new Artists($db,$user))->save($_POST,$id,$avatars?Upload::receive($avatars[0]):null),['existing_id'=>$id]+$_POST);break;
                 case 'artist-transition':AdminPublishing::visibility($db,$user,'artist',$id,Security::text($_POST,'status',30),(int)($_POST['revision']??-1),$_POST);break;
                 case 'media-save':AdminPublishing::save($db,$user,'media',function()use($db,$user,$id){(new Media($db,$user))->save($id,$_POST);return $id;});break;
                 case 'media-transition':AdminPublishing::visibility($db,$user,'media',$id,Security::text($_POST,'status',30),(int)($_POST['revision']??-1));break;
+                case 'manager-save':$id=ManagerAccounts::save($db,$user,$_POST);break;
                 case 'user-save':$id=Accounts::save($db,$user,$_POST);break;
                 case 'participation-settings':ParticipationForm::saveRelations($db,$user,$_POST);break;
                 case 'storefront-save':Storefront::save($db,$user,$_POST);break;
