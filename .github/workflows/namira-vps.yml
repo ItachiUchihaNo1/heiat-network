@@ -1,0 +1,94 @@
+name: Namira VPS deployment
+on:
+  push:
+    branches: ['codex/vps-deployment','namira-production']
+    paths: ['namira/**','.github/workflows/namira-vps.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: namira-vps-production
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: namira_test_direct
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    outputs:
+      digest: ${{ steps.package.outputs.digest }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-sqlite3 php-mysql php-gd php-xml php-mbstring php-zip php-curl
+      - name: Deployment safety and archive checks
+        run: |
+          python3 -m py_compile namira/deploy/package_vps.py namira/deploy/vps_gateway.py namira/deploy/install_vps.py
+          python3 namira/tests/vps-deploy.py
+          php -l namira/bin/deploy-check.php
+          php -l namira/deploy/vps-current.php
+          node --check namira/public/assets/martyr-suggestions.js
+      - name: Application checks on SQLite
+        run: |
+          php namira/tests/admin-managers.php
+          php namira/tests/short-links.php
+      - name: Application checks on MySQL
+        env:
+          TEST_DIRECT_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test_direct;charset=utf8mb4'
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: test-only-password
+        run: php namira/tests/admin-managers.php
+      - name: Build code-only release
+        id: package
+        run: |
+          python3 namira/deploy/package_vps.py --source namira --revision "$GITHUB_SHA" --output artifacts/namira.tar.gz
+          printf 'digest=%s\n' "$(cat artifacts/namira.tar.gz.sha256)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: namira-release
+          path: artifacts/namira.tar.gz
+          retention-days: 7
+  deploy:
+    if: github.ref == 'refs/heads/namira-production'
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    environment: namira-production
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: namira-release
+          path: artifacts
+      - name: Deploy with restricted SSH key
+        env:
+          VPS_DEPLOY_KEY: ${{ secrets.VPS_DEPLOY_KEY }}
+          VPS_KNOWN_HOSTS: ${{ secrets.VPS_KNOWN_HOSTS }}
+          RELEASE_SHA256: ${{ needs.verify.outputs.digest }}
+        run: |
+          set -euo pipefail
+          if [ -z "$VPS_DEPLOY_KEY" ] || [ -z "$VPS_KNOWN_HOSTS" ]; then
+            echo 'Production environment secrets are not configured.' >&2
+            exit 1
+          fi
+          umask 077
+          key="$RUNNER_TEMP/namira-deploy-key"
+          hosts="$RUNNER_TEMP/namira-known-hosts"
+          trap 'rm -f "$key" "$hosts"' EXIT
+          printf '%s\n' "$VPS_DEPLOY_KEY" | tr -d '\r' > "$key"
+          printf '%s\n' "$VPS_KNOWN_HOSTS" | tr -d '\r' > "$hosts"
+          unset VPS_DEPLOY_KEY VPS_KNOWN_HOSTS
+          ssh-keygen -F 188.253.2.237 -f "$hosts" >/dev/null
+          printf '%s  %s\n' "$RELEASE_SHA256" artifacts/namira.tar.gz | sha256sum -c -
+          ssh -F /dev/null -T -p 22 -i "$key" -o IdentitiesOnly=yes -o BatchMode=yes -o PasswordAuthentication=no -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$hosts" -o ForwardAgent=no -o ConnectTimeout=12 -o ServerAliveInterval=15 -o ServerAliveCountMax=3 namira-deploy@188.253.2.237 "deploy $GITHUB_SHA $RELEASE_SHA256" < artifacts/namira.tar.gz
