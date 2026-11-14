@@ -38,13 +38,13 @@ final class CallEntries {
   });
  }
  public static function commonEditable(PDO $db,array $batch,array $call):array {
-  $rows=Db::query($db,"SELECT submission_id,tracking,review_state,returned_at FROM call_work_details WHERE batch_id=? AND review_state<>'deleted'",[$batch['id']])->fetchAll();$ids=[];foreach($rows as $r)if((!$r['tracking']&&CallCampaigns::accepting($call))||($call['config']['edit_policy']==='until_deadline'&&CallCampaigns::accepting($call))||(!empty($r['returned_at'])&&in_array($r['review_state'],['needs_changes','draft'],true)))$ids[]=(int)$r['submission_id'];return $ids;
+  $rows=Db::query($db,"SELECT submission_id,tracking,review_state,returned_at,publication_state FROM call_work_details WHERE batch_id=? AND review_state<>'deleted'",[$batch['id']])->fetchAll();$ids=[];foreach($rows as $r)if(!($r['publication_state']==='published'&&ArtistMemberships::approved($db,(int)$batch['user_id'])>0)&&((!$r['tracking']&&CallCampaigns::accepting($call))||($call['config']['edit_policy']==='until_deadline'&&CallCampaigns::accepting($call))||(!empty($r['returned_at'])&&in_array($r['review_state'],['needs_changes','draft'],true))))$ids[]=(int)$r['submission_id'];return $ids;
  }
  public static function get(PDO $db,int $id,array $actor,bool $own=false,bool $lock=false):array {
   $r=Db::query($db,'SELECT s.*,w.batch_id,w.section_id,w.tracking,w.review_state,w.publication_state,w.owner_mode,w.owner_user_id,w.owner_payload,w.ai_used,w.latest_version_id,w.published_version_id,w.judgement,w.submitted_at,w.returned_at,b.call_id AS campaign_id FROM art_submissions s JOIN call_work_details w ON w.submission_id=s.id JOIN call_batches b ON b.id=w.batch_id WHERE s.id=?'.($lock?CallSchema::lock($db):''),[$id])->fetch();
   if(!$r||($own&&(int)$r['user_id']!==(int)$actor['id']))throw new HttpError(404,'اثر شما پیدا نشد.');
   if((int)$r['user_id']!==(int)$actor['id'])CallSchema::permit($db,$actor,'submissions.view');
-  $r['data']=Protocol::decode($r['payload']);$r['owner']=Protocol::decode($r['owner_payload']);$r['judgement_data']=Protocol::decode($r['judgement']);$r['batch']=self::batch($db,(int)$r['batch_id'],$actor,$own);
+  $r['archive_locked']=$r['publication_state']==='published'&&ArtistMemberships::approved($db,(int)$r['user_id'])>0;$r['data']=Protocol::decode($r['payload']);$r['owner']=Protocol::decode($r['owner_payload']);$r['judgement_data']=Protocol::decode($r['judgement']);$r['batch']=self::batch($db,(int)$r['batch_id'],$actor,$own);
   $r['files']=Db::query($db,'SELECT l.*,a.mime,a.bytes,a.preview_path FROM call_asset_links l JOIN incoming_assets a ON a.id=l.asset_id WHERE l.submission_id=? AND l.active=1 ORDER BY l.sequence_no,l.id',[$id])->fetchAll();
   return $r;
  }
@@ -52,7 +52,7 @@ final class CallEntries {
   foreach($batch['schema']['sections'] as $s)if((int)$s['id']===$sectionId)return $s;throw new HttpError(422,'بخش در فرم این ارسال تعریف نشده است.');
  }
  public static function canEdit(array $call,?array $work):bool {
-  if(!$work)return CallCampaigns::accepting($call);
+  if(!$work)return CallCampaigns::accepting($call);if(!empty($work['archive_locked']))return false;
   if($work['review_state']==='deleted')return false;
   if(!empty($work['returned_at'])&&in_array($work['review_state'],['needs_changes','draft'],true))return true;
   if(!CallCampaigns::accepting($call))return false;
@@ -97,6 +97,7 @@ final class CallEntries {
    $now=date('Y-m-d H:i:s');
    if($old){Db::query($db,"UPDATE art_submissions SET title=?,payload=?,status='draft',revision=revision+1,updated_at=? WHERE id=?",[$title,Protocol::encode($data),$now,$id]);Db::query($db,"UPDATE call_work_details SET section_id=?,review_state='draft',owner_mode=?,owner_user_id=?,owner_payload=?,ai_used=? WHERE submission_id=?",[$sectionId,$mode,$ownerId,Protocol::encode($owner),$ai?1:0,$id]);}
    else{$id=Db::insert($db,'art_submissions',['call_id'=>$call['id'],'user_id'=>$actor['id'],'title'=>$title,'payload'=>Protocol::encode($data),'original_path'=>'','mime'=>'','sha256'=>'','status'=>'draft','review_note'=>'','created_at'=>$now,'updated_at'=>$now]);Db::insert($db,'call_work_details',['submission_id'=>$id,'batch_id'=>$batchId,'section_id'=>$sectionId,'owner_mode'=>$mode,'owner_user_id'=>$ownerId,'owner_payload'=>Protocol::encode($owner),'ai_used'=>$ai?1:0,'judgement'=>'{}']);}
+   $linkedArtist=$mode==='self'?ArtistMemberships::approved($db,(int)$actor['id']):0;Db::query($db,'UPDATE art_submissions SET artist_id=? WHERE id=?',[$linkedArtist?:null,$id]);
    self::validateAnswerFiles($db,$batchId,$id,array_filter($section['config']['fields']??[],fn($f)=>$f['scope']!=='common'),$data['answers']);
    return self::get($db,$id,$actor,true);
   });

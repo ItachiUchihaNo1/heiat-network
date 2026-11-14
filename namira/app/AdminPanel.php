@@ -8,6 +8,10 @@ final class AdminPanel {
         'homepage'=>['مدیریت صفحه اصلی','مدیریت','settings.manage'],
         'martyrs'=>['بانک شهدا','بانک‌ها و آرشیو','martyrs.view'],
         'artists'=>['بانک هنرمندان','بانک‌ها و آرشیو','artists.view'],
+        'artist-joins'=>['درخواست‌های عضویت هنرمندان','حساب هنرمندان','artists.membership.review'],
+        'artist-claims'=>['انتساب آثار آرشیوی','حساب هنرمندان','artist_claims.review'],
+        'artist-works'=>['آثار ارسالی هنرمندان','حساب هنرمندان','artist_works.review'],
+        'artist-martyrs'=>['شهدای پیشنهادی هنرمندان','حساب هنرمندان','artist_works.review'],
         'images'=>['تصاویر و آثار','بانک‌ها و آرشیو','media.view'],
         'import'=>['ورود و خروج گروهی','بانک‌ها و آرشیو','martyrs.edit'],
         'categories'=>['مدیریت دسته‌بندی‌های شهدا','بانک‌ها و آرشیو','taxonomy.view'],
@@ -35,9 +39,9 @@ final class AdminPanel {
         'settings'=>['تنظیمات و پشتیبان','مدیریت','settings.manage']
     ];}
     public static function boot(PDO $db,array $user):void {
-        if(PlatformSchema::ready($db)&&CommunitySchema::ready($db)&&MartyrTaxonomySchema::ready($db)&&MemberSchema::ready($db)&&AccountUi::ready($db)&&StoreSchema::ready($db)&&StoreOrderSchema::ready($db)&&StoreOperationsSchema::ready($db)&&CallSchema::ready($db))return;
+        if(PlatformSchema::ready($db)&&CommunitySchema::ready($db)&&MartyrTaxonomySchema::ready($db)&&MemberSchema::ready($db)&&AccountUi::ready($db)&&StoreSchema::ready($db)&&StoreOrderSchema::ready($db)&&StoreOperationsSchema::ready($db)&&CallSchema::ready($db)&&ArtistPortalSchema::ready($db))return;
         if($user['role']!=='superadmin')throw new HttpError(503,'مدیر اصلی باید یک بار پنل را باز کند تا پشتیبان و ارتقای ساختار اجرا شود.');
-        PlatformSchema::migrate($db);CommunitySchema::migrate($db);MartyrTaxonomySchema::migrate($db);MemberSchema::migrate($db);AccountUi::migrate($db);StoreSchema::migrate($db);StoreOrderSchema::migrate($db);StoreOperationsSchema::migrate($db);CallSchema::migrate($db);
+        PlatformSchema::migrate($db);CommunitySchema::migrate($db);MartyrTaxonomySchema::migrate($db);MemberSchema::migrate($db);AccountUi::migrate($db);StoreSchema::migrate($db);StoreOrderSchema::migrate($db);StoreOperationsSchema::migrate($db);CallSchema::migrate($db);ArtistPortalSchema::migrate($db);
     }
     public static function show(PDO $db,array|false $user):void {
         if(!$user)redirect('login',['legacy'=>1]);if(!Permissions::allows($db,$user,'dashboard.view'))redirect('account');
@@ -46,6 +50,7 @@ final class AdminPanel {
         $old=$_SESSION['panel_feedback']['input']??null;$errors=$_SESSION['panel_feedback']['errors']??[];unset($_SESSION['panel_feedback']);$data+=compact('old','errors');
         ob_start();
         switch($tab){
+            case 'artist-joins':case 'artist-claims':case 'artist-works':case 'artist-martyrs':ArtistPortalWeb::admin($db,$user,$tab,$data);break;
             case 'managers':view('admin-managers',$data+['result'=>ManagerAccounts::listing($db,$_GET)]);break;
             case 'dashboard':view('admin-dashboard',$data+AdminQueries::dashboard($db,$user));break;
             case 'martyrs':

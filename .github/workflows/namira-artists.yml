@@ -1,0 +1,61 @@
+name: Namira artist portal checks
+on:
+  push:
+    branches: ['codex/artist-portal','namira-production']
+    paths: ['namira/**','.github/workflows/namira-artists.yml']
+  pull_request:
+    paths: ['namira/**','.github/workflows/namira-artists.yml']
+permissions:
+  contents: read
+jobs:
+  artists:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-only-password
+          MYSQL_DATABASE: namira_test_artists
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -ptest-only-password"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-sqlite3 php-mysql php-gd php-xml php-mbstring php-zip php-curl
+      - name: PHP and JavaScript checks
+        run: |
+          find namira/app namira/views -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
+          node --check namira/public/assets/artist-portal.js
+          node --check namira/public/assets/gallery-filters.js
+          node namira/tests/gallery-filter-state.cjs
+          python3 namira/tests/vps-deploy.py
+      - name: Artist lifecycle and isolation on SQLite
+        run: php namira/tests/artist-portal.php
+      - name: Artist lifecycle and isolation on MySQL
+        env:
+          TEST_ARTIST_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test_artists;charset=utf8mb4'
+          TEST_DB_USER: root
+          TEST_DB_PASSWORD: test-only-password
+        run: php namira/tests/artist-portal.php
+      - name: Existing account call gallery and manager regressions
+        run: |
+          php namira/tests/calls.php
+          php namira/tests/members.php
+          php namira/tests/admin-managers.php
+          php namira/tests/gallery-facets.php
+      - name: Build tested code-only release
+        run: |
+          python3 namira/deploy/package_vps.py --source namira --revision "$GITHUB_SHA" --output artifacts/namira.tar.gz
+          bash namira/deploy/manual_vps.sh --check artifacts/namira.tar.gz "$GITHUB_SHA" "$(cat artifacts/namira.tar.gz.sha256)"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: namira-release
+          path: artifacts/namira.tar.gz
+          retention-days: 7
