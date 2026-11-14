@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace Namira;
 use PDO;
 final class CommunityUI {
-    public const STATES=['draft'=>'پیش‌نویس','pending'=>'در انتظار بررسی','submitted'=>'ارسال‌شده','reviewing'=>'در حال بررسی','needs_changes'=>'نیازمند اصلاح','approved'=>'تأییدشده','partial_approved'=>'پذیرش بخشی از اطلاعات','rejected'=>'ردشده','published'=>'منتشرشده','merged'=>'منتقل‌شده به پیش‌نویس','paused'=>'متوقف','archived'=>'بایگانی','revoked'=>'اتصال لغوشده'];
+    public const STATES=['suspended'=>'حساب هنری معلق','resolved'=>'تطبیق‌شده','draft'=>'پیش‌نویس','pending'=>'در انتظار بررسی','submitted'=>'ارسال‌شده','reviewing'=>'در حال بررسی','needs_changes'=>'نیازمند اصلاح','approved'=>'تأییدشده','partial_approved'=>'پذیرش بخشی از اطلاعات','rejected'=>'ردشده','published'=>'منتشرشده','merged'=>'منتقل‌شده به پیش‌نویس','paused'=>'متوقف','archived'=>'بایگانی','revoked'=>'اتصال لغوشده'];
     public static function state(string $key):string{return self::STATES[$key]??$key;}
     public static function value(array $in,string $key,mixed $fallback=''):string {$v=$in[$key]??$fallback;return is_scalar($v)?(string)$v:'';}
     public static function errors(array $errors):void {if(!$errors)return;echo '<div class="notice notice-error" role="alert"><b>اطلاعات ثبت نشد؛ ورودی‌های شما حفظ شده‌اند.</b><ul>';foreach($errors as $error)echo '<li>'.e($error).'</li>';echo '</ul></div>';}

@@ -23,7 +23,7 @@ final class CallPublishing {
    $version=self::version($db,$w);$snap=$version['data'];$person=CallForms::integer($in['martyr_id']??0,1,2147483647);
    $martyr=Db::query($db,'SELECT * FROM martyrs WHERE id=?',[$person])->fetch();if(!$martyr)throw new HttpError(422,'پرونده شهید انتخاب‌شده موجود نیست.');
    if(!$martyr['published']){if(($in['publish_martyr']??'')!=='1')throw new HttpError(422,'پرونده شهید منتشر نشده است؛ از مسیر اصلی بررسی و منتشر کنید.');AdminPublishing::martyr($db,$actor,$person);}
-   $artist=(int)($in['artist_id']??0);$credit=$snap['owner_mode']==='unknown'?'صاحب اثر نامشخص':($snap['owner']['name']??'');
+   $selfArtist=($snap['owner_mode']??'')==='self'?ArtistMemberships::approved($db,(int)$w['user_id']):0;$artist=(int)((($in['artist_id']??'')==='')?$selfArtist:$in['artist_id']);$credit=$snap['owner_mode']==='unknown'?'صاحب اثر نامشخص':($snap['owner']['name']??'');
    if($artist){$a=Db::query($db,'SELECT * FROM artists WHERE id=? AND archived=0',[$artist])->fetch();if(!$a)throw new HttpError(422,'هنرمند انتخاب‌شده موجود نیست.');
     if(!$a['public_visible']){if(($in['publish_artist']??'')!=='1')throw new HttpError(422,'هنرمند را از مسیر بانک هنرمندان بررسی و منتشر کنید.');AdminPublishing::artist($db,$actor,$artist);$a=Db::query($db,'SELECT * FROM artists WHERE id=?',[$artist])->fetch();}
     $credit=Protocol::decode($a['public_snapshot'])['display_name']??$a['display_name'];

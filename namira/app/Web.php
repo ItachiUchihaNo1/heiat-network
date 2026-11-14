@@ -42,6 +42,8 @@ final class Web {
             if($page==='martyr-similar')MartyrSuggestions::response($db);
             if($page==='catalog-geography')MartyrCatalogWeb::options($db);
             if($page==='public-lookup')CommunityWeb::lookup($db);
+            if($page==='artist-archive-data')ArtistPortalWeb::archiveData($db);
+            if($page==='artist-private-file')ArtistPortalWeb::file($db);
             if($page==='community-file')CommunityWeb::file($db);
             if($page==='admin-lookup'){
                 $actor=Security::user($db);if(!Permissions::allows($db,$actor,'media.edit')&&!Permissions::allows($db,$actor,'calls.edit')&&!Permissions::allows($db,$actor,'requests.edit')&&!Permissions::allows($db,$actor,'submissions.review')&&!Permissions::allows($db,$actor,'contributions.review'))throw new HttpError(403,'مجوز جست‌وجوی بانک مدیریت را ندارید.');$kind=Security::text($_GET,'kind',20);$q=Security::normalize(Security::text($_GET,'q',100,false));$items=[];
@@ -129,7 +131,7 @@ final class Web {
             while(ob_get_level()) ob_end_clean(); $status=$ex instanceof HttpError?$ex->status:503; http_response_code($status);
             $message=$ex instanceof HttpError?$ex->getMessage():'سرویس موقتاً در دسترس نیست؛ تنظیم پایگاه داده یا گزارش خطا را بررسی کنید.';
             if(!$ex instanceof HttpError) error_log('Namira: '.$ex->getMessage());
-            if(self::jsonUpload()||in_array($page,['gallery-data','martyrs-data'],true)){ header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); echo json_encode(['ok'=>false,'message'=>$message],JSON_UNESCAPED_UNICODE); return; }
+            if(self::jsonUpload()||in_array($page,['gallery-data','martyrs-data','artist-archive-data'],true)){ header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); echo json_encode(['ok'=>false,'message'=>$message],JSON_UNESCAPED_UNICODE); return; }
             $title='نامیرا | '.$status; $user=false; $content='<section class="request"><h1>'.e(fa($status)).'</h1><p role="alert">'.e($message).'</p><p><a class="outline" href="'.e(url('home')).'">صفحه اصلی</a></p></section>'; view(DomainRouting::enabled()&&DomainRouting::surface()==='admin'?'admin-layout':'layout',compact('content','page','title','user','db'));
         }
     }
@@ -142,7 +144,7 @@ final class Web {
         redirect($page,$params);
     }
     private static function action(PDO $db,Archive $archive,Shop $shop): never {
-        $a=Security::text($_POST,'action',40);if($a==='home-showcase-save')HomeShowcaseWeb::save($db,Permissions::require($db,'settings.manage'));if(CallHttp::handles($a))CallHttp::action($db,$a);if(StoreHttp::handles($a))StoreHttp::action($db,$a);if(StoreOrderSchema::ready($db)&&in_array($a,['cart','checkout'],true))throw new HttpError(410,'از مسیر جدید فروشگاه استفاده کنید.');if(StoreOrderSchema::ready($db)&&in_array($a,['test-pay','order-status'],true)){ $newOrder=$a==='test-pay'?Db::query($db,'SELECT d.order_id FROM store_order_details d JOIN orders o ON o.id=d.order_id WHERE o.token=?',[(string)($_POST['token']??'')])->fetchColumn():Db::query($db,'SELECT order_id FROM store_order_details WHERE order_id=?',[(int)($_POST['id']??0)])->fetchColumn();if($newOrder)throw new HttpError(410,'از عملیات جدید سفارش استفاده کنید.');}if(StoreWeb::handles($a))StoreWeb::action($db,$a);if(MemberWeb::handles($a))MemberWeb::action($db,$a);if(MartyrCatalogWeb::handles($a))MartyrCatalogWeb::action($db,$a);if(CommunityWeb::handles($a))CommunityWeb::action($db,$a);if(AdminPanel::handles($a))AdminPanel::action($db,$a);
+        $a=Security::text($_POST,'action',40);if($a==='home-showcase-save')HomeShowcaseWeb::save($db,Permissions::require($db,'settings.manage'));if(ArtistPortalWeb::handles($a))ArtistPortalWeb::action($db,$a);if(CallHttp::handles($a))CallHttp::action($db,$a);if(StoreHttp::handles($a))StoreHttp::action($db,$a);if(StoreOrderSchema::ready($db)&&in_array($a,['cart','checkout'],true))throw new HttpError(410,'از مسیر جدید فروشگاه استفاده کنید.');if(StoreOrderSchema::ready($db)&&in_array($a,['test-pay','order-status'],true)){ $newOrder=$a==='test-pay'?Db::query($db,'SELECT d.order_id FROM store_order_details d JOIN orders o ON o.id=d.order_id WHERE o.token=?',[(string)($_POST['token']??'')])->fetchColumn():Db::query($db,'SELECT order_id FROM store_order_details WHERE order_id=?',[(int)($_POST['id']??0)])->fetchColumn();if($newOrder)throw new HttpError(410,'از عملیات جدید سفارش استفاده کنید.');}if(StoreWeb::handles($a))StoreWeb::action($db,$a);if(MemberWeb::handles($a))MemberWeb::action($db,$a);if(MartyrCatalogWeb::handles($a))MartyrCatalogWeb::action($db,$a);if(CommunityWeb::handles($a))CommunityWeb::action($db,$a);if(AdminPanel::handles($a))AdminPanel::action($db,$a);
         switch($a){
             case 'login':
                 if(DomainRouting::enabled()&&DomainRouting::surface()!=='admin')throw new HttpError(410,'ورود ایمیلی کاربران حذف شده است؛ با شماره همراه وارد شوید.');

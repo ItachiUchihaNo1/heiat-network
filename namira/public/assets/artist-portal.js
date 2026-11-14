@@ -1,0 +1,13 @@
+(function(){'use strict';
+document.querySelector('.artist-tabs [aria-current="page"]')?.scrollIntoView({block:'nearest',inline:'center'});
+const missing=document.querySelector('[data-missing-martyr]'),proposal=document.querySelector('[data-proposed-martyr]');
+function toggle(){if(!missing||!proposal)return;proposal.hidden=!missing.checked;for(const key of ['first_name','last_name'])proposal.querySelector('[name="proposed_'+key+'"]').required=missing.checked;const lookup=document.querySelector('[name="martyr_id"]')?.closest('.community-lookup');if(lookup)lookup.hidden=missing.checked;}missing?.addEventListener('change',toggle);toggle();
+const tools=document.querySelector('[data-artist-selection-tools]');if(!tools)return;
+const csrf=tools.querySelector('[data-selection-token] [name="csrf"]').value,status=tools.querySelector('[data-artist-selection-status]'),count=tools.querySelector('[data-artist-selected-count]');let queue=Promise.resolve(),pending=0;
+const fa=n=>String(n).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
+function sync(ids){const selected=new Set(ids.map(String));count.textContent=fa(ids.length);for(const box of document.querySelectorAll('[data-artist-select]'))box.checked=selected.has(box.dataset.artistSelect);}
+function buttons(){for(const b of tools.querySelectorAll('button'))b.disabled=pending>0;}
+document.addEventListener('change',event=>{const box=event.target.closest('[data-artist-select]');if(!box)return;const checked=box.checked,id=box.dataset.artistSelect;box.disabled=true;pending++;buttons();queue=queue.then(async()=>{try{const body=new URLSearchParams({action:'artist-select',csrf,id,selected:checked?'1':'0'});const response=await fetch('/index.php?page=account',{method:'POST',body,headers:{Accept:'application/json'},credentials:'same-origin'});let data;try{data=await response.json();}catch{throw Error('پاسخ معتبر دریافت نشد؛ انتخاب را دوباره بررسی کنید.');}if(!response.ok||!data.ok)throw Error(data.message||'ذخیره انتخاب انجام نشد.');sync(data.selected);status.textContent='انتخاب‌ها در حساب شما ذخیره شد.';}catch(error){box.checked=!checked;status.textContent=error.message;}finally{box.disabled=false;pending--;buttons();}});});
+document.addEventListener('namira:gallery-updated',()=>{queue=queue.then(async()=>{try{const r=await fetch('/index.php?page=artist-archive-data&mode=selection',{credentials:'same-origin',headers:{Accept:'application/json'}});const d=await r.json();if(r.ok&&d.ok)sync(d.selected);}catch{status.textContent='برای بررسی انتخاب‌های ذخیره‌شده صفحه را تازه کنید.';}});});
+window.addEventListener('beforeunload',event=>{if(pending){event.preventDefault();event.returnValue='';}});
+})();

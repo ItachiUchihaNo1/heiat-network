@@ -4,12 +4,12 @@ namespace Namira;
 use PDO;
 final class ArtistAccounts {
     public static function owns(PDO $db,array $actor,int $artist):bool {
-        if(MemberSchema::ready($db))return false;
+        if(MemberSchema::ready($db))return $artist>0&&ArtistMemberships::approved($db,(int)($actor['id']??0))===$artist;
         if(!$artist||empty($actor['id'])||!CommunitySchema::ready($db))return false;
         return (bool)Db::query($db,'SELECT a.artist_id FROM artist_accounts a LEFT JOIN artist_account_states s ON s.artist_id=a.artist_id AND s.user_id=a.user_id WHERE a.artist_id=? AND a.user_id=? AND COALESCE(s.active,1)=1',[$artist,$actor['id']])->fetchColumn();
     }
     public static function owned(PDO $db,array $actor):array {
-        if(MemberSchema::ready($db))return [];
+        if(MemberSchema::ready($db)){$id=ArtistMemberships::approved($db,(int)($actor['id']??0));return $id?Db::query($db,'SELECT id,display_name,status FROM artists WHERE id=?',[$id])->fetchAll():[];}
         if(!CommunitySchema::ready($db))return [];
         return Db::query($db,'SELECT a.id,a.display_name,a.status FROM artists a JOIN artist_accounts x ON x.artist_id=a.id LEFT JOIN artist_account_states s ON s.artist_id=x.artist_id AND s.user_id=x.user_id WHERE x.user_id=? AND COALESCE(s.active,1)=1 AND a.archived=0 ORDER BY a.display_name',[$actor['id']])->fetchAll();
     }
@@ -26,6 +26,7 @@ final class ArtistAccounts {
         });
     }
     public static function review(PDO $db,array $actor,int $id,array $in):void {
+        if(MemberSchema::ready($db))throw new HttpError(410,'اتصال به پروفایل‌های قبلی غیرفعال است؛ از درخواست عضویت و ساخت پروفایل تازه استفاده کنید.');
         $actor=CommunityHistory::requireActor($db,$actor);if(!Permissions::allows($db,$actor,'artists.claims.review'))throw new HttpError(403,'مجوز بررسی اتصال حساب را ندارید.');
         $status=Security::text($in,'status',30);$note=Security::text($in,'note',5000);
         if(!in_array($status,['approved','rejected','needs_changes','revoked'],true))throw new HttpError(422,'نتیجه بررسی معتبر نیست.');
