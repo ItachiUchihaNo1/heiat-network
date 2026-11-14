@@ -36,6 +36,7 @@ jobs:
           sudo apt-get install -y php-cli php-sqlite3 php-mysql php-gd php-xml php-mbstring php-zip php-curl
       - name: Deployment safety and archive checks
         run: |
+          bash -n namira/deploy/manual_vps.sh
           python3 -m py_compile namira/deploy/package_vps.py namira/deploy/vps_gateway.py namira/deploy/install_vps.py
           python3 namira/tests/vps-deploy.py
           php -l namira/bin/deploy-check.php
@@ -56,13 +57,14 @@ jobs:
         run: |
           python3 namira/deploy/package_vps.py --source namira --revision "$GITHUB_SHA" --output artifacts/namira.tar.gz
           printf 'digest=%s\n' "$(cat artifacts/namira.tar.gz.sha256)" >> "$GITHUB_OUTPUT"
+          bash namira/deploy/manual_vps.sh --check artifacts/namira.tar.gz "$GITHUB_SHA" "$(cat artifacts/namira.tar.gz.sha256)"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: namira-release
           path: artifacts/namira.tar.gz
           retention-days: 7
   deploy:
-    if: github.ref == 'refs/heads/namira-production'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/namira-production'
     needs: verify
     runs-on: ubuntu-24.04
     timeout-minutes: 18
