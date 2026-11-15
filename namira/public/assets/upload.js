@@ -28,7 +28,7 @@
       const data = new FormData(form); // Capture fields before disabling controls.
       const controls = Array.from(form.elements).map(control => [control, control.disabled]);
       const restore = () => { busy = false; form.removeAttribute('aria-busy'); controls.forEach(([control, disabled]) => { control.disabled = disabled; }); };
-      const fail = text => { restore(); box.dataset.state = 'error'; message.textContent = text; };
+      const fail = text => { restore(); box.dataset.state = 'error'; message.textContent = text; totals.textContent = 'عملیات کامل نشد؛ پیام بالا را بررسی کنید.'; };
       const pending = 'پاسخ سرور دریافت نشد. پیش از ارسال مجدد، نتیجه ثبت را بررسی کنید.';
       busy = true;
       form.setAttribute('aria-busy', 'true');
