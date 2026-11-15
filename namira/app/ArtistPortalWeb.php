@@ -21,7 +21,7 @@ final class ArtistPortalWeb {
    case 'artist-admin-assign':$back='admin';$params=['tab'=>'artist-claims'];$ids=preg_split('/[\s,،]+/u',Security::normalize(Security::text($_POST,'image_ids',3000)),-1,PREG_SPLIT_NO_EMPTY);foreach($ids as $v)if(!ctype_digit($v))throw new HttpError(422,'کد تصاویر را با فاصله یا ویرگول جدا کنید.');ArtistClaims::assign($db,$actor,(int)($_POST['artist_id']??0),$ids,Security::text($_POST,'note',5000));break;
    case 'artist-work-review':$back='admin';$params=['tab'=>'artist-works','edit'=>$id];ArtistWorks::review($db,$actor,$id,$_POST,self::source('verified_preview'));break;
    case 'artist-martyr-resolve':case 'artist-martyr-create':$back='admin';$params=['tab'=>'artist-martyrs','edit'=>$id];ArtistWorks::resolve($db,$actor,$id,$_POST,$a==='artist-martyr-create');break;
-  }unset($_SESSION['artist_old']);$_SESSION['flash']='اطلاعات ثبت شد.';redirect($back,$params);
+  }unset($_SESSION['artist_old']);$_SESSION['flash']='اطلاعات ثبت شد.';$_SESSION['flash_type']='success';if(in_array($a,['artist-apply','artist-profile-save'],true))Web::uploadResponse($back,$params);redirect($back,$params);
   }catch(HttpError|ProtocolErrors $e){if(str_contains($_SERVER['HTTP_ACCEPT']??'','application/json'))throw $e;$_SESSION['artist_old']=$_POST;unset($_SESSION['artist_old']['csrf']);$_SESSION['flash']=$e->getMessage();$_SESSION['flash_type']='error';redirect($back,$params);}
  }
  public static function account(PDO $db,array $user,array $sections):void {

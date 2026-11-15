@@ -9,6 +9,7 @@
     const totals = box.querySelector('[data-upload-bytes]');
     let busy = false;
     form.addEventListener('submit', event => {
+      if(event.defaultPrevented)return;
       if (busy) { event.preventDefault(); return; }
       if (!window.XMLHttpRequest || !window.FormData) return;
       const files = Array.from(form.querySelectorAll('input[type="file"]')).flatMap(input => Array.from(input.files));
