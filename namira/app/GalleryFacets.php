@@ -6,10 +6,10 @@ use PDO;
 final class GalleryFacets {
     public const ROLES=['residence_at_incident'=>'محل سکونت هنگام واقعه','birth_place'=>'محل تولد','martyrdom_place'=>'محل شهادت','burial_place'=>'محل دفن'];
     public const LEVELS=['country','province','county','city'];
-    private static function base(PDO $db,array $f,bool $people=false):array {
+    public static function base(PDO $db,array $f,bool $people=false):array {
         [$where,$args]=(new Archive($db))->conditions($f,!$people);
         if($people)return ['FROM martyrs m',$where,$args];
-        return ["FROM images i JOIN media_publication ip ON ip.image_id=i.id JOIN media_public_martyrs rel ON rel.image_id=i.id JOIN martyrs m ON m.id=rel.martyr_id", "i.published=1 AND i.kind='design' AND ".$where,$args];
+        [$media,$params]=Archive::mediaConditions($f,true,'i','ip');return ["FROM images i JOIN media_publication ip ON ip.image_id=i.id JOIN media_public_martyrs rel ON rel.image_id=i.id JOIN martyrs m ON m.id=rel.martyr_id", $media.' AND '.$where,[...$params,...$args]];
     }
     public static function input(PDO $db,array $input):array {$f=MartyrFilters::galleryInput($input);MartyrFilters::conditions($db,$f);foreach((array)($f['axis']??[]) as $key=>$values){$ids=[];foreach((array)$values as $v)if($v!=='')$ids[]=(string)MartyrCatalog::canonical($db,(int)$v);if($ids)$f['axis'][$key]=array_values(array_unique($ids));else unset($f['axis'][$key]);}return $f;}
     public static function count(PDO $db,array $f,bool $people=false):int {[$from,$where,$args]=self::base($db,$f,$people);return (int)Db::query($db,'SELECT COUNT(DISTINCT '.($people?'m.id':'i.id').') '.$from.' WHERE '.$where,$args)->fetchColumn();}
@@ -18,9 +18,8 @@ final class GalleryFacets {
         [$from,$where,$args]=self::base($db,self::withoutGeo($f),$people);$keys=Db::query($db,'SELECT DISTINCT gf.fact_key '.$from.' JOIN martyr_public_facts gf ON gf.martyr_id=m.id WHERE '.$where.' AND (gf.country_id IS NOT NULL OR gf.province_id IS NOT NULL OR gf.county_id IS NOT NULL OR gf.city_id IS NOT NULL)',$args)->fetchAll(PDO::FETCH_COLUMN);$rows=[];foreach(self::ROLES as $id=>$title)if(in_array($id,$keys,true))$rows[]=['id'=>$id,'title'=>$title];return $rows;
     }
     public static function geo(PDO $db,array $f,string $role,bool $people=false):array {
-        [$from,$where,$args]=self::base($db,self::withoutGeo($f),$people);$out=[];$parents=[];$parentArgs=[];
-        foreach(self::LEVELS as $level){$col=$level.'_id';$sql='SELECT DISTINCT t.id,t.title,t.parent_id,t.sort_order '.$from.' JOIN martyr_public_facts gf ON gf.martyr_id=m.id JOIN protocol_terms t ON t.id=gf.'.$col.' WHERE '.$where.' AND gf.fact_key=? AND t.taxonomy=? AND t.active=1';if($parents)$sql.=' AND '.implode(' AND ',$parents);$out[$level]=Db::query($db,$sql.' ORDER BY t.sort_order,t.title,t.id',[...$args,$role,$level,...$parentArgs])->fetchAll();if(($f['geo_'.$level]??'')!==''){$parents[]='gf.'.$col.'=?';$parentArgs[]=(int)$f['geo_'.$level];}}
-        return $out;
+        [$from,$where,$args]=self::base($db,self::withoutGeo($f),$people);$select=[];$joins='';foreach(self::LEVELS as $level){$alias='g_'.$level;$select[]=$alias.'.id AS '.$level.'_id';$select[]=$alias.'.title AS '.$level.'_title';$select[]=$alias.'.parent_id AS '.$level.'_parent';$select[]=$alias.'.sort_order AS '.$level.'_order';$joins.=' LEFT JOIN protocol_terms '.$alias.' ON '.$alias.'.id=gf.'.$level.'_id AND '.$alias.'.taxonomy='.$db->quote($level).' AND '.$alias.'.active=1';}
+        $rows=Db::query($db,'SELECT DISTINCT '.implode(',',$select).' '.$from.' JOIN martyr_public_facts gf ON gf.martyr_id=m.id'.$joins.' WHERE '.$where.' AND gf.fact_key=?',[...$args,$role])->fetchAll();$out=[];$parents=[];foreach(self::LEVELS as $level){$values=[];foreach($rows as $row){$matches=true;foreach($parents as $key=>$id)if((int)($row[$key.'_id']??0)!==$id){$matches=false;break;}$id=(int)($row[$level.'_id']??0);$title=trim($row[$level.'_title']??'');if($matches&&$id&&$title!=='')$values[$id]=['id'=>$id,'title'=>$title,'parent_id'=>$row[$level.'_parent'],'sort_order'=>(int)$row[$level.'_order']];}uasort($values,fn($a,$b)=>($a['sort_order']<=>$b['sort_order'])?:strcmp($a['title'],$b['title']));$out[$level]=array_values($values);if(($f['geo_'.$level]??'')!=='')$parents[$level]=(int)$f['geo_'.$level];}return $out;
     }
     /** Ordered visible chip descriptors; selected empty facets remain editable. */
     public static function chips(array $options,array $f):array {
@@ -32,10 +31,10 @@ final class GalleryFacets {
         if(!empty($options['hasDates'])||!empty($f['year_from'])||!empty($f['year_to']))$chips[]=['key'=>'date','title'=>'تاریخ'];
         return $chips;
     }
-    public static function options(PDO $db,array $f=[],bool $people=false):array {
+    public static function options(PDO $db,array $f=[],bool $people=false,?array $onlyAxes=null):array {
         if(!MartyrTaxonomySchema::ready($db)||!PlatformSchema::ready($db))return ['axes'=>[],'geo'=>array_fill_keys(self::LEVELS,[]),'roles'=>[],'geoDefaultRole'=>'residence_at_incident','hasDates'=>false,'chips'=>[]];
         // Validate the original request before dropping a facet's own restriction.
-        MartyrFilters::conditions($db,$f);$axes=MartyrCatalog::axes($db,true);
+        MartyrFilters::conditions($db,$f);$axes=MartyrCatalog::axes($db,true);if($onlyAxes!==null)$axes=array_values(array_filter($axes,fn($a)=>in_array($a['axis_key'],$onlyAxes,true)));
         $terms=[];foreach(Db::query($db,'SELECT id,title,parent_id,active,taxonomy,sort_order FROM protocol_terms')->fetchAll() as $term)$terms[(int)$term['id']]=$term;
         $redirects=[];foreach(Db::query($db,'SELECT source_term_id,target_term_id FROM martyr_term_redirects WHERE active=1')->fetchAll() as $r)$redirects[(int)$r['source_term_id']]=(int)$r['target_term_id'];
         $canonical=function(int $id)use($redirects){$seen=[];while(isset($redirects[$id])){if(isset($seen[$id]))throw new HttpError(409,'چرخه در نگاشت مقادیر وجود دارد.');$seen[$id]=true;$id=$redirects[$id];}return $id;};

@@ -5,7 +5,7 @@ use PDO;
 final class CleanUrls {
  private static ?PDO $db=null;
  private static array $titles=[];
- public const SIMPLE=['home'=>'/','gallery'=>'/images','martyrs'=>'/martyrs','artists'=>'/artists','calls'=>'/calls','shop'=>'/shop','login'=>'/login','member-login'=>'/login','register'=>'/login','request'=>'/request','request-track'=>'/request-track','about'=>'/about','cart'=>'/cart','account'=>'/account','store-account'=>'/account/store','order'=>'/order','submit-art'=>'/submit-art','contribute'=>'/contribute','store-sitemap'=>'/sitemap.xml'];
+ public const SIMPLE=['home'=>'/','advanced-search'=>'/advanced-search','gallery'=>'/images','martyrs'=>'/martyrs','artists'=>'/artists','calls'=>'/calls','shop'=>'/shop','login'=>'/login','member-login'=>'/login','register'=>'/login','request'=>'/request','request-track'=>'/request-track','about'=>'/about','cart'=>'/cart','account'=>'/account','store-account'=>'/account/store','order'=>'/order','submit-art'=>'/submit-art','contribute'=>'/contribute','store-sitemap'=>'/sitemap.xml'];
  public const DETAILS=['profile'=>'martyrs','artist'=>'artists','call'=>'calls','product'=>'products','image'=>'images'];
  public static function enabled():bool{return !is_file(BASE_PATH.'/.clean-urls-pending');}
  public static function bind(PDO $db):void {self::$db=$db;self::$titles=[];}

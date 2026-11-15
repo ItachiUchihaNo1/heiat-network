@@ -31,7 +31,12 @@ final class Archive {
         $where=['m.published=1']; $args=[];
         $q=Security::normalize(Security::text($f,'q',150,false));
         if($q!=='') foreach(preg_split('/\s+/u',$q,-1,PREG_SPLIT_NO_EMPTY) as $term){ $name=ProtocolSchema::ready($this->db)?' OR EXISTS(SELECT 1 FROM martyr_protocols mp WHERE mp.martyr_id=m.id AND mp.public_name LIKE ?)':'';$media=$images?' OR i.title LIKE ? OR i.designer LIKE ?':'';$where[]='(m.first_name LIKE ? OR m.last_name LIKE ? OR m.code LIKE ? OR m.summary LIKE ?'.$name.$media.')'; $args=[...$args,...array_fill(0,($name?5:4)+($images?2:0),'%'.$term.'%')]; }
-        foreach(['province','city','job','organization'] as $key){ $v=Security::text($f,$key,150,false); if($v!==''){ $where[]='m.'.$key.'=?'; $args[]=$v; } }
+        foreach(['first_name','last_name'] as $key){$v=Security::normalize(Security::text($f,$key,150,false));if($v!==''){$where[]='m.'.$key.' LIKE ?';$args[]='%'.$v.'%';}}
+        $person=Security::text(isset($f['martyr_id'])&&is_int($f['martyr_id'])?array_replace($f,['martyr_id'=>(string)$f['martyr_id']]):$f,'martyr_id',12,false);if($person!==''){if(!ctype_digit($person)||(int)$person<1)throw new HttpError(422,'شناسه شهید معتبر نیست.');$where[]='m.id=?';$args[]=(int)$person;}
+        $code=Security::normalize(Security::text($f,'archive_code',80,false));if($code!==''){$where[]='m.code=?';$args[]=$code;}
+        $text=Security::text($f,'text_query',150,false);if($text!==''){$field=Security::text($f,'text_field',30);if(!in_array($field,['summary','biography','will_text','memories'],true))throw new HttpError(422,'بخش متن عمومی معتبر نیست.');$where[]='m.'.$field.' LIKE ?';$args[]='%'.$text.'%';}
+        if(!$images&&self::hasMediaFilters($f)){[$mw,$ma]=self::mediaConditions($f,false,'si','sp');$where[]='EXISTS(SELECT 1 FROM media_public_martyrs sr JOIN images si ON si.id=sr.image_id JOIN media_publication sp ON sp.image_id=si.id WHERE sr.martyr_id=m.id AND '.$mw.')';$args=[...$args,...$ma];}
+        foreach(['province','city','job','organization'] as $key){ $v=Security::text($f,$key,150,false); if($v!==''){ $where[]='TRIM(m.'.$key.')=?'; $args[]=$v; } }
         if(!empty($f['category'])){ $where[]='EXISTS(SELECT 1 FROM martyr_categories mc WHERE mc.martyr_id=m.id AND mc.category_id=?)'; $args[]=(int)$f['category']; }
         [$catalogSql,$catalogArgs]=MartyrFilters::conditions($this->db,$f);if($catalogSql!==''){$where[]=$catalogSql;$args=[...$args,...$catalogArgs];}
         return [implode(' AND ',$where),$args];
@@ -39,6 +44,18 @@ final class Archive {
     private function mediaFrom():string {
         if(!PlatformSchema::ready($this->db))return 'FROM images i JOIN martyrs m ON m.id=i.martyr_id';
         return 'FROM images i JOIN media_publication mp ON mp.image_id=i.id JOIN martyrs m ON m.id=(SELECT MIN(mm.martyr_id) FROM media_public_martyrs mm JOIN martyrs pm ON pm.id=mm.martyr_id WHERE mm.image_id=i.id AND pm.published=1)';
+    }
+    public static function hasMediaFilters(array $f):bool {foreach(['kind','media_type','artist_id','mime','orientation','download','media_q'] as $key)if(($f[$key]??'')!=='')return true;return false;}
+    /** A single public image predicate is shared by gallery, people search and facets. */
+    public static function mediaConditions(array $f,bool $defaultKind=true,string $i='i',string $mp='mp'):array {
+        if(!in_array($i,['i','si'],true)||!in_array($mp,['mp','ip','sp'],true))throw new \LogicException('Unexpected search alias');$where=[$i.'.published=1'];$args=[];
+        $kind=Security::text($f,'kind',30,false)?:($defaultKind?'design':'');if($kind!==''&&$kind!=='all'){if(!in_array($kind,['design','photo','document'],true))throw new HttpError(422,'نوع تصویر معتبر نیست.');$where[]=$i.'.kind=?';$args[]=$kind;}
+        foreach(['media_type','artist_id'] as $key){$value=$f[$key]??'';if(is_int($value))$value=(string)$value;$raw=Security::normalize(Security::text([$key=>$value],$key,12,false));if($raw===''||$raw==='0')continue;if(!ctype_digit($raw)||(int)$raw<1)throw new HttpError(422,'شناسه فیلتر تصویر معتبر نیست.');if($key==='media_type')$where[]=$mp.'.type_id=?';else $where[]="EXISTS(SELECT 1 FROM media_public_artists sa JOIN artists spa ON spa.id=sa.artist_id AND spa.public_visible=1 AND spa.archived=0 WHERE sa.image_id=".$i.'.id AND sa.artist_id=?)';$args[]=(int)$raw;}
+        $mime=Security::text($f,'mime',80,false);if($mime!==''){if(!preg_match('~^[a-z0-9.+-]+/[a-z0-9.+-]+$~iD',$mime))throw new HttpError(422,'فرمت تصویر معتبر نیست.');$where[]=$i.'.mime=?';$args[]=$mime;}
+        $orientation=Security::text($f,'orientation',20,false);if($orientation!==''){$operator=['portrait'=>'>','landscape'=>'<','square'=>'='][$orientation]??null;if(!$operator)throw new HttpError(422,'جهت تصویر معتبر نیست.');$where[]=$i.'.height'.$operator.$i.'.width';}
+        $download=Security::text($f,'download',1,false);if($download!==''){if(!in_array($download,['0','1'],true))throw new HttpError(422,'وضعیت دریافت معتبر نیست.');$where[]=$mp.'.download_allowed=?';$args[]=(int)$download;}
+        $q=Security::normalize(Security::text($f,'media_q',150,false));if($q!==''){$where[]='('.$i.'.title LIKE ? OR '.$i.'.designer LIKE ? OR '.$mp.'.payload LIKE ?)';array_push($args,...array_fill(0,3,'%'.$q.'%'));}
+        return [implode(' AND ',$where),$args];
     }
     public function forPerson(int $id,int $page=1,int $type=0):array {return $this->images(['martyr_id'=>$id,'kind'=>'all','media_type'=>$type],$page);}
     public function relatedPeople(int $image):array{
@@ -56,17 +73,8 @@ final class Archive {
     public function images(array $f=[],int $page=1,int $perPage=24): array {
         [$where,$args]=$this->conditions($f,true);
         if(PlatformSchema::ready($this->db))$where='EXISTS(SELECT 1 FROM media_public_martyrs related JOIN martyrs m ON m.id=related.martyr_id WHERE related.image_id=i.id AND '.$where.')';
-        $where.=' AND i.published=1';
-        $kind=Security::text($f,'kind',30,false)?:'design';if($kind!=='all'){$where.=' AND i.kind=?';$args[]=$kind;}
-        if(PlatformSchema::ready($this->db)){
-            if(!empty($f['martyr_id'])){$where.=' AND EXISTS(SELECT 1 FROM media_public_martyrs mm WHERE mm.image_id=i.id AND mm.martyr_id=?)';$args[]=(int)$f['martyr_id'];}
-            if(!empty($f['media_type'])){$where.=' AND mp.type_id=?';$args[]=(int)$f['media_type'];}
-            if(!empty($f['artist_id'])){$where.=' AND EXISTS(SELECT 1 FROM media_public_artists ma WHERE ma.image_id=i.id AND ma.artist_id=?)';$args[]=(int)$f['artist_id'];}
-        }elseif(!empty($f['martyr_id'])){$where.=' AND i.martyr_id=?';$args[]=(int)$f['martyr_id'];}
-        foreach(['mime'] as $key){ if(!empty($f[$key])){ $where.=' AND i.'.$key.'=?'; $args[]=Security::text($f,$key,50); } }
-        if(($f['orientation']??'')==='portrait') $where.=' AND i.height>i.width';
-        if(($f['orientation']??'')==='landscape') $where.=' AND i.width>i.height';
-        $sort=['new'=>'i.id DESC','name'=>'m.last_name,m.first_name,i.id','downloads'=>'i.downloads DESC,i.id DESC'][$f['sort']??'new']??'i.id DESC';
+        [$mediaSql,$mediaArgs]=self::mediaConditions($f);$where.=' AND '.$mediaSql;$args=[...$args,...$mediaArgs];
+        $sort=['new'=>'i.id DESC','name'=>'m.last_name,m.first_name,i.id','downloads'=>'i.downloads DESC,i.id DESC'][Security::text($f,'sort',20,false)?:'new']??'i.id DESC';
         if(!empty($f['martyr_id'])&&PlatformSchema::ready($this->db))$sort='(SELECT mm.is_featured FROM media_public_martyrs mm WHERE mm.image_id=i.id AND mm.martyr_id='.(int)$f['martyr_id'].') DESC,mp.sort_order,i.id DESC';
         $count=(int)Db::query($this->db,'SELECT COUNT(*) '.$this->mediaFrom().' WHERE '.$where,$args)->fetchColumn();
         $offset=(max(1,$page)-1)*$perPage;
