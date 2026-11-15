@@ -59,6 +59,9 @@ $ui=routeProbe(['page'=>'advanced-search-data','results'=>'martyrs','places'=>['
 ok($ui['status']===200&&$ui['data']['ok']&&$ui['data']['count']===1&&isset($ui['data']['fieldsHtml']),'advanced GET endpoint returns real count and dependent controls');
 $ui=routeProbe(['page'=>'gallery-data','simple'=>'1','mode'=>'results','geo_country'=>$a['country_id']]);
 ok($ui['data']['count']===2&&count($ui['data']['facets']['chips'])===5&&isset($ui['data']['advancedUrl']),'simple AJAX endpoint returns five chips and up-to-date advanced link');
+$f=PublicSearch::input($db,$geo);ob_start();view('martyr-filter-tags',['db'=>$db,'f'=>$f,'filterRoute'=>'martyrs','simpleFilters'=>true]);$tags=html_entity_decode(ob_get_clean(),ENT_QUOTES,'UTF-8');preg_match('/href="([^"]+)" aria-label="حذف کشور/',$tags,$tag);parse_str(parse_url($tag[1],PHP_URL_QUERY)??'',$tagQuery);ok(!isset($tagQuery['geo_role'],$tagQuery['geo_province'],$tagQuery['geo_city']),'removing parent tag clears descendants and does not switch to advanced search');
+$emptyNames=PublicSearch::options($db,['first_name'=>'نام فاقد نتیجه','axis'=>['occupation'=>[(string)$privateJob]]]);ok(isset($emptyNames['fields']['first_name']),'selected identity input remains editable with zero results');
+denied(fn()=>PublicSearch::input($db,['dates'=>['birth_date'=>['calendar'=>['private']]]],true),'unused malformed calendar is rejected before rendering');
 $ui=routeProbe(['page'=>'advanced-search-data','results'=>'private']);ok($ui['status']===422&&!$ui['data']['ok'],'advanced API rejects invalid result modes as JSON');
 ok(CleanUrls::resolve('/advanced-search',[])['page']==='advanced-search','direct clean advanced route resolves on refresh');
 ok(DataBackup::counts($db)===$before,'all search queries and rendered controls preserve every database table');
