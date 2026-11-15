@@ -25,12 +25,11 @@ final class MobileNavigation {
         $groups=[
             ['title'=>'بخش‌های اصلی','items'=>[
                 $item('خانه','home','home'),$item('همه تصاویر','gallery','gallery',[], '',$current==='gallery'),
-                $item('شهدا','martyrs','user'),
-                $item('دسته‌بندی تصاویر و شهدا','gallery','categories',[],'#gallery-filters',false),
-                $item('هنرمندان','artists','palette',[],'',$current==='artists'),$item('فراخوان‌ها','calls','megaphone')
+                $item('شهدا','martyrs','user',[],'',$current==='martyrs'),
+                $item('هنرمندان','artists','palette',[],'',$current==='artists'),$item('فراخوان‌ها','calls','megaphone'),$item('درخواست طراحی رایگان','request','pen')
             ]],
             ['title'=>'خدمات نامیرا','items'=>[
-                $item('درخواست طراحی رایگان','request','pen'),$item('فروشگاه','shop','shop',[],'',$page==='shop'||$page==='product'),$item('سبد خرید','cart','cart')
+                $item('فروشگاه','shop','shop',[],'',$page==='shop'||$page==='product'),$item('سبد خرید','cart','cart')
             ]],
             ['title'=>'اطلاعات و راهنما','items'=>[$item('درباره نامیرا','about','info')]],
             ['title'=>'حساب کاربری','items'=>[$item($user?'حساب کاربری':'ورود / ثبت‌نام',$account,'user',[],'',$current==='account')]]
@@ -44,6 +43,12 @@ final class MobileNavigation {
     }
     public static function icon(string $name):string {
         $paths=[
+            'instagram'=>'<rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r=".7"/>',
+            'telegram'=>'<path d="m3 10 18-7-4 18-6-6-4 3 1-7 10-5-9 8"/>',
+            'eitaa'=>'<path d="M6 19a9 9 0 1 1 5 2H3l3-5"/><path d="M8 8h7v3H9v4h7M8 11h5"/>',
+            'share'=>'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m9 10 6-4M9 14l6 4"/>',
+            'copy'=>'<rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V3H3v13h5"/>',
+            'link'=>'<path d="m10 14 4-4M8 16l-2 2a4 4 0 0 1-6-6l5-5a4 4 0 0 1 6 0M16 8l2-2a4 4 0 0 1 6 6l-5 5a4 4 0 0 1-6 0" transform="translate(1 0) scale(.92)"/>',
             'home'=>'<path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/>',
             'gallery'=>'<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1.5"/><path d="m3 17 5-5 4 4 4-6 5 7"/>',
             'palette'=>'<path d="M12 3a9 9 0 1 0 0 18h1a2 2 0 0 0 1-3.7 1.5 1.5 0 0 1 1-2.8h2A4 4 0 0 0 21 10c0-4-4-7-9-7Z"/><circle cx="7.5" cy="10" r=".7"/><circle cx="11" cy="6.5" r=".7"/><circle cx="16" cy="8" r=".7"/><circle cx="7.5" cy="15" r=".7"/>',

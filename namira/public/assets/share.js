@@ -4,7 +4,10 @@
   if (box.dataset.shareReady) return;
   box.dataset.shareReady = 'true';
   const input = box.querySelector('input'), status = box.querySelector('[data-share-status]');
-  const select = () => { input.focus(); input.select(); input.setSelectionRange(0, input.value.length); };
+  const details=box.querySelector('details');
+  document.addEventListener('click',event=>{if(!box.contains(event.target))details.open=false;});
+  box.addEventListener('keydown',event=>{if(event.key==='Escape'&&details.open){details.open=false;details.querySelector('summary').focus();}});
+  const select = () => { details.open=true; input.focus(); input.select(); input.setSelectionRange(0, input.value.length); };
   const copy = async () => {
    status.textContent = '';
    try {

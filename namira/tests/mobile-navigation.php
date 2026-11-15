@@ -16,7 +16,7 @@ $member=N::items('account',['id'=>1],true);ok($member['bottom'][4]['href']==='/a
 $links=array_merge(...array_column($guest['groups'],'items'));$labels=array_column($links,'label');
 ok(in_array('تماس با ما',$labels,true)&&in_array('سؤالات متداول',$labels,true)&&in_array('قوانین و مقررات',$labels,true),'information links use existing store sections');
 ok(!in_array('بانک شهدا',$labels,true),'no standalone martyr bank added');
-ok(in_array('/images#gallery-filters',array_column($links,'href'),true),'categories link targets existing gallery controls');
+ok(!in_array('/images#gallery-filters',array_column($links,'href'),true),'categories shortcut removed from drawer');ok(in_array('request',array_column($guest['groups'][0]['items'],'page'),true),'design request belongs to main group');ok(!in_array('request',array_column($guest['groups'][1]['items'],'page'),true),'design request does not repeat in services');
 $legacy=N::items('home',false,false);$legacyLinks=array_merge(...array_column($legacy['groups'],'items'));
 ok(!in_array('store-info',array_column($legacyLinks,'page'),true),'unavailable store routes omitted before migration');
 foreach($links as $link)ok(str_starts_with($link['href'],'/')&&!str_contains($link['href'],'javascript:'),'same-origin existing route: '.$link['label']);
