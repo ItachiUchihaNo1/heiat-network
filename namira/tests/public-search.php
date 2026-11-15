@@ -46,6 +46,8 @@ ok(count($o['media']['artist_id']['rows'])===1&&$o['media']['artist_id']['rows']
 ok(GalleryFacets::count($db,PublicSearch::input($db,['places'=>['birth_place'=>['present'=>'0']]],true))===GalleryFacets::count($db,[]),'unchecked place-presence filter never excludes records');
 denied(fn()=>PublicSearch::input($db,['places'=>['private_home'=>['country'=>'1']]],true),'private geography cannot enter advanced SQL');
 denied(fn()=>PublicSearch::input($db,['text_query'=>'secret','text_field'=>'password_hash'],true),'text filter cannot access arbitrary columns');
+denied(fn()=>PublicSearch::input($db,['places'=>'invalid','geo_country'=>'1'],true),'malformed mixed geographic shape is rejected');
+denied(fn()=>PublicSearch::input($db,['p'=>['1']],true),'malformed pagination is rejected');
 denied(fn()=>PublicSearch::input($db,['orientation'=>'x OR 1=1'],true),'invalid media orientation cannot enter SQL');
 denied(fn()=>PublicSearch::input($db,['dates'=>['birth_date'=>['from'=>'1400','to'=>'1300']]],true),'invalid advanced date range is rejected');
 denied(fn()=>PublicSearch::input($db,['axis'=>['occupation'=>[['bad']]]],true),'nested invalid term ids are rejected');

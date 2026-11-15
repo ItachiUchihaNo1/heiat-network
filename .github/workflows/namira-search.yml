@@ -36,11 +36,11 @@ jobs:
           node --check namira/public/assets/gallery-filters.js
           node namira/tests/gallery-filter-state.cjs
           python3 namira/tests/vps-deploy.py
-      - name: Artist lifecycle and isolation on SQLite
+      - name: Public search and isolation on SQLite
         env:
           SEARCH_UI_FIXTURE: '1'
         run: php namira/tests/public-search.php
-      - name: Artist lifecycle and isolation on MySQL
+      - name: Public search and isolation on MySQL
         env:
           TEST_FACETS_DB_DSN: 'mysql:host=127.0.0.1;port=3306;dbname=namira_test_facets;charset=utf8mb4'
           TEST_DB_USER: root
@@ -57,7 +57,7 @@ jobs:
         run: |
           npm install --prefix "$RUNNER_TEMP/search-browser" playwright@1.56.1
           "$RUNNER_TEMP/search-browser/node_modules/.bin/playwright" install --with-deps chromium
-      - name: Artist browser workflows on mobile and desktop
+      - name: Search browser workflows on mobile and desktop
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/search-browser/node_modules/playwright
         run: node namira/tests/public-search-ui.cjs
