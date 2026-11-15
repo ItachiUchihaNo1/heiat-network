@@ -18,7 +18,7 @@ final class MartyrDirectory {
  public static function listing(PDO $db,array $f=[],int $page=1,int $per=24):array {
   [$where,$args]=(new Archive($db))->conditions($f);$page=max(1,$page);$per=max(1,min(48,$per));
   $count=(int)Db::query($db,'SELECT COUNT(*) FROM martyrs m WHERE '.$where,$args)->fetchColumn();
-  $ids=Db::query($db,'SELECT m.id FROM martyrs m WHERE '.$where.' ORDER BY m.id DESC LIMIT '.$per.' OFFSET '.(($page-1)*$per),$args)->fetchAll(PDO::FETCH_COLUMN);$items=[];
+  $sort=Security::text($f,'sort',20,false)==='name'?'m.last_name,m.first_name,m.id':'m.id DESC';$ids=Db::query($db,'SELECT m.id FROM martyrs m WHERE '.$where.' ORDER BY '.$sort.' LIMIT '.$per.' OFFSET '.(($page-1)*$per),$args)->fetchAll(PDO::FETCH_COLUMN);$items=[];
   foreach($ids as $id)if($m=(new Archive($db))->find((int)$id))$items[]=self::card($db,$m);
   return compact('items','count');
  }

@@ -30,8 +30,9 @@ final class Web {
             if(in_array($page,['gallery-data','martyrs-data'],true)){
                 header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');session_write_close();
                 if(strlen($_SERVER['QUERY_STRING']??'')>16000)throw new HttpError(422,'تعداد فیلترها بیش از حد است.');
-                echo json_encode(['ok'=>true]+GalleryFacets::response($db,$_GET,Security::text($_GET,'changed',30,false),($_GET['mode']??'')==='results',$page==='martyrs-data'),JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);return;
+                echo json_encode(['ok'=>true]+(($_GET['simple']??'')==='1'?PublicSearch::basicResponse($db,$_GET,$page==='martyrs-data'):GalleryFacets::response($db,$_GET,Security::text($_GET,'changed',30,false),($_GET['mode']??'')==='results',$page==='martyrs-data')),JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);return;
             }
+            if($page==='advanced-search-data'){header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');session_write_close();if(strlen($_SERVER['QUERY_STRING']??'')>16000)throw new HttpError(422,'فیلترها بیش از حد هستند.');$data=PublicSearch::advancedResponse($db,$_GET);$f=$data['filters'];$options=$data['options'];ob_start();view('advanced-search-fields',compact('db','f','options'));$data['fieldsHtml']=ob_get_clean();echo json_encode(['ok'=>true]+$data,JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_INVALID_UTF8_SUBSTITUTE);return;}
             if($page==='account-geography'){if(!ProtocolSchema::ready($db))throw new HttpError(503,'فرهنگ جغرافیا هنوز فعال نیست.');header('Content-Type: application/json; charset=utf-8');header('Cache-Control: public, max-age=300');echo json_encode(AccountUi::counties($db,(int)($_GET['province']??0)),JSON_UNESCAPED_UNICODE);return;}
             if($page==='call-file'){CallSchema::requireReady($db);CallHttp::file($db);}
             if($page==='call-public-file'){CallSchema::requireReady($db);CallHttp::file($db,true);}
@@ -82,10 +83,11 @@ final class Web {
                     if(!empty($_GET['topic'])){$home=Storefront::home($db,$_GET);redirect('gallery',$home['f']);}$sections=HomeShowcase::sections($db);view('home-showcase',compact('db','sections','page'));break;
                 case 'home-preview':Permissions::require($db,'settings.manage');Security::homePreviewHeaders();$sections=HomeShowcase::sections($db,true);view('home-showcase',compact('db','sections','page'));break;
                 case 'gallery':
-                    $f=$page==='gallery'?GalleryFacets::input($db,$_GET):$_GET; $catalogFilters=$page==='gallery'?MartyrFilters::options($db,$f):[]; $result=$archive->images($f,max(1,(int)($_GET['p']??1))); $categories=[]; $options=[];
+                    if(PublicSearch::advancedRequired($_GET))redirect('advanced-search',['results'=>'images']+MartyrFilters::galleryInput($_GET));$f=PublicSearch::input($db,$_GET);$catalogFilters=PublicSearch::basicOptions($db,$f); $result=$archive->images($f,max(1,(int)($_GET['p']??1))); $categories=[]; $options=[];
                     view('gallery',compact('db','page','f','result','categories','options','catalogFilters')); break;
+                case 'advanced-search':$title='جست‌وجوی پیشرفته | نامیرا';$data=PublicSearch::advancedResponse($db,$_GET,true);view('advanced-search',['db'=>$db,'f'=>$data['filters'],'options'=>$data['options'],'people'=>$data['results']==='martyrs','result'=>$data['result']]);break;
                 case 'martyrs':
-                    $title='شهدا | نامیرا';$f=GalleryFacets::input($db,$_GET);$catalogFilters=GalleryFacets::options($db,$f,true);$result=MartyrDirectory::listing($db,$f,max(1,(int)($_GET['p']??1)));view('martyrs',compact('db','f','catalogFilters','result'));break;
+                    $title='شهدا | نامیرا';if(PublicSearch::advancedRequired($_GET))redirect('advanced-search',['results'=>'martyrs']+MartyrFilters::galleryInput($_GET));$f=PublicSearch::input($db,$_GET);$catalogFilters=PublicSearch::basicOptions($db,$f,true);$result=MartyrDirectory::listing($db,$f,max(1,(int)($_GET['p']??1)));view('martyrs',compact('db','f','catalogFilters','result'));break;
                 case 'profile':
                     $m=$archive->find((int)($_GET['id']??0)); if(!$m)throw new HttpError(404,'پروفایل پیدا نشد.');
                     $title='شهید '.(($m['display_name']??'')?:trim($m['first_name'].' '.$m['last_name'])).' | نامیرا';
@@ -131,7 +133,7 @@ final class Web {
             while(ob_get_level()) ob_end_clean(); $status=$ex instanceof HttpError?$ex->status:503; http_response_code($status);
             $message=$ex instanceof HttpError?$ex->getMessage():'سرویس موقتاً در دسترس نیست؛ تنظیم پایگاه داده یا گزارش خطا را بررسی کنید.';
             if(!$ex instanceof HttpError) error_log('Namira: '.$ex->getMessage());
-            if(self::jsonUpload()||in_array($page,['gallery-data','martyrs-data','artist-archive-data'],true)){ header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); echo json_encode(['ok'=>false,'message'=>$message],JSON_UNESCAPED_UNICODE); return; }
+            if(self::jsonUpload()||in_array($page,['gallery-data','martyrs-data','artist-archive-data','advanced-search-data'],true)){ header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); echo json_encode(['ok'=>false,'message'=>$message],JSON_UNESCAPED_UNICODE); return; }
             $title='نامیرا | '.$status; $user=false; $content='<section class="request"><h1>'.e(fa($status)).'</h1><p role="alert">'.e($message).'</p><p><a class="outline" href="'.e(url('home')).'">صفحه اصلی</a></p></section>'; view(DomainRouting::enabled()&&DomainRouting::surface()==='admin'?'admin-layout':'layout',compact('content','page','title','user','db'));
         }
     }
