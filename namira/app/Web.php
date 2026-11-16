@@ -16,7 +16,8 @@ final class Web {
             if(DomainRouting::surface()!=='admin'&&CleanUrls::enabled())$_GET=CleanUrls::resolve($_SERVER['REQUEST_URI']??'/index.php',$_GET);
             $page=Security::text($_GET,'page',40,false)?:(DomainRouting::enabled()&&DomainRouting::surface()==='admin'?'admin':'home');DomainRouting::enforce($page);
             if($page==='setup'){ Installer::web(); return; }
-            $db=Db::connect();CleanUrls::bind($db);$clean=CleanUrls::canonical($page,$_GET,$_SERVER['REQUEST_URI']??'/index.php',$_SERVER['REQUEST_METHOD']??'GET');if($clean!==null){header('Location: '.$clean,true,301);return;} $archive=new Archive($db); $shop=new Shop($db);
+            $db=Db::connect();CleanUrls::bind($db);PublicFeed::bind($db);$clean=CleanUrls::canonical($page,$_GET,$_SERVER['REQUEST_URI']??'/index.php',$_SERVER['REQUEST_METHOD']??'GET');if($clean!==null){header('Location: '.$clean,true,301);return;} $archive=new Archive($db); $shop=new Shop($db);
+            if($page==='public-feed'){if(($_SERVER['REQUEST_METHOD']??'GET')!=='GET')throw new HttpError(405,'فقط درخواست GET مجاز است.');header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');session_write_close();if(strlen($_SERVER['QUERY_STRING']??'')>16000)throw new HttpError(422,'فیلترها بیش از حد هستند.');echo json_encode(['ok'=>true]+PublicFeed::response($db,$_GET),JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);return;}
             if($page==='home-lookup')HomeShowcaseWeb::lookup($db);
             if(in_array($page,['home-banner','home-banner-preview'],true)){$draft=$page==='home-banner-preview';if($draft)Permissions::require($db,'settings.manage');$asset=HomeShowcase::asset($db,Security::text($_GET,'id',40),Security::text($_GET,'device',10),$draft);self::sendFile(Upload::absolute($asset['path']),'image/webp','inline','banner.webp');return;}
             if($_SERVER['REQUEST_METHOD']==='POST'){
@@ -133,7 +134,7 @@ final class Web {
             while(ob_get_level()) ob_end_clean(); $status=$ex instanceof HttpError?$ex->status:503; http_response_code($status);
             $message=$ex instanceof HttpError?$ex->getMessage():'سرویس موقتاً در دسترس نیست؛ تنظیم پایگاه داده یا گزارش خطا را بررسی کنید.';
             if(!$ex instanceof HttpError) error_log('Namira: '.$ex->getMessage());
-            if(self::jsonUpload()||in_array($page,['gallery-data','martyrs-data','artist-archive-data','advanced-search-data'],true)){ header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); echo json_encode(['ok'=>false,'message'=>$message],JSON_UNESCAPED_UNICODE); return; }
+            if(self::jsonUpload()||in_array($page,['gallery-data','martyrs-data','artist-archive-data','advanced-search-data','public-feed'],true)){ header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); echo json_encode(['ok'=>false,'message'=>$message],JSON_UNESCAPED_UNICODE); return; }
             $title='نامیرا | '.$status; $user=false; $content='<section class="request"><h1>'.e(fa($status)).'</h1><p role="alert">'.e($message).'</p><p><a class="outline" href="'.e(url('home')).'">صفحه اصلی</a></p></section>'; view(DomainRouting::enabled()&&DomainRouting::surface()==='admin'?'admin-layout':'layout',compact('content','page','title','user','db'));
         }
     }
@@ -195,6 +196,7 @@ final class Web {
         $im=$archive->image((int)($_GET['id']??0)); if(!$im)throw new HttpError(404,'تصویر پیدا نشد.');
         if($page==='download'){ if(empty($im['download_allowed']))throw new HttpError(403,'دانلود اصل این رسانه با مجوز فعلی فعال نیست.'); Security::limit($db,'download',120,60); $path=$im['original_path']; $mime=$im['mime']; Db::query($db,'UPDATE images SET downloads=downloads+1 WHERE id=?',[$im['id']]); $ext=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'][$mime]; $name=$im['code'].'-'.$im['sequence_no'].'.'.$ext; }
         else { $path=($_GET['size']??'')==='large'?$im['preview_path']:$im['thumb_path'];$mime='image/webp';$name='preview.webp'; }
+        if($page==='media'){$absolute=Upload::absolute($path);$etag='"'.hash('sha256',$im['sha256'].'|'.$path.'|'.filemtime($absolute).'|'.filesize($absolute)).'"';header('Cache-Control: private, max-age=0, must-revalidate');header('ETag: '.$etag);if(($_SERVER['HTTP_IF_NONE_MATCH']??'')===$etag){http_response_code(304);return;}header('Content-Type: image/webp');header('Content-Length: '.filesize($absolute));readfile($absolute);return;}
         self::sendFile(Upload::absolute($path),$mime,$page==='download'?'attachment':'inline',$name);
     }
     public static function sendFile(string $path,string $mime,string $disposition,string $name): void {

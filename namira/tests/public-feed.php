@@ -1,0 +1,28 @@
+<?php
+declare(strict_types=1);
+require __DIR__.'/public-search.php';
+use Namira\{PublicFeed,Db,Archive,Upload,DataBackup};
+try{
+Namira\StoreSchema::migrate($db);$start=$checks;PublicFeed::bind($db);$model=Db::query($db,'SELECT * FROM images WHERE id=?',[$imageA])->fetch();$publication=Db::query($db,'SELECT * FROM media_publication WHERE image_id=?',[$imageA])->fetch();$originalBytes=file_get_contents(Upload::absolute($model['original_path']));mkdir($root.'/stream',0700);
+for($i=0;$i<360;$i++){$row=$model;unset($row['id']);$row['sequence_no']=1000+$i;$row['original_path']='stream/'.$i.'.jpg';$bytes=$originalBytes.'fixture-'.$i;file_put_contents($root.'/'.$row['original_path'],$bytes);$row['sha256']=hash('sha256',$bytes);$row['bytes']=strlen($bytes);$row['title']='اثر اسکرول '.$i;$id=Db::insert($db,'images',$row);$pub=$publication;$pub['image_id']=$id;Db::insert($db,'media_publication',$pub);Db::insert($db,'media_public_martyrs',['image_id'=>$id,'martyr_id'=>$personA]);Db::insert($db,'media_public_artists',['image_id'=>$id,'artist_id'=>$artistId,'creator_role'=>'designer','credit_name'=>'نام عمومی هنرمند','credit_order'=>0]);}
+for($i=0;$i<42;$i++)person('stream_person_'.$i,$teacher,['birth_place'=>$a],$topic);
+$max=(int)$db->query('SELECT MAX(id) FROM images')->fetchColumn();$before=DataBackup::counts($db);$base=['route'=>'gallery','max'=>(string)$max];$first=(new Archive($db))->images([],1);$after=(int)end($first['items'])['id'];$seen=array_map('intval',array_column($first['items'],'id'));$p=2;$ms=[];$maxCards=0;
+do{$t=hrtime(true);$r=PublicFeed::response($db,$base+['batch'=>(string)$p,'after'=>(string)$after]);$ms[]=(hrtime(true)-$t)/1e6;ok(count($r['ids'])<=24,'feed batch '.$p.' is SQL-bounded');ok(!array_intersect($seen,$r['ids']),'feed batch '.$p.' has no repeated IDs');$seen=[...$seen,...$r['ids']];$after=$r['after'];$maxCards=max($maxCards,count($r['ids']));$p++;}while($r['more']&&$p<30);
+ok(count($seen)===$first['count'],'cursor walks the entire public gallery without gaps');ok(!$r['more'],'final batch explicitly reports completion');
+$f=['route'=>'martyrs','max'=>(string)$db->query('SELECT MAX(id) FROM martyrs')->fetchColumn(),'batch'=>'2'];$r=PublicFeed::response($db,$f);ok(count($r['ids'])<=18,'martyr batch uses 18 cards');ok(!str_contains($r['html'],'biography'),'martyr response contains cards rather than full dossiers');
+$r=PublicFeed::response($db,['route'=>'advanced-search','results'=>'martyrs','max'=>$f['max'],'batch'=>'1','places'=>['birth_place'=>['country'=>(string)$a['country_id']]]]);ok(count($r['ids'])===18&&str_contains($r['html'],'hs-martyr-grid'),'advanced feed preserves result mode and birth filters');
+$r=PublicFeed::response($db,['route'=>'artist','id'=>(string)$artistId,'max'=>(string)$max,'batch'=>'2']);ok(count($r['ids'])===24,'public artist works use the same bounded gallery backend');
+$r=PublicFeed::response($db,['route'=>'profile','id'=>(string)$personA,'max'=>(string)$max,'batch'=>'2']);ok(count($r['ids'])===24,'public martyr media preserve featured ordering with bounded offset');
+$r=PublicFeed::response($db,['route'=>'artists','max'=>(string)$artistId,'batch'=>'1']);ok(str_contains($r['html'],'artist-grid'),'public artist directory feed renders existing cards');
+$r=PublicFeed::response($db,['route'=>'shop','max'=>'999999','batch'=>'1']);ok(is_array($r['ids']),'public store feed renders bounded existing product cards');
+$r=PublicFeed::response($db,['route'=>'calls','max'=>'999999','batch'=>'1']);ok(is_array($r['ids']),'public calls feed accepts only public listing');
+denied(fn()=>PublicFeed::response($db,['route'=>'admin','max'=>'1']),'administrative routes cannot use public feed');denied(fn()=>PublicFeed::response($db,['route'=>'gallery','max'=>['bad']]),'malformed snapshot rejected');
+$config=PublicFeed::config('gallery',[],400,24,1);ok($config['window']===5&&$config['per']===24,'feed metadata declares bounded card window');ok(PublicFeed::config('admin',[],400,24,1)===null&&PublicFeed::config('account',[],400,24,1)===null,'private/account/management pagination unchanged');
+ok(DataBackup::counts($db)===$before,'feed reads preserve every database table');
+ok(hash_file('sha256',Upload::absolute($model['original_path']))===$model['sha256'],'original image unchanged by streaming');
+$beforeInsert=$max;$extra=$model;unset($extra['id']);$extra['sequence_no']=9999;$extra['sha256']=hash('sha256','new fixture');$new=Db::insert($db,'images',$extra);$pub=$publication;$pub['image_id']=$new;Db::insert($db,'media_publication',$pub);Db::insert($db,'media_public_martyrs',['image_id'=>$new,'martyr_id'=>$personA]);
+$r=PublicFeed::response($db,$base+['batch'=>'2','after'=>(string)end($first['items'])['id']]);ok(!in_array($new,$r['ids'],true),'new insert above snapshot cannot shift cursor continuation');
+$metrics=['batch_ms_min'=>min($ms),'batch_ms_max'=>max($ms),'batch_ms_mean'=>array_sum($ms)/count($ms),'rows'=>$first['count'],'requests'=>count($ms),'max_response_cards'=>$maxCards,'initial_cards'=>count($first['items'])];echo json_encode($metrics,JSON_UNESCAPED_UNICODE)."\n";
+if(getenv('FEED_UI_FIXTURE')==='1'&&str_starts_with($dsn,'sqlite:'))file_put_contents(BASE_PATH.'/storage/feed-ui-fixture.json',json_encode(['dsn'=>$dsn,'storage'=>$root,'a'=>$a,'b'=>$b,'person'=>$personA,'image'=>$imageA,'artist'=>$artistId,'metrics'=>$metrics],JSON_THROW_ON_ERROR));
+echo ($checks-$start)." public feed checks passed.\n";
+}catch(Throwable $e){while(ob_get_level())ob_end_clean();fwrite(STDERR,$e->getMessage()."\n".$e->getTraceAsString()."\n");exit(1);}
