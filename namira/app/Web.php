@@ -17,6 +17,7 @@ final class Web {
             $page=Security::text($_GET,'page',40,false)?:(DomainRouting::enabled()&&DomainRouting::surface()==='admin'?'admin':'home');DomainRouting::enforce($page);
             if($page==='setup'){ Installer::web(); return; }
             $db=Db::connect();CleanUrls::bind($db);PublicFeed::bind($db);$clean=CleanUrls::canonical($page,$_GET,$_SERVER['REQUEST_URI']??'/index.php',$_SERVER['REQUEST_METHOD']??'GET');if($clean!==null){header('Location: '.$clean,true,301);return;} $archive=new Archive($db); $shop=new Shop($db);
+            if($page==='eitaa-api'){EitaaApp::endpoint($db);return;}
             if($page==='public-feed'){if(($_SERVER['REQUEST_METHOD']??'GET')!=='GET')throw new HttpError(405,'فقط درخواست GET مجاز است.');header('Content-Type: application/json; charset=utf-8');header('Cache-Control: no-store');session_write_close();if(strlen($_SERVER['QUERY_STRING']??'')>16000)throw new HttpError(422,'فیلترها بیش از حد هستند.');echo json_encode(['ok'=>true]+PublicFeed::response($db,$_GET),JSON_UNESCAPED_UNICODE|JSON_INVALID_UTF8_SUBSTITUTE);return;}
             if($page==='home-lookup')HomeShowcaseWeb::lookup($db);
             if(in_array($page,['home-banner','home-banner-preview'],true)){$draft=$page==='home-banner-preview';if($draft)Permissions::require($db,'settings.manage');$asset=HomeShowcase::asset($db,Security::text($_GET,'id',40),Security::text($_GET,'device',10),$draft);self::sendFile(Upload::absolute($asset['path']),'image/webp','inline','banner.webp');return;}
@@ -80,6 +81,10 @@ final class Web {
             header('Cache-Control: private, no-store');
             ob_start();
             switch($page){
+                case 'eitaa-payment':
+                    if(!EitaaApp::publicEnabled()||!$user||!isset($_SESSION['eitaa_id'])||!is_string($_SESSION['eitaa_payment']??null)||!str_starts_with($_SESSION['eitaa_payment'],'https://ble.ir/'))throw new HttpError(404,'پرداخت پیدا نشد.');
+                    $target=$_SESSION['eitaa_payment'];view('eitaa-payment',compact('target'));break;
+                case 'eitaa':if(!EitaaApp::publicEnabled())throw new HttpError(404,'صفحه پیدا نشد.');
                 case 'home':
                     if(!empty($_GET['topic'])){$home=Storefront::home($db,$_GET);redirect('gallery',$home['f']);}$sections=HomeShowcase::sections($db);view('home-showcase',compact('db','sections','page'));break;
                 case 'home-preview':Permissions::require($db,'settings.manage');Security::homePreviewHeaders();$sections=HomeShowcase::sections($db,true);view('home-showcase',compact('db','sections','page'));break;
@@ -134,7 +139,7 @@ final class Web {
             while(ob_get_level()) ob_end_clean(); $status=$ex instanceof HttpError?$ex->status:503; http_response_code($status);
             $message=$ex instanceof HttpError?$ex->getMessage():'سرویس موقتاً در دسترس نیست؛ تنظیم پایگاه داده یا گزارش خطا را بررسی کنید.';
             if(!$ex instanceof HttpError) error_log('Namira: '.$ex->getMessage());
-            if(self::jsonUpload()||in_array($page,['gallery-data','martyrs-data','artist-archive-data','advanced-search-data','public-feed'],true)){ header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); echo json_encode(['ok'=>false,'message'=>$message],JSON_UNESCAPED_UNICODE); return; }
+            if(self::jsonUpload()||in_array($page,['gallery-data','martyrs-data','artist-archive-data','advanced-search-data','public-feed','eitaa-api'],true)){ header('Content-Type: application/json; charset=utf-8'); header('Cache-Control: no-store'); echo json_encode(['ok'=>false,'message'=>$message],JSON_UNESCAPED_UNICODE); return; }
             $title='نامیرا | '.$status; $user=false; $content='<section class="request"><h1>'.e(fa($status)).'</h1><p role="alert">'.e($message).'</p><p><a class="outline" href="'.e(url('home')).'">صفحه اصلی</a></p></section>'; view(DomainRouting::enabled()&&DomainRouting::surface()==='admin'?'admin-layout':'layout',compact('content','page','title','user','db'));
         }
     }

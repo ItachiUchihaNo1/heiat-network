@@ -9,7 +9,7 @@ final class MobileNavigation {
         if(in_array($page,['artists','artist'],true))return 'artists';
         if(in_array($page,['shop','product','cart'],true))return 'shop';
         if(in_array($page,['account','member-login','login','store-account','store-order','order','contribute','request-track'],true))return 'account';
-        return $page==='home'?'home':'';
+        return in_array($page,['home','eitaa'],true)?'home':'';
     }
     public static function items(string $page,array|false $user,bool $storeReady):array {
         $current=self::section($page);

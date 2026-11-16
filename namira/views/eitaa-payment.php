@@ -1,0 +1,1 @@
+<section class="request"><h1>ادامهٔ پرداخت</h1><p>پرداخت در محیط بله باز می‌شود. پس از پرداخت به نامیرا برگردید و وضعیت سفارش را بررسی کنید.</p><a class="primary" href="<?= e($target) ?>" rel="noopener">بازکردن پرداخت در بله</a><p><a href="<?= e(url('store-account',['section'=>'orders'])) ?>">بازگشت به سفارش‌های من</a></p></section>

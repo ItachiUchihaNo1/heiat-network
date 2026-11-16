@@ -20,7 +20,7 @@ final class StoreHttp {
  switch($a){
  case 'commerce-checkout':$back='cart';$params=[];$token=StoreCheckout::create($db,$actor,$_POST,(int)($_POST['quote_id']??0));$order=(int)Db::query($db,'SELECT id FROM orders WHERE token=?',[$token])->fetchColumn();$back='store-order';$params=['id'=>$order];break;
  case 'commerce-bale-setup':BalePayments::setup($db,$actor,!empty($_POST['replace_webhook']));$params=['tab'=>'store-settings'];break;
- case 'commerce-bale-start':$target=(new BalePayments($db,new BaleClient()))->begin($actor,$order);Security::balePaymentHeaders();header('Location: '.$target,true,303);exit;
+ case 'commerce-bale-start':$target=(new BalePayments($db,new BaleClient()))->begin($actor,$order);if(EitaaApp::publicEnabled()&&isset($_SESSION['eitaa_id'])){$_SESSION['eitaa_payment']=$target;redirect('eitaa-payment');}Security::balePaymentHeaders();header('Location: '.$target,true,303);exit;
  case 'commerce-bale-check':(new BalePayments($db,new BaleClient()))->check($actor,$order);break;
  case 'commerce-pay':$o=StoreOrders::get($db,$actor,$order);StoreCheckout::pay($db,$actor,$o['o']['token'],$_POST);break;
  case 'commerce-retry':StoreCheckout::retry($db,$actor,$order);break;

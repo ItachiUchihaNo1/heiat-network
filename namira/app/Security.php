@@ -7,13 +7,18 @@ final class Security {
     /** Only the authorized home-preview route permits same-origin framing. */
     public static function homePreviewHeaders():void {header('X-Frame-Options: SAMEORIGIN');header('Content-Security-Policy: '.str_replace("frame-ancestors 'none'","frame-ancestors 'self'",self::CSP));}
     /** Only order/payment responses may redirect a form to the fixed Bale origin. */
-    public static function balePaymentHeaders():void {header('Content-Security-Policy: '.str_replace("form-action 'self'", "form-action 'self' https://ble.ir",self::CSP));}
+    public static function balePaymentHeaders():void {$policy=self::CSP;if(EitaaApp::publicEnabled())$policy=str_replace(["script-src 'self'","frame-ancestors 'none'"],["script-src 'self' https://developer.eitaa.com","frame-ancestors 'self' https://web.eitaa.com"],$policy);header('Content-Security-Policy: '.str_replace("form-action 'self'", "form-action 'self' https://ble.ir",$policy));}
+    public static function eitaaHeaders():void {
+        if(!EitaaApp::publicEnabled())return;
+        header_remove('X-Frame-Options');
+        header('Content-Security-Policy: '.str_replace(["script-src 'self'","frame-ancestors 'none'"],["script-src 'self' https://developer.eitaa.com","frame-ancestors 'self' https://web.eitaa.com"],self::CSP));
+    }
     public static function start(): void {
         if(in_array(Env::get('APP_ENV','production'),['production','staging'],true)){ini_set('display_errors','0');ini_set('log_errors','1');}
         ini_set('session.use_strict_mode','1'); session_name(DomainRouting::enabled()?'namira_'.DomainRouting::surface().'_session':'namira_session');
-        session_set_cookie_params(['httponly'=>true,'secure'=>Env::get('APP_ENV','production')==='production'||parse_url(Env::get('APP_URL'),PHP_URL_SCHEME)==='https','samesite'=>'Lax','path'=>'/']); session_start();if(DomainRouting::enabled()){if(isset($_SESSION['_surface'])&&$_SESSION['_surface']!==DomainRouting::surface()){$_SESSION=[];session_regenerate_id(true);}$_SESSION['_surface']=DomainRouting::surface();}
+        session_set_cookie_params(['httponly'=>true,'secure'=>Env::get('APP_ENV','production')==='production'||parse_url(Env::get('APP_URL'),PHP_URL_SCHEME)==='https','samesite'=>EitaaApp::publicEnabled()&&parse_url(Env::get('PUBLIC_APP_URL',Env::get('APP_URL')),PHP_URL_SCHEME)==='https'?'None':'Lax','path'=>'/']); session_start();if(DomainRouting::enabled()){if(isset($_SESSION['_surface'])&&$_SESSION['_surface']!==DomainRouting::surface()){$_SESSION=[];session_regenerate_id(true);}$_SESSION['_surface']=DomainRouting::surface();}
         header('X-Content-Type-Options: nosniff'); header('Referrer-Policy: same-origin'); header('X-Frame-Options: DENY');
-        header('Content-Security-Policy: '.self::CSP);
+        header('Content-Security-Policy: '.self::CSP);self::eitaaHeaders();
         if(Env::get('APP_ENV')==='production') header('Strict-Transport-Security: max-age=31536000');
     }
     public static function csrf(): string { return $_SESSION['csrf']??=bin2hex(random_bytes(32)); }
