@@ -3,9 +3,11 @@ use Namira\{MobileNavigation as MobileNav,StoreOrderSchema,Security};
 $mobileMenu=MobileNav::items($page,$user,$db instanceof PDO&&StoreOrderSchema::ready($db));
 ?>
 <nav class="nm-bottom-nav" aria-label="ناوبری پایین موبایل">
+<div class="nm-tab-surface"><svg class="nm-tab-socket" aria-hidden="true" focusable="false" preserveAspectRatio="none"><path></path></svg><div class="nm-tab-bead" hidden aria-hidden="true"></div><div class="nm-tab-inner">
 <?php foreach($mobileMenu['bottom'] as $entry): ?>
 <a class="nm-bottom-item<?= $entry['active']?' is-active':'' ?>" href="<?= e($entry['href']) ?>"<?= $entry['active']?' aria-current="page"':'' ?>><span class="nm-bottom-icon"><?= MobileNav::icon($entry['icon']) ?></span><span class="nm-bottom-label"><?= e($entry['label']) ?></span></a>
 <?php endforeach ?>
+</div></div>
 </nav>
 <dialog class="nm-drawer" id="mobile-navigation" aria-labelledby="mobile-navigation-title" data-mobile-drawer>
 <div class="nm-drawer-header"><div><span class="nm-drawer-brand">نامیرا</span><h2 id="mobile-navigation-title">منوی نامیرا</h2></div><button class="nm-icon-button" type="button" data-mobile-close aria-label="بستن منو"><?= MobileNav::icon('close') ?></button></div>
