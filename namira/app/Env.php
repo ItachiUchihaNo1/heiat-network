@@ -21,6 +21,7 @@ final class Env {
             foreach(['username'=>'TSMS_USERNAME','password'=>'TSMS_PASSWORD','sender'=>'TSMS_SENDER'] as $field=>$env){$v=$sms[$field]??'';putenv($env.'='.(is_string($v)?($field==='password'?$v:trim($v)):''));}
         }
         if(isset($values['payment'])&&is_array($values['payment'])){$p=$values['payment'];putenv('PAYMENT_DRIVER='.(($p['enabled']??false)===true&&($p['driver']??'')==='bale'?'bale':'disabled'));foreach(['bot_token'=>'BALE_BOT_TOKEN','provider_token'=>'BALE_PROVIDER_TOKEN'] as $field=>$env)putenv($env.'='.(is_string($p[$field]??null)?trim($p[$field]):''));}
+        if(isset($values['eitaa'])&&is_array($values['eitaa'])){$p=$values['eitaa'];putenv('EITAA_ENABLED='.(($p['enabled']??false)===true?'1':'0'));putenv('EITAA_TOKEN='.(is_string($p['token']??null)?trim($p['token']):''));}
         foreach($values as $key=>$value)if(is_string($key)&&preg_match('/^[A-Z_][A-Z0-9_]*$/D',$key)&&is_string($value)&&getenv($key)===false)putenv($key.'='.$value);
     }
     public static function get(string $key, string $default = ''): string { $v = getenv($key); return $v === false ? $default : $v; }

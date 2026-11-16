@@ -1,0 +1,5 @@
+/* Only visible when an actual Eitaa launch is detected. */
+.eitaa-status{position:relative;margin:14px auto;padding:12px 16px;max-width:720px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--text);font:inherit;line-height:1.9}
+.eitaa-status p{margin:0 0 8px}.eitaa-status button{font:inherit;min-height:44px;padding:8px 16px;border:1px solid var(--border);border-radius:12px;background:var(--primary);color:var(--surface);cursor:pointer;margin:4px}
+.eitaa-status[hidden]{display:none}.eitaa-status.is-error{border-color:var(--primary-muted)}
+body.is-eitaa{padding-top:var(--eitaa-safe-top,0px)}
