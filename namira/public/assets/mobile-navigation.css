@@ -51,7 +51,7 @@
  .nm-tabs-enhanced{height:98px;background:transparent;box-shadow:none;touch-action:pan-y}
  .nm-tabs-enhanced .nm-tab-socket{display:block;position:absolute;inset:0;width:100%;height:98px;overflow:visible;filter:drop-shadow(0 6px 10px var(--shadow-color));pointer-events:none}
  .nm-tab-socket path{fill:var(--primary-hover);stroke:var(--primary-muted);stroke-width:1}
- .nm-tabs-enhanced .nm-tab-inner{position:absolute;top:24px;left:0;right:0;padding-inline:8px;height:74px}
+ .nm-tabs-enhanced .nm-tab-inner{position:absolute;top:24px;left:0;right:0;padding-inline:24px;height:74px}
  .nm-tabs-enhanced .nm-bottom-item{position:relative;display:block;min-height:74px;padding:0;user-select:none;-webkit-user-drag:none}
  .nm-tabs-enhanced .nm-bottom-icon{position:absolute;left:50%;top:16px;transform:translateX(-50%);transition:opacity .2s,transform .3s}
  .nm-tabs-enhanced .nm-bottom-label{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-weight:500;transition:color .2s}

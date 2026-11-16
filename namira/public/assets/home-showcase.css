@@ -39,3 +39,11 @@
 .martyr-directory-search{max-width:600px;margin-bottom:20px}.martyr-directory-search>div{display:flex;gap:8px}.martyr-directory-search input{min-width:0;flex:1}
 @media(max-width:1100px){.hs-martyr-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:760px){.hs-martyr-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.hs-martyr-meta{font-size:.78rem}}
+
+/* Persian joining must not be disrupted by tracking on display headings. */
+.hs-banner h1,.hs-section-head h2,.hs-request h2{letter-spacing:normal;font-family:var(--font-family);font-weight:700;font-synthesis:none;line-height:1.8}
+.hs-request p{font-weight:500}
+.home-showcase>.hs-section:last-child{margin-bottom:0}
+.home-showcase{padding-bottom:10px}
+@media(min-width:761px){.hs-images .masonry{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:22px 18px;columns:auto;align-items:start}.hs-images .pin{margin:0}.hs-images .imagebox>a:first-child{display:block;aspect-ratio:3/4;background:var(--surface);overflow:hidden;border-radius:18px}.hs-images .imagebox img{width:100%;height:100%;object-fit:contain}.hs-images .hs-mobile-extra{display:none}}
+@media(max-width:760px){.hs-images .hs-desktop-extra{display:none}}
