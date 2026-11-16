@@ -1,6 +1,6 @@
 
 /* Bounded card windows. The server's ordinary paginated URLs remain the fallback. */
-(()=>{'use strict';if(!window.IntersectionObserver||!window.ResizeObserver||!window.fetch)return;
+(()=>{'use strict';if(!window.IntersectionObserver||!window.ResizeObserver||!Array.prototype.at||!window.fetch)return;
 const active=new Set(),MAX_BYTES=750000,MAX_LIVE=5,TTL=180000;let serial=0;
 const fa=n=>String(n).replace(/\d/g,d=>'۰۱۲۳۴۵۶۷۸۹'[d]);
 function append(p,key,value){if(Array.isArray(value))value.forEach(v=>append(p,key+'[]',v));else if(value&&typeof value==='object')Object.entries(value).forEach(([k,v])=>append(p,key+'['+k+']',v));else if(value!==''&&value!=null)p.set(key,String(value));}
