@@ -1,0 +1,1 @@
+<div class="hs-martyr-grid"><?php foreach($items as $m)view('martyr-card',compact('m')); ?></div>

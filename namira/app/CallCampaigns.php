@@ -33,7 +33,7 @@ final class CallCampaigns {
   $where=$public?"c.status='published'":'1=1';$args=[];$q=Security::text($in,'q',150,false);
   if($q!==''){$where.=' AND c.title LIKE ?';$args[]='%'.$q.'%';}
   if(!$public&&!empty($in['status'])){$where.=' AND c.status=?';$args[]=Security::text($in,'status',30);}
-  return AdminQueries::paginate($db,'SELECT c.*','FROM art_calls c',$where,$args,['new'=>'c.id DESC','deadline'=>'c.end_at,c.id DESC'],$in,12);
+  if(isset($in['_feed_max'])){$where.=' AND c.id<=?';$args[]=PublicFeed::number($in['_feed_max']);}return AdminQueries::paginate($db,'SELECT c.*','FROM art_calls c',$where,$args,['new'=>'c.id DESC','deadline'=>'c.end_at,c.id DESC'],$in,12);
  }
  public static function save(PDO $db,array $actor,array $in,int $id=0,?string $poster=null):int {
   CallSchema::requireReady($db);CallSchema::permit($db,$actor,'calls.edit');$old=$id?self::get($db,$id):null;
