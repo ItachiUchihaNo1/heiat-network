@@ -1,0 +1,50 @@
+name: Namira profile layout regression
+on:
+  push:
+    branches: ['codex/profile-layout']
+    paths: ['namira/**','.github/workflows/namira-profile-layout.yml']
+permissions:
+  contents: read
+jobs:
+  profile:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Install test dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y php-cli php-sqlite3 php-gd php-xml php-mbstring php-zip php-curl
+      - name: Views and fixtures
+        env:
+          FEED_UI_FIXTURE: '1'
+        run: |
+          php -l namira/views/profile.php
+          php -l namira/views/protocol-public.php
+          php -l namira/views/layout.php
+          node --check namira/tests/current-fixes-ui.cjs
+          php namira/tests/content-presentation.php
+      - name: Install isolated browser
+        run: |
+          npm install --prefix "$RUNNER_TEMP/profile-browser" playwright@1.56.1
+          "$RUNNER_TEMP/profile-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Mobile tablet and desktop profile geometry
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/profile-browser/node_modules/playwright
+        run: |
+          node namira/tests/public-refinements-ui.cjs
+          node namira/tests/current-fixes-ui.cjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: profile-browser-results
+          path: |
+            namira/storage/current-fixes-ui-artifacts
+            namira/storage/refinements-ui-artifacts
+          retention-days: 7
+      - name: Build tested code-only release
+        run: |
+          python3 namira/deploy/package_vps.py --source namira --revision "$GITHUB_SHA" --output artifacts/namira.tar.gz
+          bash namira/deploy/manual_vps.sh --check artifacts/namira.tar.gz "$GITHUB_SHA" "$(cat artifacts/namira.tar.gz.sha256)"
