@@ -46,6 +46,7 @@ jobs:
           node --check namira/public/assets/upload.js
           node namira/tests/gallery-filter-state.cjs
           python3 namira/tests/vps-deploy.py
+          python3 namira/deploy/upload_limits.py --test
       - name: Artist lifecycle and isolation on SQLite
         env:
           FEED_UI_FIXTURE: '1'

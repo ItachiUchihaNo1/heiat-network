@@ -21,7 +21,7 @@ document.querySelectorAll('form[data-verify-assets]').forEach(form=>{
      for(let n=0;n<assets.length;n++){
        const asset=assets[n],url=new URL(asset.url,location.origin);if(url.origin!==location.origin||url.searchParams.get('page')!=='community-file'||url.searchParams.get('id')!==String(asset.id))throw new Error('نشانی اصل فایل معتبر نیست.');
        message.textContent='خواندن اصل و ساخت پیش‌نمایش تأییدشده: '+new Intl.NumberFormat('fa-IR').format(n+1)+' از '+new Intl.NumberFormat('fa-IR').format(assets.length);
-       const response=await fetch(url,{credentials:'same-origin',cache:'no-store',redirect:'error'});if(!response.ok)throw new Error('اصل فایل برای این حساب در دسترس نیست.');const blob=await response.blob();if(blob.size>20971520)throw new Error('اصل فایل از سقف مجاز پردازش مرورگر بزرگ‌تر است.');
+       const response=await fetch(url,{credentials:'same-origin',cache:'no-store',redirect:'error'});if(!response.ok)throw new Error('اصل فایل برای این حساب در دسترس نیست.');const blob=await response.blob();if(blob.size>50*1048576)throw new Error('اصل فایل از سقف مجاز پردازش مرورگر بزرگ‌تر است.');
        const ext=({'image/jpeg':'jpg','image/png':'png','image/webp':'webp'})[blob.type];if(!ext)throw new Error('نوع واقعی اصل فایل پشتیبانی نمی‌شود.');
        const source=new File([blob],'source-'+asset.id+'.'+ext,{type:blob.type});const previews=await window.NamiraImagePreviews([source],()=>{});generated.push([asset.id,new File([previews[0]],'verified-'+asset.id+'.webp',{type:'image/webp'})]);
      }
