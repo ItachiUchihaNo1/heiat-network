@@ -11,9 +11,7 @@ final class Upload {
         $info=@getimagesize($path);
         if(!isset($map[$mime]))throw new HttpError(422,'نوع واقعی فایل «'.$mime.'» است؛ فقط JPEG، PNG و WebP پذیرفته می‌شوند. تغییر پسوند فایل، فرمت آن را عوض نمی‌کند.');
         if(!$info||($info['mime']??'')!==$mime||$info[0]<1||$info[1]<1)throw new HttpError(422,'ساختار تصویر معتبر نیست یا فایل ناقص است؛ نسخه اصلی تصویر را انتخاب کنید.');
-        // Reject obvious script payloads even if an image decoder accepts a polyglot.
-        $stream=fopen($path,'rb'); $head=fread($stream,min((int)$size,1048576)); fclose($stream);
-        if(preg_match('/<\?(?:php|=)|<script\b/i',$head)) throw new HttpError(422,'محتوای فایل مجاز نیست.');
+        ImagePayload::check($path,$mime,(int)$size);
         return ['mime'=>$mime,'extension'=>$map[$mime],'width'=>$info[0],'height'=>$info[1],'bytes'=>$size,'sha256'=>hash_file('sha256',$path)];
     }
     public static function receive(array $file): string {
