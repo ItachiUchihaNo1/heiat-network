@@ -12,7 +12,7 @@
         await new Promise((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(new Error('تصویر قابل خواندن نیست یا فرمت واقعی آن با پسوند یکسان نیست.'));image.src=objectURL;});
       }
       const source=bitmap||image,width=bitmap?bitmap.width:image.naturalWidth,height=bitmap?bitmap.height:image.naturalHeight;
-      if(!width||!height||width>40000||height>40000||width*height>200000000)throw new Error('ابعاد فایل از حد ایمنی ۲۰۰ مگاپیکسل یا ضلع ۴۰۰۰۰ پیکسل بیشتر است.');
+      if(!width||!height)throw new Error('ابعاد تصویر قابل خواندن نیست.');
       const canvas=document.createElement('canvas');[canvas.width,canvas.height]=fit(width,height);
       const context=canvas.getContext('2d');if(!context)throw new Error('مرورگر امکان ساخت پیش‌نمایش ندارد.');
       context.drawImage(source,0,0,canvas.width,canvas.height);

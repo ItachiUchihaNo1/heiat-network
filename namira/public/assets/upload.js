@@ -18,9 +18,10 @@
       box.hidden = false;
       const limit = Number(form.dataset.maxFiles || 10);
       const invalid = files.find(file => !/\.(jpe?g|png|webp)$/i.test(file.name));
-      if (invalid || files.length > limit) {
+      const oversized=files.find(file=>file.size>50*1048576);
+      if (invalid || oversized || files.length > limit) {
         meter.value = 0;
-        message.textContent = invalid ? 'فرمت مجاز فایل‌ها: JPEG، JPG، PNG و WebP.' : `در هر نوبت حداکثر ${fa.format(limit)} فایل انتخاب کنید.`;
+        message.textContent = oversized ? 'حد مجاز هر تصویر ۵۰ مگابایت است: '+oversized.name : invalid ? 'فرمت مجاز فایل‌ها: JPEG، JPG، PNG و WebP.' : `در هر نوبت حداکثر ${fa.format(limit)} فایل انتخاب کنید.`;
         totals.textContent = '';
         box.dataset.state = 'error';
         return;

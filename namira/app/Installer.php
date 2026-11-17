@@ -30,7 +30,7 @@ final class Installer {
         if(!preg_match('/^[A-Za-z0-9.-]+$/D',$host)||!preg_match('/^[A-Za-z0-9_]+$/D',$name)||!$port||$port<1||$port>65535)throw new HttpError(422,'نام میزبان، پورت یا نام دیتابیس معتبر نیست.');
         $password=$in['db_password']??null;
         if(!is_string($password)||$password===''||strlen($password)>4096||str_contains($password,"\0")) throw new HttpError(422,'رمز دیتابیس را وارد کنید.');
-        return ['APP_ENV'=>'production','APP_URL'=>DomainRouting::enabled()?DomainRouting::origin('PUBLIC_APP_URL'):'https://test.shahidpics.com','DB_DSN'=>'mysql:host='.$host.';port='.$port.';dbname='.$name.';charset=utf8mb4','DB_USER'=>$user,'DB_PASSWORD'=>$password,'PAYMENT_DRIVER'=>'disabled','SHIPPING_TOMAN'=>'50000','MAX_UPLOAD_MB'=>'20'];
+        return ['APP_ENV'=>'production','APP_URL'=>DomainRouting::enabled()?DomainRouting::origin('PUBLIC_APP_URL'):'https://test.shahidpics.com','DB_DSN'=>'mysql:host='.$host.';port='.$port.';dbname='.$name.';charset=utf8mb4','DB_USER'=>$user,'DB_PASSWORD'=>$password,'PAYMENT_DRIVER'=>'disabled','SHIPPING_TOMAN'=>'50000','MAX_UPLOAD_MB'=>'50'];
     }
     public function install(PDO $db,array $config,array $in): void {
         if(!$this->authorized()) throw new HttpError(403,'کلید نصب لازم است.');

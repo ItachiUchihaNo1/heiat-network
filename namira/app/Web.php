@@ -69,6 +69,7 @@ final class Web {
 
             if($page==='admin-media'){Permissions::require($db,'media.view');$image=Db::query($db,'SELECT * FROM images WHERE id=?',[(int)($_GET['id']??0)])->fetch();if(!$image)throw new HttpError(404,'تصویر پیدا نشد.');$original=($_GET['size']??'')==='original';self::sendFile(Upload::absolute($image[$original?'original_path':'thumb_path']),$original?$image['mime']:'image/webp',$original?'attachment':'inline','media-'.(int)$image['id']);return;}
             if($page==='backup-download'){Permissions::require($db,'settings.manage');$name=Security::text($_GET,'name',80);if(!preg_match('/^db-[0-9]{8}-[0-9]{6}-[a-f0-9]{16}$/D',$name))throw new HttpError(404,'پشتیبان پیدا نشد.');self::sendFile(Upload::absolute('backups/'.$name.'.sql'),'application/sql','attachment',$name.'.sql');return;}
+            if($page==='person-download'){PersonDownload::send($db,(int)($_GET['id']??0));return;}
             if($page==='media'||$page==='download') { self::media($db,$archive,$page); return; }
             if($page==='request-file') {
                 if(!MemberSchema::ready($db)){if(PlatformSchema::ready($db))Permissions::require($db,'requests.view');else Security::requireRole($db,'content');} $f=Db::query($db,'SELECT * FROM request_files WHERE id=?',[(int)($_GET['id']??0)])->fetch();
@@ -98,8 +99,8 @@ final class Web {
                 case 'profile':
                     $m=$archive->find((int)($_GET['id']??0)); if(!$m)throw new HttpError(404,'پروفایل پیدا نشد.');
                     $title='شهید '.(($m['display_name']??'')?:trim($m['first_name'].' '.$m['last_name'])).' | نامیرا';
-                    $selectedType=max(0,(int)($_GET['media_type']??0));$personTypes=$archive->personTypes((int)$m['id']);$profileResult=$archive->forPerson((int)$m['id'],max(1,(int)($_GET['p']??1)),$selectedType);$images=$profileResult['items'];
-                    view('profile',compact('m','images','profileResult','personTypes','selectedType'));if(CallSchema::ready($db))view('call-public-works',['db'=>$db,'works'=>CallPublishing::publicWorks($db,(int)$m['id'])]);break;
+                    $selectedType=max(0,(int)($_GET['media_type']??0));$personTypes=$archive->personTypes((int)$m['id']);$profileResult=$archive->forPerson((int)$m['id'],max(1,(int)($_GET['p']??1)),$selectedType);$images=$profileResult['items'];$canDownload=PersonDownload::available($db,(int)$m['id']);
+                    view('profile',compact('m','images','profileResult','personTypes','selectedType','canDownload'));if(CallSchema::ready($db))view('call-public-works',['db'=>$db,'works'=>CallPublishing::publicWorks($db,(int)$m['id'])]);break;
                 case 'image': $im=$archive->image((int)($_GET['id']??0)); if(!$im)throw new HttpError(404,'تصویر پیدا نشد.'); $title=PublicPresentation::personName($im).' | نامیرا';$topics=PublicPresentation::imageTopics($db,(int)$im['id'],(int)$im['martyr_id']); $creators=$archive->creators((int)$im['id']);$people=$archive->relatedPeople((int)$im['id']);view('image',compact('im','creators','people','topics'));if(CallSchema::ready($db)&&!$creators)view('call-image-credit',['works'=>CallPublishing::publicWorks($db,null,null,(int)$im['id'])]);break;
 
                 case 'artists':

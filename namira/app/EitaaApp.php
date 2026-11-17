@@ -30,7 +30,15 @@ final class EitaaApp {
  }
  public static function contact(string $raw,string $eitaaId,?int $now=null):array {
   $data=self::signedData($raw,$now);try{$contact=json_decode($data['contact']??'',true,8,JSON_THROW_ON_ERROR|JSON_BIGINT_AS_STRING);}catch(\JsonException){throw new HttpError(422,'تأیید شماره ایتا معتبر نیست.');}
-  if(!is_array($contact)||self::providerId($contact['user_id']??null)!==$eitaaId)throw new HttpError(401,'شماره به این کاربر ایتا تعلق ندارد.');$phone=$contact['phone_number']??null;if(!is_string($phone)&&!is_int($phone))throw new HttpError(422,'شماره ایتا معتبر نیست.');$phone=Security::normalize((string)$phone);if(preg_match('/^(?:\+98|0098|98)(9[0-9]{9})$/D',$phone,$m))$phone='0'.$m[1];elseif(preg_match('/^9[0-9]{9}$/D',$phone))$phone='0'.$phone;return ['mobile'=>Security::phone($phone),'hash'=>$data['hash'],'expires'=>$data['expires']];
+  if(!is_array($contact)||self::providerId($contact['user_id']??null)!==$eitaaId)throw new HttpError(401,'شماره به این کاربر ایتا تعلق ندارد.');$phones=[];foreach(['phone_number','phone','phoneNumber'] as $key)if(array_key_exists($key,$contact)&&$contact[$key]!==null&&(!is_string($contact[$key])||trim($contact[$key])!==''))$phones[]=self::contactPhone($contact[$key]);if(!$phones)throw new HttpError(422,'پاسخ امضاشده ایتا فاقد شماره است (EITAA_CONTACT_PHONE_MISSING)؛ شماره را دوباره تأیید کنید.');if(count(array_unique($phones))!==1)throw new HttpError(422,'شماره‌های پاسخ ایتا یکسان نیستند.');return ['mobile'=>$phones[0],'hash'=>$data['hash'],'expires'=>$data['expires']];
+ }
+ /** Adapt signed provider contact fields only, after HMAC and owner verification. */
+ private static function contactPhone(mixed $phone):string {
+  if(is_float($phone)&&is_finite($phone)&&$phone>=0&&$phone<=9007199254740991&&floor($phone)===$phone)$phone=sprintf('%.0f',$phone);
+  if(!is_string($phone)&&!is_int($phone))throw new HttpError(422,'نوع شماره در پاسخ ایتا معتبر نیست (EITAA_CONTACT_PHONE_TYPE).');
+  $phone=Security::normalize((string)$phone);$phone=preg_replace('/[\\s\\x{00a0}()\\-]/u','',$phone);
+  if(preg_match('/^(?:\\+98|0098|98)(9[0-9]{9})$/D',$phone,$m))$phone='0'.$m[1];elseif(preg_match('/^9[0-9]{9}$/D',$phone))$phone='0'.$phone;
+  return Security::phone($phone);
  }
  private static function member(PDO $db,int $id):array {
   $user=Db::query($db,'SELECT id,email,role,active FROM users WHERE id=?'.($db->inTransaction()&&$db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':''),[$id])->fetch();
