@@ -11,3 +11,6 @@
 .feed-masonry .pin img{width:100%;height:auto;display:block}
 
 .feed-people>.feed-batch>.hs-martyr-grid{display:block;position:static;margin:0;padding:0}.feed-people .hs-martyr-grid>[data-card-id]{position:absolute;margin:0;box-sizing:border-box}.feed-people{margin-top:24px}
+
+/* Overlapping virtual windows must not intercept links in a neighbouring window. */
+.feed-masonry>.feed-batch{pointer-events:none}.feed-masonry .feed-batch [data-card-id],.feed-masonry .feed-batch>button{pointer-events:auto}
