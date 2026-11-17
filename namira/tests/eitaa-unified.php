@@ -25,4 +25,5 @@ foreach(['phone','phoneNumber','phone_number'] as $field){$response=launch(211,1
 check(E::contact(launch(211,161,['contact'=>'{"user_id":211,"phone_number":989123450011.0}']),'211')['mobile']==='09123450011','integral JSON float phone has exact safe conversion');
 rejects(fn()=>E::contact(launch(211,162,['contact'=>'{"user_id":211,"phone_number":true}']),'211'),422,'boolean phone never becomes an identity');
 rejects(fn()=>E::contact(launch(211,163,['contact'=>'{"user_id":211,"phone_number":"09123450011","phone":"09123450012"}']),'211'),422,'conflicting signed phone aliases rejected');
+check(E::contact(launch(211,164,['contact'=>'{"user_id":211,"phone_number":null,"phone":"09123450011"}']),'211')['mobile']==='09123450011','empty legacy phone field does not mask signed replacement field');
 echo ($checks-$begin)." unified Eitaa and download checks passed.\n";

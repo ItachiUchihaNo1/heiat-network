@@ -30,7 +30,7 @@ final class EitaaApp {
  }
  public static function contact(string $raw,string $eitaaId,?int $now=null):array {
   $data=self::signedData($raw,$now);try{$contact=json_decode($data['contact']??'',true,8,JSON_THROW_ON_ERROR|JSON_BIGINT_AS_STRING);}catch(\JsonException){throw new HttpError(422,'تأیید شماره ایتا معتبر نیست.');}
-  if(!is_array($contact)||self::providerId($contact['user_id']??null)!==$eitaaId)throw new HttpError(401,'شماره به این کاربر ایتا تعلق ندارد.');$phones=[];foreach(['phone_number','phone','phoneNumber'] as $key)if(array_key_exists($key,$contact))$phones[]=self::contactPhone($contact[$key]);if(!$phones)throw new HttpError(422,'پاسخ امضاشده ایتا فاقد شماره است (EITAA_CONTACT_PHONE_MISSING)؛ شماره را دوباره تأیید کنید.');if(count(array_unique($phones))!==1)throw new HttpError(422,'شماره‌های پاسخ ایتا یکسان نیستند.');return ['mobile'=>$phones[0],'hash'=>$data['hash'],'expires'=>$data['expires']];
+  if(!is_array($contact)||self::providerId($contact['user_id']??null)!==$eitaaId)throw new HttpError(401,'شماره به این کاربر ایتا تعلق ندارد.');$phones=[];foreach(['phone_number','phone','phoneNumber'] as $key)if(array_key_exists($key,$contact)&&$contact[$key]!==null&&(!is_string($contact[$key])||trim($contact[$key])!==''))$phones[]=self::contactPhone($contact[$key]);if(!$phones)throw new HttpError(422,'پاسخ امضاشده ایتا فاقد شماره است (EITAA_CONTACT_PHONE_MISSING)؛ شماره را دوباره تأیید کنید.');if(count(array_unique($phones))!==1)throw new HttpError(422,'شماره‌های پاسخ ایتا یکسان نیستند.');return ['mobile'=>$phones[0],'hash'=>$data['hash'],'expires'=>$data['expires']];
  }
  /** Adapt signed provider contact fields only, after HMAC and owner verification. */
  private static function contactPhone(mixed $phone):string {
