@@ -1,0 +1,25 @@
+<?php
+declare(strict_types=1);
+require dirname(__DIR__).'/app/bootstrap.php';
+use Namira\{Upload,HttpError,Db,Archive};
+$dir=BASE_PATH.'/storage/image-payload-'.bin2hex(random_bytes(8));mkdir($dir,0700,true);$checks=0;
+function ok(bool $yes,string $message):void{global $checks;if(!$yes)throw new RuntimeException('FAIL '.$message);$checks++;echo "PASS $message\n";}
+function rejected(string $file,string $message):void{try{Upload::validate($file);}catch(HttpError $e){ok($e->status===422,$message);return;}throw new RuntimeException('FAIL expected rejection '.$message);}
+$g=imagecreatetruecolor(48,64);imagefill($g,0,0,imagecolorallocate($g,31,94,120));$base=[];
+foreach(['jpeg','png','webp'] as $format){$file=$dir.'/base.'.$format;('image'.$format)($g,$file);$base[$format]=file_get_contents($file);}imagedestroy($g);
+$markers="binary\0\xff\xd9 <?= <?php <script> \x80";
+$jpeg=substr($base['jpeg'],0,2)."\xff\xfe".pack('n',strlen($markers)+2).$markers.substr($base['jpeg'],2);
+$chunk=function(string $type,string $value):string{return pack('N',strlen($value)).$type.$value.pack('N',crc32($type.$value));};
+$png=substr($base['png'],0,-12).$chunk('tEXt',"Comment\0".$markers).substr($base['png'],-12);
+$value=$markers.(strlen($markers)%2?"\0":'');$body=substr($base['webp'],8).'JUNK'.pack('V',strlen($markers)).$value;$webp='RIFF'.pack('V',strlen($body)).$body;
+foreach(['jpeg'=>$jpeg,'png'=>$png,'webp'=>$webp] as $format=>$bytes){$file=$dir.'/metadata.'.$format;file_put_contents($file,$bytes);$before=hash_file('sha256',$file);$meta=Upload::validate($file);$decoded=match($format){'jpeg'=>imagecreatefromjpeg($file),'png'=>imagecreatefrompng($file),'webp'=>imagecreatefromwebp($file)};ok($meta['width']===48&&$meta['height']===64&&$decoded!==false,$format.' valid binary metadata is accepted and decodes');imagedestroy($decoded);ok(hash_file('sha256',$file)===$before,$format.' original and metadata remain byte-for-byte intact');foreach(['<?= 1;','<?php echo 1;','<script>alert(1)</script>'] as $n=>$script){$bad=$dir.'/tail-'.$format.'-'.$n;file_put_contents($bad,$bytes.$script);rejected($bad,$format.' script appended outside container is rejected '.$n);}}
+$file=$dir.'/late.jpg';file_put_contents($file,$base['jpeg'].str_repeat('x',1200000).'<?php echo 1;');rejected($file,'appended script beyond old first-megabyte scan is rejected');
+$file=$dir.'/split.jpg';file_put_contents($file,$base['jpeg'].str_repeat('x',65535).'<?= 1;');rejected($file,'trailing script spanning scan buffer boundary is rejected');
+$file=$dir.'/truncated.jpg';file_put_contents($file,substr($base['jpeg'],0,-2));rejected($file,'missing JPEG end marker rejected without decoding unbounded source');
+$file=$dir.'/segment.jpg';file_put_contents($file,substr($base['jpeg'],0,2)."\xff\xe1\xff\xff".substr($base['jpeg'],2));rejected($file,'out-of-bounds JPEG metadata length rejected');
+$file=$dir.'/truncated.png';file_put_contents($file,substr($base['png'],0,-12));rejected($file,'missing PNG IEND rejected');
+$file=$dir.'/size.webp';file_put_contents($file,'RIFF'.pack('V',50000000).substr($base['webp'],8));rejected($file,'out-of-bounds RIFF size rejected');
+$file=$dir.'/fake.jpg';file_put_contents($file,'<?php echo 1;');rejected($file,'plain source code cannot masquerade as JPEG');
+$progressive=$dir.'/progressive.jpg';$g=imagecreatetruecolor(720,960);for($y=0;$y<960;$y++)for($x=0;$x<720;$x++)imagesetpixel($g,$x,$y,(($x*12345+$y*67891)^($x*$y*123))&0xffffff);imageinterlace($g,true);imagejpeg($g,$progressive,95);imagedestroy($g);ok(Upload::validate($progressive)['width']===720,'progressive JPEG with multiple scans and long entropy data is accepted');
+$sample=getenv('NAMIRA_IMAGE_SAMPLE');if($sample){$hash=hash_file('sha256',$sample);$t=hrtime(true);$meta=Upload::validate($sample);ok($meta['mime']==='image/jpeg'&&$meta['width']===3543&&$meta['height']===4724,'actual supplied JPEG with embedded thumbnails passes validation');ok($hash===hash_file('sha256',$sample),'actual source photo is never changed');putenv('APP_ENV=testing');putenv('STORAGE_PATH='.$dir);putenv('DB_DSN=sqlite:'.$dir.'/sample.sqlite');putenv('DB_USER=');putenv('DB_PASSWORD=');$db=Db::connect();(require BASE_PATH.'/database/migrate.php')($db);$a=new Archive($db);$person=$a->save(['code'=>'SAMPLE001','first_name'=>'آزمون','last_name'=>'بارگذاری','published'=>'1']);ini_set('memory_limit','256M');$image=imagecreatefromjpeg($sample);$preview=imagescale($image,100,133);imagedestroy($image);$companion=$dir.'/sample-companion.webp';imagewebp($preview,$companion,80);imagedestroy($preview);$id=Upload::attach($db,$person,$sample,'sample.jpg',[],$companion);$saved=$a->image($id);ok(hash_file('sha256',Upload::absolute($saved['original_path']))===$hash,'actual original uploads successfully with unchanged checksum');ok(getimagesize(Upload::absolute($saved['thumb_path']))['mime']==='image/webp','actual upload generates valid optimized preview');echo json_encode(['actual_sample_bytes'=>$meta['bytes'],'validation_and_upload_ms'=>(hrtime(true)-$t)/1e6])."\n";}
+echo "$checks image payload checks passed.\n";
