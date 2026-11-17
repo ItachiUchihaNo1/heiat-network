@@ -1,6 +1,8 @@
 <?php use Namira\HomeShowcase; $isPreview=$page==='home-preview';$homeVersion=HomeShowcase::state($db)['version']; ?>
 <link rel="stylesheet" href="/assets/home-showcase.css?v=021">
 <?php if($isPreview): ?><p class="hs-preview-note">پیش‌نمایش خصوصی چیدمان ذخیره‌شده؛ هنوز منتشر نشده است.</p><?php endif ?>
+<?php $publicStats=HomeShowcase::publicStats($db); ?>
+<div class="home-statistics" aria-label="آمار عمومی نامیرا"><?php foreach(['martyrs'=>['user','شهید'],'images'=>['gallery','تصویر']] as $key=>[$icon,$label]): ?><div class="home-stat"><?= Namira\MobileNavigation::icon($icon) ?><span class="stat-number" data-count-up="<?= $publicStats[$key] ?>" aria-label="<?= fa(number_format($publicStats[$key])).' '.$label ?>"><?= fa(number_format($publicStats[$key])) ?></span><span><?= $label ?></span></div><?php endforeach ?></div><script src="/assets/home-stats.js?v=022" defer></script>
 <div class="home-showcase">
 <?php foreach($sections as $index=>$block):$type=$block['type'];$items=$block['items'];$routes=['images'=>'gallery','products'=>'shop','calls'=>'calls','artists'=>'artists','martyrs'=>'martyrs'];$more=$block['link']?:url($routes[$type]??'gallery'); ?>
 <section class="hs-section <?= e($type==='banner'?'hs-banner-section':'hs-'.$type) ?>" data-home-block="<?= e($block['id']) ?>">

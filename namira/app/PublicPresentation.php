@@ -8,6 +8,12 @@ final class PublicPresentation {
         $text=trim(str_replace(["\xc2\xa0",'&nbsp;'], ' ',strip_tags((string)$v)));
         return $text!==''&&!in_array(mb_strtolower($text),['unknown','missing','null','نامشخص','نامعلوم','ثبت نشده','ثبت‌نشده','-','—','انتخاب نشده'],true);
     }
+    public static function personName(array $p):string {return trim(($p['first_name']??'').' '.($p['last_name']??''))?:trim($p['display_name']??'');}
+    public static function fileSize(int $bytes):string {foreach([1073741824=>'گیگابایت',1048576=>'مگابایت',1024=>'کیلوبایت'] as $unit=>$label)if($bytes>=$unit)return fa(number_format($bytes/$unit,2)).' '.$label;return fa(number_format($bytes)).' بایت';}
+    public static function imageTopics(PDO $db,int $image,int $person):array {
+        if(MartyrTaxonomySchema::ready($db)&&PlatformSchema::ready($db))return Db::query($db,"SELECT DISTINCT t.title,t.sort_order,t.id FROM media_public_martyrs r JOIN martyrs m ON m.id=r.martyr_id AND m.published=1 JOIN martyr_public_terms mt ON mt.martyr_id=r.martyr_id AND mt.axis_key='collection' JOIN protocol_terms t ON t.id=mt.term_id AND t.active=1 WHERE r.image_id=? ORDER BY t.sort_order,t.id",[$image])->fetchAll(PDO::FETCH_COLUMN);
+        return Db::query($db,'SELECT DISTINCT c.title FROM martyr_categories r JOIN categories c ON c.id=r.category_id WHERE r.martyr_id=?',[$person])->fetchAll(PDO::FETCH_COLUMN);
+    }
     public static function imageTitle(array $image):string {
         $title=trim((string)($image['title']??''));$technical=preg_match('/^(?:[0-9_-]+\.(?:jpe?g|png|webp)|(?:jpe?g|png|webp)\.[0-9_-]+)$/iu',$title)||str_contains($title,'Undefined array key')||str_contains($title,'<b>Warning');
         if(!$technical&&self::meaningful($title))return $title;
