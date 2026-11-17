@@ -1,0 +1,20 @@
+name: Inspect official Eitaa contact adapter
+on:
+  push:
+    branches: ['codex/current-fixes']
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Read official public SDK without storing it in application
+        run: |
+          curl --fail --silent --show-error --max-time 30 https://developer.eitaa.com/eitaa-web-app.js -o "$RUNNER_TEMP/eitaa.js"
+          python3 - "$RUNNER_TEMP/eitaa.js" <<'PY'
+          import re,sys
+          s=open(sys.argv[1]).read()
+          for term in ['phone_number','phoneNumber','requestContact','contactRequested','getRequestedContact']:
+            for m in list(re.finditer(re.escape(term),s))[:5]:
+              print(term, s[max(0,m.start()-180):m.end()+500])
+          PY
