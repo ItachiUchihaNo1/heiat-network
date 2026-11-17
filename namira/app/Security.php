@@ -13,12 +13,19 @@ final class Security {
         header_remove('X-Frame-Options');
         header('Content-Security-Policy: '.str_replace(["script-src 'self'","frame-ancestors 'none'"],["script-src 'self' https://developer.eitaa.com","frame-ancestors 'self' https://web.eitaa.com"],self::CSP));
     }
+    public static function cookieOptions():array {
+        $origin=Env::get('PUBLIC_APP_URL')?:Env::get('APP_URL');$secure=Env::get('APP_ENV','production')==='production'||parse_url($origin,PHP_URL_SCHEME)==='https';return ['httponly'=>true,'secure'=>$secure,'samesite'=>EitaaApp::publicEnabled()&&$secure?'None':'Lax','path'=>'/'];
+    }
+    /** Keep an anonymous retired ID for in-flight image requests; it never inherits authenticated state. */
+    public static function rotateEitaaSession():void {
+        $state=$_SESSION;$_SESSION=['_eitaa_retired_at'=>time()];if(isset($state['_surface']))$_SESSION['_surface']=$state['_surface'];if(!session_regenerate_id(false))throw new HttpError(503,'آماده‌سازی نشست ممکن نشد.');$_SESSION=$state;unset($_SESSION['_eitaa_retired_at']);
+    }
     public static function start(): void {
         if(in_array(Env::get('APP_ENV','production'),['production','staging'],true)){ini_set('display_errors','0');ini_set('log_errors','1');}
         ini_set('session.use_strict_mode','1'); session_name(DomainRouting::enabled()?'namira_'.DomainRouting::surface().'_session':'namira_session');
-        session_set_cookie_params(['httponly'=>true,'secure'=>Env::get('APP_ENV','production')==='production'||parse_url(Env::get('APP_URL'),PHP_URL_SCHEME)==='https','samesite'=>EitaaApp::publicEnabled()&&parse_url(Env::get('PUBLIC_APP_URL',Env::get('APP_URL')),PHP_URL_SCHEME)==='https'?'None':'Lax','path'=>'/']); session_start();if(DomainRouting::enabled()){if(isset($_SESSION['_surface'])&&$_SESSION['_surface']!==DomainRouting::surface()){$_SESSION=[];session_regenerate_id(true);}$_SESSION['_surface']=DomainRouting::surface();}
+        session_set_cookie_params(self::cookieOptions()); session_start();if(DomainRouting::enabled()){if(isset($_SESSION['_surface'])&&$_SESSION['_surface']!==DomainRouting::surface()){$_SESSION=[];session_regenerate_id(true);}$_SESSION['_surface']=DomainRouting::surface();}
         header('X-Content-Type-Options: nosniff'); header('Referrer-Policy: same-origin'); header('X-Frame-Options: DENY');
-        header('Content-Security-Policy: '.self::CSP);self::eitaaHeaders();
+        header('Content-Security-Policy: '.self::CSP);self::eitaaHeaders();if(EitaaApp::publicEnabled())header('Cache-Control: private, no-store');
         if(Env::get('APP_ENV')==='production') header('Strict-Transport-Security: max-age=31536000');
     }
     public static function csrf(): string { return $_SESSION['csrf']??=bin2hex(random_bytes(32)); }
