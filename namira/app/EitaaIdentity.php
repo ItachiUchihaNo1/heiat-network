@@ -23,7 +23,7 @@ final class EitaaIdentity {
  public static function bindPhone(PDO $db,int $current,string $mobile):int {
   MobileAuth::lockMobile($db,$mobile);$known=Db::query($db,'SELECT user_id FROM account_identities WHERE mobile=?'.($db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':''),[$mobile])->fetchColumn();$target=$known?(int)$known:$current;
   if($current&&$target!==$current)self::mergePlaceholder($db,$current,$target);
-  if($target){$old=MobileAuth::identity($db,$target);if(!empty($old['mobile'])&&$old['mobile']!==$mobile)throw new HttpError(409,'شماره تأییدشده حساب متفاوت است.');$now=date(DATE_ATOM);if($old)Db::query($db,'UPDATE account_identities SET mobile=?,mobile_verified_at=?,revision=revision+1,updated_at=? WHERE user_id=?',[$mobile,$now,$now,$target]);else Db::insert($db,'account_identities',['user_id'=>$target,'first_name'=>'','last_name'=>'','mobile'=>$mobile,'mobile_verified_at'=>$now,'created_at'=>$now,'updated_at'=>$now]);}
+  if($target){$old=Db::query($db,'SELECT * FROM account_identities WHERE user_id=?'.($db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':''),[$target])->fetch();if(!empty($old['mobile'])&&$old['mobile']!==$mobile)throw new HttpError(409,'شماره تأییدشده حساب متفاوت است.');$now=date(DATE_ATOM);if($old)Db::query($db,'UPDATE account_identities SET mobile=?,mobile_verified_at=?,revision=revision+1,updated_at=? WHERE user_id=?',[$mobile,$now,$now,$target]);else Db::insert($db,'account_identities',['user_id'=>$target,'first_name'=>'','last_name'=>'','mobile'=>$mobile,'mobile_verified_at'=>$now,'created_at'=>$now,'updated_at'=>$now]);}
   return $target;
  }
 }
