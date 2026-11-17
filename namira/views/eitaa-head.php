@@ -7,5 +7,5 @@ $eitaaAuthenticated=$eitaaRow&&($eitaaRow['eitaa_id']===($_SESSION['eitaa_id']??
 ?>
 <script src="https://developer.eitaa.com/eitaa-web-app.js"></script>
 <meta name="namira-eitaa" data-csrf="<?= e(Security::csrf()) ?>" data-authenticated="<?= $eitaaAuthenticated?'1':'0' ?>" data-user="<?= $eitaaUser?'1':'0' ?>" data-mobile="<?= !empty($eitaaMobile['mobile'])&&!empty($eitaaMobile['mobile_verified_at'])?'1':'0' ?>" data-welcome="<?= e($eitaaRow['welcome_state']??'pending') ?>">
-<link rel="stylesheet" href="/assets/eitaa.css?v=20261117-unified1">
-<script src="/assets/eitaa.js?v=20261117-unified1" defer></script>
+<link rel="stylesheet" href="/assets/eitaa.css?v=20261117-session2">
+<script src="/assets/eitaa.js?v=20261117-session2" defer></script>

@@ -19,7 +19,7 @@ $mobileMenu=MobileNav::items($page,$user,$db instanceof PDO&&StoreOrderSchema::r
 </section>
 <?php endforeach ?>
 </nav>
-<?php view('pwa-install'); ?>
+
 <?php if($user): ?><form method="post" class="nm-logout"><?= Security::field() ?><input type="hidden" name="action" value="logout"><button type="submit"><?= MobileNav::icon('logout') ?><span>خروج از حساب</span></button></form><?php endif ?>
 </div>
 </dialog>

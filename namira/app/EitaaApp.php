@@ -30,7 +30,7 @@ final class EitaaApp {
  }
  public static function contact(string $raw,string $eitaaId,?int $now=null):array {
   $data=self::signedData($raw,$now);try{$contact=json_decode($data['contact']??'',true,8,JSON_THROW_ON_ERROR|JSON_BIGINT_AS_STRING);}catch(\JsonException){throw new HttpError(422,'تأیید شماره ایتا معتبر نیست.');}
-  if(!is_array($contact)||self::providerId($contact['user_id']??null)!==$eitaaId)throw new HttpError(401,'شماره به این کاربر ایتا تعلق ندارد.');$phone=$contact['phone_number']??null;if(!is_string($phone))throw new HttpError(422,'شماره ایتا معتبر نیست.');$phone=Security::normalize($phone);if(str_starts_with($phone,'0098'))$phone='0'.substr($phone,4);elseif(str_starts_with($phone,'+98'))$phone='0'.substr($phone,3);elseif(str_starts_with($phone,'98'))$phone='0'.substr($phone,2);return ['mobile'=>Security::phone($phone),'hash'=>$data['hash'],'expires'=>$data['expires']];
+  if(!is_array($contact)||self::providerId($contact['user_id']??null)!==$eitaaId)throw new HttpError(401,'شماره به این کاربر ایتا تعلق ندارد.');$phone=$contact['phone_number']??null;if(!is_string($phone)&&!is_int($phone))throw new HttpError(422,'شماره ایتا معتبر نیست.');$phone=Security::normalize((string)$phone);if(preg_match('/^(?:\+98|0098|98)(9[0-9]{9})$/D',$phone,$m))$phone='0'.$m[1];elseif(preg_match('/^9[0-9]{9}$/D',$phone))$phone='0'.$phone;return ['mobile'=>Security::phone($phone),'hash'=>$data['hash'],'expires'=>$data['expires']];
  }
  private static function member(PDO $db,int $id):array {
   $user=Db::query($db,'SELECT id,email,role,active FROM users WHERE id=?'.($db->inTransaction()&&$db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':''),[$id])->fetch();
@@ -77,13 +77,14 @@ final class EitaaApp {
  public static function endpoint(PDO $db):void {
   header('Content-Type: application/json; charset=utf-8');header('Cache-Control: private, no-store');header('X-Robots-Tag: noindex, nofollow');
   if(!self::publicEnabled())throw new HttpError(404,'صفحه پیدا نشد.');
+  if(($_SERVER['REQUEST_METHOD']??'')==='GET'&&($_GET['action']??'')==='eitaa-session'){ $actor=Security::user($db);echo json_encode(['ok'=>true,'csrf'=>Security::csrf(),'authenticated'=>(bool)($actor&&isset($_SESSION['eitaa_id'])&&Db::query($db,'SELECT user_id FROM eitaa_accounts WHERE eitaa_id=?',[$_SESSION['eitaa_id']])->fetchColumn()==$actor['id'])]);return;}
   if(($_SERVER['REQUEST_METHOD']??'')!=='POST')throw new HttpError(405,'فقط درخواست POST مجاز است.');
   if((int)($_SERVER['CONTENT_LENGTH']??0)>20000)throw new HttpError(413,'درخواست بیش از حد بزرگ است.');
   Security::verify($_POST);Security::limit($db,'eitaa-auth',30,600);$actor=Security::user($db);$action=$_POST['action']??'';
   if($action==='eitaa-auth'){
    $r=self::authenticate($db,Security::text($_POST,'init_data',16384),$actor,($_POST['link']??'')==='1',Security::text($_POST,'contact_data',16384,false),Security::text($_POST,'binding',64,false),($_POST['without_contact']??'')==='1');
    if(!empty($r['needs_contact'])){if(!array_key_exists('without_contact',$_POST))throw new HttpError(409,'نسخه صفحه قدیمی است؛ یک بار صفحه را کامل تازه‌سازی کنید.');echo json_encode(['ok'=>true,'needs_contact'=>true]);return;}
-   session_regenerate_id(true);$_SESSION['user_id']=$r['user_id'];$_SESSION['csrf']=bin2hex(random_bytes(32));$_SESSION['eitaa_id']=$r['eitaa_id'];$_SESSION['eitaa_proof']=$r['proof'];
+   Security::rotateEitaaSession();$_SESSION['user_id']=$r['user_id'];$_SESSION['csrf']=bin2hex(random_bytes(32));$_SESSION['eitaa_id']=$r['eitaa_id'];$_SESSION['eitaa_proof']=$r['proof'];
    echo json_encode(['ok'=>true,'csrf'=>Security::csrf(),'allows_write'=>$r['allows_write'],'needs_mobile'=>$r['needs_mobile']],JSON_UNESCAPED_UNICODE);return;
   }
   if($action==='eitaa-state'){echo json_encode(['ok'=>true,'authenticated'=>(bool)($actor&&isset($_SESSION['eitaa_id'])&&Db::query($db,'SELECT user_id FROM eitaa_accounts WHERE eitaa_id=?',[$_SESSION['eitaa_id']])->fetchColumn()==$actor['id'])]);return;}
