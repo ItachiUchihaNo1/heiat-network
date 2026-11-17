@@ -40,12 +40,15 @@ final class MobileAuth {
     }
     public static function identity(PDO $db,int $user):array|false {return MemberSchema::ready($db)?Db::query($db,'SELECT * FROM account_identities WHERE user_id=?',[$user])->fetch():false;}
     public static function verified(PDO $db,array|false $actor):bool {if(!$actor)return false;$identity=self::identity($db,(int)$actor['id']);return $identity&&!empty($identity['mobile_verified_at'])&&!empty($identity['mobile']);}
+    public static function lockMobile(PDO $db,string $mobile):void {
+        $bucket='identity-mobile-'.hash('sha256',$mobile);$mysql=$db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql';Db::query($db,$mysql?'INSERT INTO rate_limits(bucket,hits,expires) VALUES(?,0,?) ON DUPLICATE KEY UPDATE hits=hits':'INSERT INTO rate_limits(bucket,hits,expires) VALUES(?,0,?) ON CONFLICT(bucket) DO NOTHING',[$bucket,time()+600]);Db::query($db,'SELECT bucket FROM rate_limits WHERE bucket=?'.($mysql?' FOR UPDATE':''),[$bucket])->fetch();
+    }
     public static function finish(PDO $db,array $proof,array $in,?array $actor=null):int {
         // Proof comes only from the server session after verify; callers must not accept browser JSON here.
         $mobile=$proof['mobile'];$now=date(DATE_ATOM);
         return Db::transaction($db,function()use($db,$proof,$in,$actor,$mobile,$now){
-            if($actor&&!Db::query($db,'SELECT id FROM users WHERE id=? AND active=1',[$actor['id']])->fetchColumn())throw new HttpError(403,'حساب فعال لازم است.');
-            $existing=Db::query($db,'SELECT i.user_id,u.active FROM account_identities i JOIN users u ON u.id=i.user_id WHERE i.mobile=?',[$mobile])->fetch();
+            self::lockMobile($db,$mobile);if($actor&&!Db::query($db,'SELECT id FROM users WHERE id=? AND active=1',[$actor['id']])->fetchColumn())throw new HttpError(403,'حساب فعال لازم است.');
+            $existing=Db::query($db,'SELECT i.user_id,u.active FROM account_identities i JOIN users u ON u.id=i.user_id WHERE i.mobile=?'.($db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':''),[$mobile])->fetch();
             if($proof['purpose']==='change'){
                 if(!$actor||(int)$proof['bound_user_id']!==(int)$actor['id'])throw new HttpError(403,'تأیید به این حساب تعلق ندارد.');
                 if($existing&&(int)$existing['user_id']!==(int)$actor['id'])throw new HttpError(409,'این شماره قابل اتصال نیست.');
