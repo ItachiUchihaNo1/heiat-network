@@ -82,7 +82,7 @@ final class EitaaApp {
   Security::verify($_POST);Security::limit($db,'eitaa-auth',30,600);$actor=Security::user($db);$action=$_POST['action']??'';
   if($action==='eitaa-auth'){
    $r=self::authenticate($db,Security::text($_POST,'init_data',16384),$actor,($_POST['link']??'')==='1',Security::text($_POST,'contact_data',16384,false),Security::text($_POST,'binding',64,false),($_POST['without_contact']??'')==='1');
-   if(!empty($r['needs_contact'])){echo json_encode(['ok'=>true,'needs_contact'=>true]);return;}
+   if(!empty($r['needs_contact'])){if(!array_key_exists('without_contact',$_POST))throw new HttpError(409,'نسخه صفحه قدیمی است؛ یک بار صفحه را کامل تازه‌سازی کنید.');echo json_encode(['ok'=>true,'needs_contact'=>true]);return;}
    session_regenerate_id(true);$_SESSION['user_id']=$r['user_id'];$_SESSION['csrf']=bin2hex(random_bytes(32));$_SESSION['eitaa_id']=$r['eitaa_id'];$_SESSION['eitaa_proof']=$r['proof'];
    echo json_encode(['ok'=>true,'csrf'=>Security::csrf(),'allows_write'=>$r['allows_write'],'needs_mobile'=>$r['needs_mobile']],JSON_UNESCAPED_UNICODE);return;
   }
