@@ -22,8 +22,8 @@ final class PersonDownload {
   try{
    if($zip->open($file,\ZipArchive::OVERWRITE)!==true)throw new HttpError(503,'ساخت فایل فشرده انجام نشد.');$opened=true;$ids=[];$name='';
    foreach($images as $image){$absolute=Upload::absolute($image['original_path']);$read=@fopen($absolute,'rb');if(!$read)throw new HttpError(503,'یکی از فایل‌های اصلی در دسترس نیست؛ دانلود کامل انجام نشد.');fclose($read);$image['martyr_id']=$person;$base=ImageCode::downloadName($image);$dot=strrpos($base,'.');$entry=substr($base,0,$dot).'-'.ImageCode::format((int)$image['id']).substr($base,$dot);$name=substr($base,0,$dot).'.zip';if(!$zip->addFile($absolute,$entry)||!$zip->setCompressionName($entry,\ZipArchive::CM_STORE))throw new HttpError(503,'افزودن تصویر به دانلود انجام نشد.');$ids[]=(int)$image['id'];}
-   if(!$zip->close())throw new HttpError(503,'تکمیل فایل فشرده انجام نشد.');$opened=false;return ['path'=>$file,'name'=>$name,'ids'=>$ids];
-  }catch(\Throwable $e){if($opened)@$zip->close();if(is_file($file))unlink($file);throw $e;}
+   $closed=$zip->close();$opened=false;if(!$closed)throw new HttpError(503,'تکمیل فایل فشرده انجام نشد.');return ['path'=>$file,'name'=>$name,'ids'=>$ids];
+  }catch(\Throwable $e){if($opened){try{@$zip->close();}catch(\Throwable){}}if(is_file($file))unlink($file);throw $e;}
  }
  public static function send(PDO $db,int $person):void {
   if(($_SERVER['REQUEST_METHOD']??'GET')!=='GET')throw new HttpError(405,'فقط دریافت مجاز است.');
