@@ -5,7 +5,7 @@ use PDO;
 /** Public directory and shared presentation of published martyr records. */
 final class MartyrDirectory {
  /** Publicly renderable image metadata, regardless of design/photo/document classification. */
- private static function imageCondition(string $alias):string {
+ public static function imageCondition(string $alias):string {
   if(!in_array($alias,['i','di'],true))throw new \LogicException('Unexpected image alias');
   return "$alias.published=1 AND $alias.mime LIKE 'image/%' AND $alias.width>0 AND $alias.height>0 AND $alias.bytes>0 AND TRIM($alias.thumb_path)<>''";
  }

@@ -75,8 +75,21 @@ final class HomeShowcase {
    if($manual){$map=array_column($items,null,'id');$items=[];foreach($ids as $id)if(isset($map[$id]))$items[]=$map[$id];}
   }return array_slice($items,0,$limit);
  }
+ /** Only the automatic home image section: newest people, latest uploaded public image each. */
+ public static function latestPeopleImages(PDO $db,int $limit):array {
+  $limit=max(1,min(24,$limit));[$eligible,$args]=MartyrDirectory::conditions($db);$valid=MartyrDirectory::imageCondition('di');
+  $select=PlatformSchema::ready($db)?'SELECT di.id FROM media_public_martyrs r JOIN images di ON di.id=r.image_id JOIN media_publication p ON p.image_id=di.id WHERE r.martyr_id=m.id AND '.$valid.' ORDER BY di.id DESC LIMIT 1':'SELECT di.id FROM images di WHERE di.martyr_id=m.id AND '.$valid.' ORDER BY di.id DESC LIMIT 1';
+  $publication=PlatformSchema::ready($db)?' JOIN media_publication mp ON mp.image_id=i.id':'';
+  $rows=Db::query($db,'SELECT i.*,m.id AS martyr_id,m.first_name,m.last_name,m.code,m.province,m.city,mpn.public_name AS display_name,'.(PlatformSchema::ready($db)?'mp.download_allowed':'1 AS download_allowed').' FROM (SELECT m.id,('.$select.') AS image_id FROM martyrs m WHERE '.$eligible.' ORDER BY m.created_at DESC,m.id DESC LIMIT '.$limit.') chosen JOIN martyrs m ON m.id=chosen.id JOIN images i ON i.id=chosen.image_id'.$publication.' LEFT JOIN martyr_protocols mpn ON mpn.martyr_id=m.id ORDER BY m.created_at DESC,m.id DESC',$args)->fetchAll();
+  return Storefront::cards($db,$rows);
+ }
+ public static function publicStats(PDO $db):array {
+  [$where,$args]=MartyrDirectory::conditions($db);$martyrs=(int)Db::query($db,'SELECT COUNT(*) FROM martyrs m WHERE '.$where,$args)->fetchColumn();$valid=MartyrDirectory::imageCondition('i');
+  $scope=PlatformSchema::ready($db)?' JOIN media_publication p ON p.image_id=i.id WHERE '.$valid.' AND EXISTS(SELECT 1 FROM media_public_martyrs r JOIN martyrs m ON m.id=r.martyr_id WHERE r.image_id=i.id AND m.published=1)':' JOIN martyrs m ON m.id=i.martyr_id WHERE '.$valid.' AND m.published=1';
+  return ['martyrs'=>$martyrs,'images'=>(int)Db::query($db,'SELECT COUNT(*) FROM images i'.$scope)->fetchColumn()];
+ }
  public static function sections(PDO $db,bool $draft=false):array {
-  $state=self::state($db);$out=[];foreach($state[$draft?'draft':'published'] as $b){if(!$b['enabled'])continue;$b['items']=[];if($b['type']==='banner'&&empty($b['assets']))$b['items']=(new Archive($db))->images([],1,3)['items'];if(!in_array($b['type'],['banner','request'],true)){if($b['mode']==='manual'&&!$b['ids'])continue;$b['items']=self::content($db,$b['type'],$b['mode']==='manual'?$b['ids']:[],$b['type']==='images'?max(15,$b['count']):$b['count']);if(!$b['items'])continue;}$out[]=$b;}return $out;
+  $state=self::state($db);$out=[];foreach($state[$draft?'draft':'published'] as $b){if(!$b['enabled'])continue;$b['items']=[];if($b['type']==='banner'&&empty($b['assets']))$b['items']=(new Archive($db))->images([],1,3)['items'];if(!in_array($b['type'],['banner','request'],true)){if($b['mode']==='manual'&&!$b['ids'])continue;$b['items']=$b['type']==='images'&&$b['mode']==='auto'?self::latestPeopleImages($db,max(15,$b['count'])):self::content($db,$b['type'],$b['mode']==='manual'?$b['ids']:[],$b['type']==='images'?max(15,$b['count']):$b['count']);if(!$b['items'])continue;}$out[]=$b;}return $out;
  }
  public static function asset(PDO $db,string $id,string $device,bool $draft=false):array {
   if(!in_array($device,['desktop','mobile'],true))throw new HttpError(404,'بنر پیدا نشد.');
