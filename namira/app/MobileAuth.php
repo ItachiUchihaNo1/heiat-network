@@ -48,7 +48,7 @@ final class MobileAuth {
         $mobile=$proof['mobile'];$now=date(DATE_ATOM);
         return Db::transaction($db,function()use($db,$proof,$in,$actor,$mobile,$now){
             self::lockMobile($db,$mobile);if($actor&&!Db::query($db,'SELECT id FROM users WHERE id=? AND active=1',[$actor['id']])->fetchColumn())throw new HttpError(403,'حساب فعال لازم است.');
-            $existing=Db::query($db,'SELECT i.user_id,u.active FROM account_identities i JOIN users u ON u.id=i.user_id WHERE i.mobile=?',[$mobile])->fetch();
+            $existing=Db::query($db,'SELECT i.user_id,u.active FROM account_identities i JOIN users u ON u.id=i.user_id WHERE i.mobile=?'.($db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':''),[$mobile])->fetch();
             if($proof['purpose']==='change'){
                 if(!$actor||(int)$proof['bound_user_id']!==(int)$actor['id'])throw new HttpError(403,'تأیید به این حساب تعلق ندارد.');
                 if($existing&&(int)$existing['user_id']!==(int)$actor['id'])throw new HttpError(409,'این شماره قابل اتصال نیست.');

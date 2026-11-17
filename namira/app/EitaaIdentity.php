@@ -5,7 +5,7 @@ use PDO;
 /** Reconcile only a verified Eitaa member placeholder, never arbitrary website identities. */
 final class EitaaIdentity {
  public static function mergePlaceholder(PDO $db,int $source,int $target):void {
-  if($source===$target)return;$u=Db::query($db,'SELECT email,role FROM users WHERE id=?',[$source])->fetch();$old=MobileAuth::identity($db,$source);
+  if($source===$target)return;$lock=$db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':'';$u=Db::query($db,'SELECT email,role FROM users WHERE id=?'.$lock,[$source])->fetch();$old=Db::query($db,'SELECT * FROM account_identities WHERE user_id=?'.$lock,[$source])->fetch();
   if(!$u||$u['role']!=='member'||!preg_match('/^eitaa-[a-f0-9]+@members\.invalid$/D',$u['email'])||!empty($old['mobile'])||Db::query($db,"SELECT role_key FROM user_roles WHERE user_id=? AND role_key<>'member'",[$source])->fetchColumn())throw new HttpError(409,'این حساب اطلاعات ورود مستقل دارد؛ اتصال خودکار مجاز نیست.');
   $tables=$db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?Db::query($db,'SELECT table_name FROM information_schema.tables WHERE table_schema=DATABASE()')->fetchAll(PDO::FETCH_COLUMN):Db::query($db,"SELECT name FROM sqlite_master WHERE type='table'")->fetchAll(PDO::FETCH_COLUMN);$has=fn($t)=>in_array($t,$tables,true);
   // Two independent join applications or shopping carts need an explicit human decision; roll back everything.
@@ -21,7 +21,7 @@ final class EitaaIdentity {
   Db::query($db,'UPDATE users SET active=0 WHERE id=?',[$source]);Db::audit($db,'account.eitaa.unify',$source.':'.$target);
  }
  public static function bindPhone(PDO $db,int $current,string $mobile):int {
-  MobileAuth::lockMobile($db,$mobile);$known=Db::query($db,'SELECT user_id FROM account_identities WHERE mobile=?',[$mobile])->fetchColumn();$target=$known?(int)$known:$current;
+  MobileAuth::lockMobile($db,$mobile);$known=Db::query($db,'SELECT user_id FROM account_identities WHERE mobile=?'.($db->getAttribute(PDO::ATTR_DRIVER_NAME)==='mysql'?' FOR UPDATE':''),[$mobile])->fetchColumn();$target=$known?(int)$known:$current;
   if($current&&$target!==$current)self::mergePlaceholder($db,$current,$target);
   if($target){$old=MobileAuth::identity($db,$target);if(!empty($old['mobile'])&&$old['mobile']!==$mobile)throw new HttpError(409,'شماره تأییدشده حساب متفاوت است.');$now=date(DATE_ATOM);if($old)Db::query($db,'UPDATE account_identities SET mobile=?,mobile_verified_at=?,revision=revision+1,updated_at=? WHERE user_id=?',[$mobile,$now,$now,$target]);else Db::insert($db,'account_identities',['user_id'=>$target,'first_name'=>'','last_name'=>'','mobile'=>$mobile,'mobile_verified_at'=>$now,'created_at'=>$now,'updated_at'=>$now]);}
   return $target;
