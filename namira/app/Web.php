@@ -10,6 +10,7 @@ final class Web {
         return $rows;
     }
     public static function run(): void {
+        if(Pwa::serve())return;
         if(($_GET['page']??'')==='bale-webhook'){BalePayments::webhook();return;}
         Security::start(); $db=null; $page='home';
         try {
