@@ -4,7 +4,7 @@ namespace Namira;
 use PDO;
 final class CallCampaigns {
  public const RIGHTS="هدف این فراخوان، انتشار آثار در نامیراست. ارسال‌کننده اجازه نمایش و دانلود رایگان فایل باکیفیت را با حفظ انتساب به صاحب اثر می‌دهد. اگر اثر متعلق به دیگری است، داشتن اجازه لازم برای ارسال و انتشار را تأیید می‌کند. پذیرش قوانین به معنی انتقال مالکیت اثر به نامیرا نیست. انتخاب صاحب اثر نامشخص، صرفاً وضعیت اطلاعات صاحب اثر را ثبت می‌کند و جایگزین پذیرش قوانین نیست.";
- public static function defaults():array {return ['workflow'=>2,'mode'=>'collection','accepting'=>true,'edit_policy'=>'until_deadline','formats'=>['jpg','jpeg','png','webp'],'max_file_mb'=>min(20,(int)Env::get('MAX_UPLOAD_MB','20')),'max_total_mb'=>null,'min_files'=>1,'max_files'=>null,'max_batch_works'=>null,'max_user_works'=>null,'common_fields'=>[],'martyr_fields'=>['first_name'=>['required'=>true],'last_name'=>['required'=>true]]];}
+ public static function defaults():array {return ['workflow'=>2,'mode'=>'collection','accepting'=>true,'edit_policy'=>'until_deadline','formats'=>['jpg','jpeg','png','webp'],'max_file_mb'=>50,'max_total_mb'=>null,'min_files'=>1,'max_files'=>null,'max_batch_works'=>null,'max_user_works'=>null,'common_fields'=>[],'martyr_fields'=>['first_name'=>['required'=>true],'last_name'=>['required'=>true]]];}
  public static function limit(mixed $in):?int {
   if($in===null||$in==='')return null;
   if(is_array($in)){if(($in['mode']??'')==='unlimited')return null;if(($in['mode']??'')!=='limited')throw new HttpError(422,'حالت تعداد مشخص یا بدون محدودیت را انتخاب کنید.');$in=$in['value']??null;}
@@ -12,7 +12,7 @@ final class CallCampaigns {
  }
  public static function filePolicy(array $in,array $base=[]):array {
   $d=array_replace(self::defaults(),$base);$formats=$in['formats']??$d['formats'];if(!is_array($formats)||!$formats||array_diff($formats,['jpg','jpeg','png','webp','pdf','zip','psd','txt','docx']))throw new HttpError(422,'فرمت‌های مجاز فایل را درست انتخاب کنید.');
-  $d['formats']=array_values(array_unique($formats));$d['max_file_mb']=CallForms::integer($in['max_file_mb']??$d['max_file_mb'],1,max(1,(int)Env::get('MAX_UPLOAD_MB','20')));
+  $d['formats']=array_values(array_unique($formats));$d['max_file_mb']=CallForms::integer($in['max_file_mb']??$d['max_file_mb'],1,50);
   foreach(['max_total_mb','max_files','max_batch_works','max_user_works'] as $key)if(array_key_exists($key,$in))$d[$key]=self::limit($in[$key]);
   $d['min_files']=CallForms::integer($in['min_files']??$d['min_files'],0,1000000);
   if($d['max_files']!==null&&$d['min_files']>$d['max_files'])throw new HttpError(422,'حداقل فایل از حداکثر بیشتر است.');return $d;

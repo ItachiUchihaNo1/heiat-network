@@ -23,7 +23,7 @@ final class Submissions {
         if($artist&&!$verified&&!Db::query($this->db,'SELECT id FROM artists WHERE id=? AND public_visible=1 AND archived=0',[$artist])->fetchColumn())throw new HttpError(422,'پروفایل هنرمند انتخاب‌شده پیدا نشد.');
         $person=(int)($in['martyr_id']??0);$personName=Security::text($in,'martyr_name',255,false);$code=Security::normalize(Security::text($in,'martyr_code',80,false));
         if($person&&!Db::query($this->db,'SELECT id FROM martyrs WHERE id=? AND published=1',[$person])->fetchColumn())throw new HttpError(422,'پرونده عمومی شهید پیدا نشد.');
-        $criteria=$call['criteria']??['allow_new_martyr'=>true,'media_types'=>[],'specialties'=>[],'martyr_ids'=>[],'max_file_bytes'=>min(20,(int)Env::get('MAX_UPLOAD_MB','20'))*1048576];
+        $criteria=$call['criteria']??['allow_new_martyr'=>true,'media_types'=>[],'specialties'=>[],'martyr_ids'=>[],'max_file_bytes'=>Upload::MAX_IMAGE_BYTES];
         if(!$person&&($personName===''||empty($criteria['allow_new_martyr'])))throw new HttpError(422,'شهید موجود را انتخاب کنید؛ پیشنهاد پرونده تازه فقط در فراخوان مجاز پذیرفته می‌شود.');
         if($person&&!empty($criteria['martyr_ids'])&&!in_array($person,$criteria['martyr_ids'],true))throw new HttpError(422,'اثر با شهدای منتخب این فراخوان تطبیق ندارد.');
         $type=(int)($in['type_id']??0);if(!Db::query($this->db,"SELECT id FROM protocol_terms WHERE id=? AND taxonomy='media_type' AND active=1",[$type])->fetchColumn())throw new HttpError(422,'نوع اثر را انتخاب کنید.');

@@ -75,12 +75,12 @@ final class HomeShowcase {
    if($manual){$map=array_column($items,null,'id');$items=[];foreach($ids as $id)if(isset($map[$id]))$items[]=$map[$id];}
   }return array_slice($items,0,$limit);
  }
- /** Only the automatic home image section: newest people, latest uploaded public image each. */
+ /** Only the automatic home image section: latest uploaded public image per person, ordered by upload. */
  public static function latestPeopleImages(PDO $db,int $limit):array {
   $limit=max(1,min(24,$limit));[$eligible,$args]=MartyrDirectory::conditions($db);$valid=MartyrDirectory::imageCondition('di');
   $select=PlatformSchema::ready($db)?'SELECT di.id FROM media_public_martyrs r JOIN images di ON di.id=r.image_id JOIN media_publication p ON p.image_id=di.id WHERE r.martyr_id=m.id AND '.$valid.' ORDER BY di.id DESC LIMIT 1':'SELECT di.id FROM images di WHERE di.martyr_id=m.id AND '.$valid.' ORDER BY di.id DESC LIMIT 1';
   $publication=PlatformSchema::ready($db)?' JOIN media_publication mp ON mp.image_id=i.id':'';
-  $rows=Db::query($db,'SELECT i.*,m.id AS martyr_id,m.first_name,m.last_name,m.code,m.province,m.city,mpn.public_name AS display_name,'.(PlatformSchema::ready($db)?'mp.download_allowed':'1 AS download_allowed').' FROM (SELECT m.id,('.$select.') AS image_id FROM martyrs m WHERE '.$eligible.' ORDER BY m.created_at DESC,m.id DESC LIMIT '.$limit.') chosen JOIN martyrs m ON m.id=chosen.id JOIN images i ON i.id=chosen.image_id'.$publication.' LEFT JOIN martyr_protocols mpn ON mpn.martyr_id=m.id ORDER BY m.created_at DESC,m.id DESC',$args)->fetchAll();
+  $rows=Db::query($db,'SELECT i.*,m.id AS martyr_id,m.first_name,m.last_name,m.code,m.province,m.city,mpn.public_name AS display_name,'.(PlatformSchema::ready($db)?'mp.download_allowed':'1 AS download_allowed').' FROM (SELECT m.id,('.$select.') AS image_id FROM martyrs m WHERE '.$eligible.' ORDER BY image_id DESC,m.id DESC LIMIT '.$limit.') chosen JOIN martyrs m ON m.id=chosen.id JOIN images i ON i.id=chosen.image_id'.$publication.' LEFT JOIN martyr_protocols mpn ON mpn.martyr_id=m.id ORDER BY i.id DESC,m.id DESC',$args)->fetchAll();
   return Storefront::cards($db,$rows);
  }
  public static function publicStats(PDO $db):array {

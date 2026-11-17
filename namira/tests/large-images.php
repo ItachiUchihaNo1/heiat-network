@@ -28,8 +28,8 @@ try{
     denied(fn()=>Upload::image($db,$original2,'009001-2.jpg',[],$wide),'۱۶۰۰','oversized companion rejected before decode');
     $disguised=$root.'/fake.jpg';file_put_contents($disguised,'This is not a JPEG');
     denied(fn()=>Upload::validate($disguised),'نوع واقعی','wrong actual format receives a precise diagnostic');
-    putenv('MAX_IMAGE_MEGAPIXELS=24');denied(fn()=>Upload::validate($original),'۸۰۰۰','dimension rejection reports actual dimensions');putenv('MAX_IMAGE_MEGAPIXELS=200');
-    putenv('MAX_UPLOAD_MB=0');denied(fn()=>Upload::validate($original),'مگابایت','byte-size rejection is distinct from dimensions');putenv('MAX_UPLOAD_MB=20');
+    putenv('MAX_IMAGE_MEGAPIXELS=24');ok(Upload::validate($original)['width']===8000,'obsolete pixel configuration does not reject originals');putenv('MAX_IMAGE_MEGAPIXELS=200');
+    $boundary=$root.'/boundary.jpg';copy($original,$boundary);$stream=fopen($boundary,'c+b');ftruncate($stream,50*1048576);fclose($stream);clearstatcache();putenv('MAX_UPLOAD_MB=20');ok(Upload::validate($boundary)['bytes']===50*1048576,'exact 50 MiB original passes despite legacy 20 MB configuration');$stream=fopen($boundary,'ab');fwrite($stream,'x');fclose($stream);clearstatcache();denied(fn()=>Upload::validate($boundary),'مگابایت','50 MiB plus one byte rejected before processing');
     ok((int)Db::query($db,'SELECT COUNT(*) FROM images')->fetchColumn()===1,'failed companions create no image records');
     ok(count(glob($root.'/originals/*'))===1,'failed companions leave no extra original files');
     ini_set('memory_limit',(string)$savedLimit);

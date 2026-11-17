@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace Namira;
 use PDO;
 final class IncomingAssets {
-    public static function save(PDO $db,int $owner,string $source,?string $companion=null,int $maxBytes=20971520):array {
+    public static function save(PDO $db,int $owner,string $source,?string $companion=null,int $maxBytes=Upload::MAX_IMAGE_BYTES):array {
         return Db::transaction($db,fn()=>self::persist($db,$owner,$source,$companion,$maxBytes));
     }
     public static function usage(PDO $db,int $owner):array {

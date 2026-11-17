@@ -3,15 +3,14 @@ declare(strict_types=1);
 namespace Namira;
 use PDO;
 final class Upload {
+    public const MAX_IMAGE_BYTES=50*1048576;
     public static function validate(string $path): array {
         $size=filesize($path);
-        if(!$size||$size>(int)Env::get('MAX_UPLOAD_MB','20')*1048576) throw new HttpError(422,'حجم فایل '.fa(round((float)$size/1048576,1)).' مگابایت است؛ حد مجاز هر فایل '.fa(Env::get('MAX_UPLOAD_MB','20')).' مگابایت است.');
+        if(!$size||$size>self::MAX_IMAGE_BYTES) throw new HttpError(422,'حجم فایل '.fa(round((float)$size/1048576,1)).' مگابایت است؛ حد مجاز هر فایل '.fa(50).' مگابایت است.');
         $mime=(new \finfo(FILEINFO_MIME_TYPE))->file($path); $map=['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'];
         $info=@getimagesize($path);
         if(!isset($map[$mime]))throw new HttpError(422,'نوع واقعی فایل «'.$mime.'» است؛ فقط JPEG، PNG و WebP پذیرفته می‌شوند. تغییر پسوند فایل، فرمت آن را عوض نمی‌کند.');
         if(!$info||($info['mime']??'')!==$mime||$info[0]<1||$info[1]<1)throw new HttpError(422,'ساختار تصویر معتبر نیست یا فایل ناقص است؛ نسخه اصلی تصویر را انتخاب کنید.');
-        $pixels=$info[0]*$info[1];$maxPixels=max(1,(int)Env::get('MAX_IMAGE_MEGAPIXELS','200'))*1000000;
-        if($info[0]>40000||$info[1]>40000||$pixels>$maxPixels)throw new HttpError(422,'ابعاد فایل '.fa($info[0]).' × '.fa($info[1]).' پیکسل ('.fa(round($pixels/1000000,1)).' مگاپیکسل) است؛ حد ایمنی فعلی '.fa($maxPixels/1000000).' مگاپیکسل و هر ضلع حداکثر ۴۰۰۰۰ پیکسل است.');
         // Reject obvious script payloads even if an image decoder accepts a polyglot.
         $stream=fopen($path,'rb'); $head=fread($stream,min((int)$size,1048576)); fclose($stream);
         if(preg_match('/<\?(?:php|=)|<script\b/i',$head)) throw new HttpError(422,'محتوای فایل مجاز نیست.');
