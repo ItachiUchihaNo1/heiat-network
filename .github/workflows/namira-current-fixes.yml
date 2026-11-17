@@ -28,7 +28,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y php-cli php-sqlite3 php-mysql php-gd php-xml php-mbstring php-zip php-curl
+          sudo apt-get install -y php-cli php-sqlite3 php-mysql php-gd php-xml php-mbstring php-zip php-curl php8.3-fpm nginx-light
       - name: PHP and JavaScript checks
         run: |
           find namira/app namira/views -name '*.php' -print0 | xargs -0 -n1 php -l > /dev/null
@@ -47,6 +47,7 @@ jobs:
           node namira/tests/gallery-filter-state.cjs
           python3 namira/tests/vps-deploy.py
           python3 namira/deploy/upload_limits.py --test
+          python3 namira/tests/upload-http.py
       - name: Artist lifecycle and isolation on SQLite
         env:
           FEED_UI_FIXTURE: '1'
