@@ -24,7 +24,7 @@ function back(){if(location.pathname==='/'||location.pathname==='/eitaa'){app.Ba
 back();app.ready?.();
 const inset=()=>document.body.style.setProperty('--eitaa-safe-top',Math.max(0,Number(app.contentSafeAreaInset?.top)||0)+'px');inset();app.onEvent?.('contentSafeAreaChanged',inset);
 document.addEventListener('click',event=>{const a=event.target.closest('a[href]');if(!a||event.defaultPrevented||event.button!==0||event.ctrlKey||event.metaKey||event.altKey||event.shiftKey)return;const u=new URL(a.href,location.href);if(u.protocol==='https:'&&u.origin!==location.origin&&typeof app.openLink==='function'){event.preventDefault();if(u.hostname==='eitaa.com'&&typeof app.openEitaaLink==='function')app.openEitaaLink(u.href);else app.openLink(u.href);}});
-if(config.dataset.authenticated==='1'){try{sessionStorage.setItem('namira.eitaa.context','1');}catch{}if(config.dataset.mobile!=='1'&&!skippedPhone&&raw)phonePrompt();else permission();}
+if(config.dataset.authenticated==='1'){try{sessionStorage.setItem('namira.eitaa.context','1');}catch{}if(config.dataset.mobile!=='1'&&raw&&(!skippedPhone||location.pathname==='/account'||new URL(location.href).searchParams.get('page')==='account'))phonePrompt();else permission();}
 else if(raw)authenticate();
 else message('نشست ایتا پایان یافته؛ برنامک را ببندید و دوباره باز کنید.');
 })();
