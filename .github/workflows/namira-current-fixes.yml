@@ -8,7 +8,17 @@ on:
 permissions:
   contents: read
 jobs:
+  preflight:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - run: |
+          python3 -m py_compile namira/deploy/upload_limits.py namira/tests/upload-http.py
+          python3 namira/deploy/upload_limits.py --test
   artists:
+    needs: preflight
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     services:
